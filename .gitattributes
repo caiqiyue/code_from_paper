@@ -1,0 +1,45 @@
+# Normalize line endings for all text files
+* text=auto
+
+# Explicit text formats
+*.py text eol=lf
+*.sh text eol=lf
+*.ipynb text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.csv text eol=lf
+*.tsv text eol=lf
+*.conf text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.toml text eol=lf
+*.xml text eol=lf
+
+# Binary assets
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.bmp -text
+*.tiff -text
+*.webp -text
+*.ico -text
+*.pdf -text
+*.npy -text
+*.npz -text
+*.pt -text
+*.pth -text
+*.ckpt -text
+*.safetensors -text
+*.bin -text
+*.model -text
+*.pkl -text
+*.idx* -text
+*.ubyte -text
+*.zip -text
+*.tar -text
+*.gz -text
+*.7z -text

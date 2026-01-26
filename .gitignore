@@ -1,0 +1,10 @@
+# Environment files
+.env
+.env.*
+
+# Data, models, outputs, and config/assets directories
+**/datasets/
+**/models/
+**/outputs/
+**/conf/
+**/assests/
