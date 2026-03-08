@@ -1,6 +1,12 @@
 import numpy as np
 import copy, socket, getpass
 
+def _setup_env():
+    return {
+        'host': socket.gethostname(),
+        'user': getpass.getuser(),
+    }
+
 def generate_config(expno_name='mrpc',
                     task='mrpc',
                      model='llama',

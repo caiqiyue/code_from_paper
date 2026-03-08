@@ -167,8 +167,8 @@ class LORAEngineGeneration(object):
                 device="cuda"):
         self.base_path = base_path
         self.project_path = project_path
-        self.adapter_path = f"{self.project_path}/models/math_with_reason_13bf"
         self.dataset_name = dataset_name
+        self.adapter_path = f"{self.project_path}/models/{self.dataset_name}_13bf"
         self.device=device
         self.load_pretrained_network()
         self.load_datasets()
