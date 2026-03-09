@@ -1,27 +1,75 @@
-﻿# 联邦学习算法合集（caiqiyue_file）
+# caiqiyue_file
 
-本仓库收集多种联邦学习/隐私学习相关算法的实现与实验代码。下面按子文件夹列出当前已包含的算法及其简要说明，方便快速定位与使用。
+这是一个面向联邦学习、隐私文本建模与论文复现实验的研究工作区。仓库中同时维护了多个独立算法实现，以及一个正在收敛中的统一实验平台设计思路。当前更关注的是把不同论文中的可复用能力抽象为统一模块，例如：
 
-**算法子目录一览**
+- `generator`
+- `scorer`
+- `retriever`
+- `critic`
+- `aggregator`
 
-| 子目录 | 算法/论文 | 简要说明 |
+当前平台主线最相关的目录是：
+
+- `PrE-Text/`：服务端生成基线
+- `DataInf/`、`GRADMM/`：样本打分器候选
+- `FedTextGrad/`：文本批判与 Prompt 聚合基线
+- `datasets/`、`models/`、`outputs/`：共享资源层
+
+## 仓库结构
+
+### 平台主线相关目录
+
+| 目录 | 当前角色 | 说明 |
 | --- | --- | --- |
-| `DPGA-TextSyn` | DPGA-TextSyn | 文本合成方向的算法实现，包含数据处理、下游评测与隐私分析相关内容。 |
-| `FedCOG` | FedCOG: Federated Learning with Consensus-Oriented Generation | 通过“共识导向生成”缓解联邦学习中的异质性，结合互补数据生成与知识蒸馏训练。 |
-| `KnowledgeSG` | KnowledgeSG: Privacy-Preserving Synthetic Text Generation with Knowledge Distillation from Server | 服务器侧知识蒸馏驱动的隐私文本合成，包含基线生成与后处理流程。 |
-| `PCEvolve` | PCEvolve: Private Contrastive Evolution for Synthetic Dataset Generation | 使用少量私有数据与生成式 API，基于对比演化与 DP 选择器生成高质量合成数据集。 |
-| `POPri` | POPri: Private Federated Learning using Preference-Optimized Synthetic Data | 将合成数据生成转化为偏好优化/强化学习问题，提升 DP 合成数据质量。 |
-| `PrE-Text` | PrE-Text: Training Language Models on Private Federated Data in the Age of LLMs | 服务器侧两阶段 DP 合成文本：先生成 DP seed，再扩展为大规模合成数据。 |
-| `PrivateKT` | PrivateKT | 联邦知识迁移框架，包含重要性采样、知识缓冲、自训练、随机响应与无偏聚合机制。 |
-| `RewardDS` | RewardDS: Privacy-Preserving Fine-Tuning via Reward Driven Data Synthesis | 客户端训练生成/奖励代理模型，用奖励引导过滤与自优化提升合成数据质量。 |
-| `WASP` | Contrastive Private Data Synthesis via Weighted Multi-PLM Fusion | 通过多预训练语言模型加权融合，进行对比式私有数据合成。 |
+| `PrE-Text/` | `generator` 基线 | 服务端合成数据生成、直方图筛选基线、bootstrap 扩展生成。 |
+| `DataInf/` | `scorer` 候选 | 基于 influence / utility 的样本打分方法。 |
+| `GRADMM/` | `scorer` 候选 | 基于梯度匹配的坏样本筛选方法。 |
+| `FedTextGrad/` | `critic` + `aggregator` 基线 | 文本化批判生成、Prompt 聚合、TextGrad 运行时。 |
+| `TracIn/` | 影响度量参考方法 | 训练样本影响分析与数据贡献估计。 |
+| `datasets/` | 共享数据层 | 公开数据、初始化样本池、评测数据等。 |
+| `models/` | 共享模型层 | 本地模型权重、embedding 模型、LLM 缓存。 |
+| `outputs/` | 统一输出层 | 训练日志、评测结果和中间产物。 |
 
-**非算法目录说明**
+### 其他算法目录
 
-- `datasets`: 数据集存放与处理相关内容。
-- `models`: 模型或权重相关内容。
-- `outputs`: 训练/评测输出结果。
-- `clash_for_linux`: 工具相关目录（非算法）。
+| 目录 | 算法/主题 | 说明 |
+| --- | --- | --- |
+| `DPGA-TextSyn/` | DPGA-TextSyn | 文本合成与隐私分析相关实现。 |
+| `FedCOG/` | FedCOG | 共识导向生成与联邦异质性缓解。 |
+| `KnowledgeSG/` | KnowledgeSG | 服务端知识蒸馏驱动的隐私文本合成。 |
+| `PCEvolve/` | PCEvolve | 对比演化式私有数据生成。 |
+| `POPri/` | POPri | 基于偏好优化的私有联邦学习。 |
+| `PrivateKT/` | PrivateKT | 联邦知识迁移与私有聚合。 |
+| `RewardDS/` | RewardDS | 奖励驱动的数据合成与隐私微调。 |
+| `WASP/` | WASP | 多预训练模型加权融合的对比式私有数据合成。 |
+| `clash_for_linux/` | 工具目录 | 网络与开发环境辅助工具，非算法主线。 |
+| `docs/` | 本地规划文档 | 用于平台设计与模块抽取分析；本地保留，不作为远程仓库内容。 |
 
-#每次拉取代码注意子模块
-如需更细节的算法说明或使用方法，请进入对应子目录查看其 `README.md` 或代码注释。
+## 当前研究主线
+
+围绕统一实验平台，当前更关注以下问题：
+
+1. 如何将不同论文中的方法拆成可替换模块，而不是直接照搬原始实验脚本。
+2. 如何在统一数据 schema 下做组合实验，保证公平比较。
+3. 如何保留每轮中间产物，支持后续案例分析、解释性分析与论文复现。
+
+从现有代码出发，当前最关键的组合方向是：
+
+1. `PrE-Text` 风格的服务端生成
+2. `DataInf` 或 `GRADMM` 的坏样本筛选
+3. 检索真实样本形成对照对
+4. `FedTextGrad` 风格的对比批判
+5. 服务端 Prompt 聚合与迭代更新
+
+## 使用建议
+
+1. 先阅读根目录 `README.md`，了解整个工作区的角色划分。
+2. 再进入具体算法目录，阅读各自的 `README.md` 或 `quick_start.md`。
+3. 不同子项目依赖不完全一致，优先为每个算法单独创建隔离环境。
+4. `datasets/`、`models/`、`outputs/` 是跨项目共享目录，运行脚本前先确认路径配置。
+
+## 说明
+
+1. 本仓库当前更像一个研究工作区，而不是单一可安装包。
+2. 部分目录是论文原始实现，部分目录是后续整理与适配分析产物。
+3. `docs/` 目录中的内容用于本地研究与平台规划，后续默认不纳入远程仓库跟踪。

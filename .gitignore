@@ -2,6 +2,9 @@
 .env
 .env.*
 
+# Local planning docs
+/docs/
+
 # Data, models, outputs, and config/assets directories
 **/datasets/
 **/models/

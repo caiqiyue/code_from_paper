@@ -7,67 +7,64 @@ external-controller: '127.0.0.1:9090'
 dns:
     enable: true
     ipv6: false
-    default-nameserver: [223.5.5.5, 119.29.29.29]
+    default-nameserver: [223.5.5.5, 119.29.29.29, 114.114.114.114]
     enhanced-mode: fake-ip
     fake-ip-range: 198.18.0.1/16
     use-hosts: true
-    nameserver: ['https://doh.pub/dns-query', 'https://dns.alidns.com/dns-query']
-    fallback: ['https://doh.dns.sb/dns-query', 'https://dns.cloudflare.com/dns-query', 'https://dns.twnic.tw/dns-query', 'tls://8.8.4.4:853']
-    fallback-filter: { geoip: true, ipcidr: [240.0.0.0/4, 0.0.0.0/32] }
+    respect-rules: true
+    proxy-server-nameserver: [223.5.5.5, 119.29.29.29, 114.114.114.114]
+    nameserver: [223.5.5.5, 119.29.29.29, 114.114.114.114]
+    fallback: [1.1.1.1, 8.8.8.8]
+    fallback-filter: { geoip: true, geoip-code: CN, geosite: [gfw], ipcidr: [240.0.0.0/4], domain: [+.google.com, +.facebook.com, +.youtube.com] }
 proxies:
-    - { name: '剩余流量：300 GB', type: trojan, server: d2949843.sched.sma-dk.ali-oss.cn, port: 20001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '距离下次重置剩余：1 天', type: trojan, server: d2949843.sched.sma-dk.ali-oss.cn, port: 20001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: 套餐到期：2025-12-01, type: trojan, server: d2949843.sched.sma-dk.ali-oss.cn, port: 20001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 IEPL 01 | x4', type: trojan, server: d2949843.sched.sma-dk.ali-oss.cn, port: 20001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 IEPL 02 | x4', type: trojan, server: d2949843.sched.sma-dk.ali-oss.cn, port: 20002, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇸🇬 新加坡 IEPL 01 | x4', type: trojan, server: d2949843.sched.sma-dk.ali-oss.cn, port: 20003, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇸🇬 新加坡 IEPL 02 | x4', type: trojan, server: d2949843.sched.sma-dk.ali-oss.cn, port: 20004, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇯🇵 日本 IEPL 01 | x4', type: trojan, server: 38c617cb.sched.sma-dk.ali-oss.cn, port: 20005, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇯🇵 日本 IEPL 02 | x4', type: trojan, server: 38c617cb.sched.sma-dk.ali-oss.cn, port: 20006, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 01', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 02', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12002, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 03', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12003, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 04', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12004, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 05', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12005, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇭🇰 香港 06 UDP', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12006, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇨🇳 台湾 01', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12011, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇨🇳 台湾 02', type: trojan, server: 49be1693.sched.sma-dk.ali-oss.cn, port: 12012, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇸🇬 新加坡 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12021, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇸🇬 新加坡 02', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12022, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇸🇬 新加坡 03', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12023, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇸🇬 新加坡 04', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12024, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇸🇬 新加坡 05', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12025, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇯🇵 日本 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12031, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇯🇵 日本 02', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12032, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇯🇵 日本 03', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12033, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇯🇵 日本 04', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12034, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇯🇵 日本 05', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12035, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇺🇸 美国 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12051, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇺🇸 美国 02', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12052, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇺🇸 美国 03', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12053, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇺🇸 美国 04', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12054, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇨🇦 加拿大 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12077, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇰🇷 韩国 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12041, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇮🇩 印尼 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12061, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇨🇭 瑞士 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12062, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇹🇷 土耳其 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12064, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇵🇭 菲律宾 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12066, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇲🇾 马来西亚 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12067, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇦🇺 澳大利亚 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12068, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇬🇧 英国 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12069, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇩🇪 德国 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12070, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇫🇮 芬兰 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12071, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇮🇳 印度 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12072, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇳🇬 尼日利亚 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12073, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇳🇱 荷兰 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12074, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇷🇺 俄罗斯 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12075, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
-    - { name: '🇹🇭 泰国 01', type: trojan, server: 3cb57cb8.sched.sma-dk.ali-oss.cn, port: 12076, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '剩余流量：120 GB', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 11001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: 套餐到期：长期有效, type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 11001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇭🇰 香港 01', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 11001, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇭🇰 香港 02', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 11002, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇭🇰 香港 03', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 11003, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇭🇰 香港 04', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 11004, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇭🇰 香港 05', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 11005, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇭🇰 香港 06 UDP', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 12006, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇹🇼 台湾 01', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 12011, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇹🇼 台湾 02', type: trojan, server: 548a3f1d.sched.sma-dk.ali-oss.cn, port: 12012, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇸🇬 新加坡 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12021, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇸🇬 新加坡 02', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12022, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇸🇬 新加坡 03', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12023, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇸🇬 新加坡 04', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12024, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇸🇬 新加坡 05', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12025, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇯🇵 日本 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12031, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇯🇵 日本 02', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12032, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇯🇵 日本 03', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12033, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇯🇵 日本 04', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12034, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇯🇵 日本 05', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12035, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇺🇸 美国 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12051, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇺🇸 美国 02', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12052, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇺🇸 美国 03', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12053, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇺🇸 美国 04', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12054, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇨🇦 加拿大 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12077, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇰🇷 韩国 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12041, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇮🇩 印尼 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12061, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇨🇭 瑞士 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12062, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇹🇷 土耳其 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12064, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇫🇷 法国 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12065, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇵🇭 菲律宾 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12066, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇲🇾 马来西亚 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12067, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇦🇺 澳大利亚 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12068, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇬🇧 英国 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12069, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇩🇪 德国 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12070, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇵🇱 波兰 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12071, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇮🇳 印度 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12072, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇳🇬 尼日利亚 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12073, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇳🇱 荷兰 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12074, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇷🇺 俄罗斯 01', type: trojan, server: 1ab9008c.sched.sma-dk.ali-oss.cn, port: 12075, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
+    - { name: '🇹🇭 泰国 01', type: trojan, server: 64f890ce.sched.sma-dk.ali-oss.cn, port: 12076, password: dbb207dd-8865-4081-849f-3f33ec316e9b, udp: true, sni: cdn.alibaba.com, skip-cert-verify: true }
 proxy-groups:
-    - { name: XFLTD, type: select, proxies: [自动选择, 故障转移, '剩余流量：300 GB', '距离下次重置剩余：1 天', 套餐到期：2025-12-01, '🇭🇰 香港 IEPL 01 | x4', '🇭🇰 香港 IEPL 02 | x4', '🇸🇬 新加坡 IEPL 01 | x4', '🇸🇬 新加坡 IEPL 02 | x4', '🇯🇵 日本 IEPL 01 | x4', '🇯🇵 日本 IEPL 02 | x4', '🇭🇰 香港 01', '🇭🇰 香港 02', '🇭🇰 香港 03', '🇭🇰 香港 04', '🇭🇰 香港 05', '🇭🇰 香港 06 UDP', '🇨🇳 台湾 01', '🇨🇳 台湾 02', '🇸🇬 新加坡 01', '🇸🇬 新加坡 02', '🇸🇬 新加坡 03', '🇸🇬 新加坡 04', '🇸🇬 新加坡 05', '🇯🇵 日本 01', '🇯🇵 日本 02', '🇯🇵 日本 03', '🇯🇵 日本 04', '🇯🇵 日本 05', '🇺🇸 美国 01', '🇺🇸 美国 02', '🇺🇸 美国 03', '🇺🇸 美国 04', '🇨🇦 加拿大 01', '🇰🇷 韩国 01', '🇮🇩 印尼 01', '🇨🇭 瑞士 01', '🇹🇷 土耳其 01', '🇵🇭 菲律宾 01', '🇲🇾 马来西亚 01', '🇦🇺 澳大利亚 01', '🇬🇧 英国 01', '🇩🇪 德国 01', '🇫🇮 芬兰 01', '🇮🇳 印度 01', '🇳🇬 尼日利亚 01', '🇳🇱 荷兰 01', '🇷🇺 俄罗斯 01', '🇹🇭 泰国 01'] }
-    - { name: 自动选择, type: url-test, proxies: ['剩余流量：300 GB', '距离下次重置剩余：1 天', 套餐到期：2025-12-01, '🇭🇰 香港 IEPL 01 | x4', '🇭🇰 香港 IEPL 02 | x4', '🇸🇬 新加坡 IEPL 01 | x4', '🇸🇬 新加坡 IEPL 02 | x4', '🇯🇵 日本 IEPL 01 | x4', '🇯🇵 日本 IEPL 02 | x4', '🇭🇰 香港 01', '🇭🇰 香港 02', '🇭🇰 香港 03', '🇭🇰 香港 04', '🇭🇰 香港 05', '🇭🇰 香港 06 UDP', '🇨🇳 台湾 01', '🇨🇳 台湾 02', '🇸🇬 新加坡 01', '🇸🇬 新加坡 02', '🇸🇬 新加坡 03', '🇸🇬 新加坡 04', '🇸🇬 新加坡 05', '🇯🇵 日本 01', '🇯🇵 日本 02', '🇯🇵 日本 03', '🇯🇵 日本 04', '🇯🇵 日本 05', '🇺🇸 美国 01', '🇺🇸 美国 02', '🇺🇸 美国 03', '🇺🇸 美国 04', '🇨🇦 加拿大 01', '🇰🇷 韩国 01', '🇮🇩 印尼 01', '🇨🇭 瑞士 01', '🇹🇷 土耳其 01', '🇵🇭 菲律宾 01', '🇲🇾 马来西亚 01', '🇦🇺 澳大利亚 01', '🇬🇧 英国 01', '🇩🇪 德国 01', '🇫🇮 芬兰 01', '🇮🇳 印度 01', '🇳🇬 尼日利亚 01', '🇳🇱 荷兰 01', '🇷🇺 俄罗斯 01', '🇹🇭 泰国 01'], url: 'http://www.gstatic.com/generate_204', interval: 86400 }
-    - { name: 故障转移, type: fallback, proxies: ['剩余流量：300 GB', '距离下次重置剩余：1 天', 套餐到期：2025-12-01, '🇭🇰 香港 IEPL 01 | x4', '🇭🇰 香港 IEPL 02 | x4', '🇸🇬 新加坡 IEPL 01 | x4', '🇸🇬 新加坡 IEPL 02 | x4', '🇯🇵 日本 IEPL 01 | x4', '🇯🇵 日本 IEPL 02 | x4', '🇭🇰 香港 01', '🇭🇰 香港 02', '🇭🇰 香港 03', '🇭🇰 香港 04', '🇭🇰 香港 05', '🇭🇰 香港 06 UDP', '🇨🇳 台湾 01', '🇨🇳 台湾 02', '🇸🇬 新加坡 01', '🇸🇬 新加坡 02', '🇸🇬 新加坡 03', '🇸🇬 新加坡 04', '🇸🇬 新加坡 05', '🇯🇵 日本 01', '🇯🇵 日本 02', '🇯🇵 日本 03', '🇯🇵 日本 04', '🇯🇵 日本 05', '🇺🇸 美国 01', '🇺🇸 美国 02', '🇺🇸 美国 03', '🇺🇸 美国 04', '🇨🇦 加拿大 01', '🇰🇷 韩国 01', '🇮🇩 印尼 01', '🇨🇭 瑞士 01', '🇹🇷 土耳其 01', '🇵🇭 菲律宾 01', '🇲🇾 马来西亚 01', '🇦🇺 澳大利亚 01', '🇬🇧 英国 01', '🇩🇪 德国 01', '🇫🇮 芬兰 01', '🇮🇳 印度 01', '🇳🇬 尼日利亚 01', '🇳🇱 荷兰 01', '🇷🇺 俄罗斯 01', '🇹🇭 泰国 01'], url: 'http://www.gstatic.com/generate_204', interval: 7200 }
+    - { name: XFLTD, type: select, proxies: [自动选择, 故障转移, '剩余流量：120 GB', 套餐到期：长期有效, '🇭🇰 香港 01', '🇭🇰 香港 02', '🇭🇰 香港 03', '🇭🇰 香港 04', '🇭🇰 香港 05', '🇭🇰 香港 06 UDP', '🇹🇼 台湾 01', '🇹🇼 台湾 02', '🇸🇬 新加坡 01', '🇸🇬 新加坡 02', '🇸🇬 新加坡 03', '🇸🇬 新加坡 04', '🇸🇬 新加坡 05', '🇯🇵 日本 01', '🇯🇵 日本 02', '🇯🇵 日本 03', '🇯🇵 日本 04', '🇯🇵 日本 05', '🇺🇸 美国 01', '🇺🇸 美国 02', '🇺🇸 美国 03', '🇺🇸 美国 04', '🇨🇦 加拿大 01', '🇰🇷 韩国 01', '🇮🇩 印尼 01', '🇨🇭 瑞士 01', '🇹🇷 土耳其 01', '🇫🇷 法国 01', '🇵🇭 菲律宾 01', '🇲🇾 马来西亚 01', '🇦🇺 澳大利亚 01', '🇬🇧 英国 01', '🇩🇪 德国 01', '🇵🇱 波兰 01', '🇮🇳 印度 01', '🇳🇬 尼日利亚 01', '🇳🇱 荷兰 01', '🇷🇺 俄罗斯 01', '🇹🇭 泰国 01'] }
+    - { name: 自动选择, type: url-test, proxies: ['剩余流量：120 GB', 套餐到期：长期有效, '🇭🇰 香港 01', '🇭🇰 香港 02', '🇭🇰 香港 03', '🇭🇰 香港 04', '🇭🇰 香港 05', '🇭🇰 香港 06 UDP', '🇹🇼 台湾 01', '🇹🇼 台湾 02', '🇸🇬 新加坡 01', '🇸🇬 新加坡 02', '🇸🇬 新加坡 03', '🇸🇬 新加坡 04', '🇸🇬 新加坡 05', '🇯🇵 日本 01', '🇯🇵 日本 02', '🇯🇵 日本 03', '🇯🇵 日本 04', '🇯🇵 日本 05', '🇺🇸 美国 01', '🇺🇸 美国 02', '🇺🇸 美国 03', '🇺🇸 美国 04', '🇨🇦 加拿大 01', '🇰🇷 韩国 01', '🇮🇩 印尼 01', '🇨🇭 瑞士 01', '🇹🇷 土耳其 01', '🇫🇷 法国 01', '🇵🇭 菲律宾 01', '🇲🇾 马来西亚 01', '🇦🇺 澳大利亚 01', '🇬🇧 英国 01', '🇩🇪 德国 01', '🇵🇱 波兰 01', '🇮🇳 印度 01', '🇳🇬 尼日利亚 01', '🇳🇱 荷兰 01', '🇷🇺 俄罗斯 01', '🇹🇭 泰国 01'], url: 'http://www.gstatic.com/generate_204', interval: 86400 }
+    - { name: 故障转移, type: fallback, proxies: ['剩余流量：120 GB', 套餐到期：长期有效, '🇭🇰 香港 01', '🇭🇰 香港 02', '🇭🇰 香港 03', '🇭🇰 香港 04', '🇭🇰 香港 05', '🇭🇰 香港 06 UDP', '🇹🇼 台湾 01', '🇹🇼 台湾 02', '🇸🇬 新加坡 01', '🇸🇬 新加坡 02', '🇸🇬 新加坡 03', '🇸🇬 新加坡 04', '🇸🇬 新加坡 05', '🇯🇵 日本 01', '🇯🇵 日本 02', '🇯🇵 日本 03', '🇯🇵 日本 04', '🇯🇵 日本 05', '🇺🇸 美国 01', '🇺🇸 美国 02', '🇺🇸 美国 03', '🇺🇸 美国 04', '🇨🇦 加拿大 01', '🇰🇷 韩国 01', '🇮🇩 印尼 01', '🇨🇭 瑞士 01', '🇹🇷 土耳其 01', '🇫🇷 法国 01', '🇵🇭 菲律宾 01', '🇲🇾 马来西亚 01', '🇦🇺 澳大利亚 01', '🇬🇧 英国 01', '🇩🇪 德国 01', '🇵🇱 波兰 01', '🇮🇳 印度 01', '🇳🇬 尼日利亚 01', '🇳🇱 荷兰 01', '🇷🇺 俄罗斯 01', '🇹🇭 泰国 01'], url: 'http://www.gstatic.com/generate_204', interval: 7200 }
 rules:
-    - 'DOMAIN,dy.xftld.xyz,DIRECT'
+    - 'IP-CIDR,1.1.1.1/32,XFLTD,no-resolve'
+    - 'IP-CIDR,8.8.8.8/32,XFLTD,no-resolve'
     - 'DOMAIN-SUFFIX,services.googleapis.cn,XFLTD'
     - 'DOMAIN-SUFFIX,xn--ngstr-lra8j.com,XFLTD'
     - 'DOMAIN,safebrowsing.urlsec.qq.com,DIRECT'
@@ -102,15 +99,7 @@ rules:
     - 'DOMAIN-SUFFIX,apple.com,DIRECT'
     - 'DOMAIN-SUFFIX,apple-cloudkit.com,DIRECT'
     - 'DOMAIN-SUFFIX,apple-mapkit.com,DIRECT'
-    - 'DOMAIN-SUFFIX,xfltd.cc,DIRECT'
-    - 'DOMAIN-SUFFIX,xfltd.top,DIRECT'
-    - 'DOMAIN-SUFFIX,xfltd.xyz,DIRECT'
-    - 'DOMAIN-SUFFIX,xfltd.org,XFLTD'
-    - 'DOMAIN-SUFFIX,xftld.xyz,DIRECT'
-    - 'DOMAIN-SUFFIX,xftld.org,DIRECT'
-    - 'DOMAIN-SUFFIX,xftld.cc,DIRECT'
-    - 'DOMAIN-SUFFIX,xfltd.net,XFLTD'
-    - 'DOMAIN-SUFFIX,xfltd.link,XFLTD'
+    - 'DOMAIN,cn.bing.com,DIRECT'
     - 'DOMAIN-SUFFIX,126.com,DIRECT'
     - 'DOMAIN-SUFFIX,126.net,DIRECT'
     - 'DOMAIN-SUFFIX,127.net,DIRECT'
@@ -147,7 +136,6 @@ rules:
     - 'DOMAIN-SUFFIX,feng.com,DIRECT'
     - 'DOMAIN-SUFFIX,fir.im,DIRECT'
     - 'DOMAIN-SUFFIX,frdic.com,DIRECT'
-    - 'DOMAIN-SUFFIX,microsoft.com,DIRECT'
     - 'DOMAIN-SUFFIX,g-cores.com,DIRECT'
     - 'DOMAIN-SUFFIX,godic.net,DIRECT'
     - 'DOMAIN-SUFFIX,gtimg.com,DIRECT'
@@ -171,8 +159,8 @@ rules:
     - 'DOMAIN-SUFFIX,meituan.net,DIRECT'
     - 'DOMAIN-SUFFIX,mi.com,DIRECT'
     - 'DOMAIN-SUFFIX,miaopai.com,DIRECT'
-    - 'DOMAIN-SUFFIX,microsoft.com,XFLTD'
-    - 'DOMAIN-SUFFIX,microsoftonline.com,XFLTD'
+    - 'DOMAIN-SUFFIX,microsoft.com,DIRECT'
+    - 'DOMAIN-SUFFIX,microsoftonline.com,DIRECT'
     - 'DOMAIN-SUFFIX,miui.com,DIRECT'
     - 'DOMAIN-SUFFIX,miwifi.com,DIRECT'
     - 'DOMAIN-SUFFIX,mob.com,DIRECT'
