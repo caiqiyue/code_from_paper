@@ -1,0 +1,3 @@
+aggregator:
+  name: summarization
+  max_rules: 5

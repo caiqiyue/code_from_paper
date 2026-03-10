@@ -1,0 +1,4 @@
+scorer:
+  name: gradmm
+  score_direction: larger_is_worse
+  alpha: 0.5

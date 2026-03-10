@@ -1,0 +1,4 @@
+scorer:
+  name: datainf
+  score_direction: larger_is_worse
+  lambda_const_param: 10

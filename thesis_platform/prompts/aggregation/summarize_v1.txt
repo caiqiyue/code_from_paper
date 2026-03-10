@@ -1,0 +1,1 @@
+Merge critique rules into a concise instruction update while preserving the most frequent issues.

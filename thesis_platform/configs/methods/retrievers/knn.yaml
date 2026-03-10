@@ -1,0 +1,4 @@
+retriever:
+  name: knn
+  embedding_model: models/all-MiniLM-L6-v2
+  top_k: 3

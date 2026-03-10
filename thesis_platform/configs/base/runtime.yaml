@@ -1,0 +1,6 @@
+runtime:
+  device: cpu
+  log_level: info
+
+evaluation:
+  save_round_artifacts: true

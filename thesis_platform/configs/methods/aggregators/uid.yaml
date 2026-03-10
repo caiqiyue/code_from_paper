@@ -1,0 +1,3 @@
+aggregator:
+  name: uid
+  max_rules: 5

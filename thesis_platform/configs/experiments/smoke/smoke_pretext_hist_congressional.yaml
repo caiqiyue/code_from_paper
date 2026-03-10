@@ -1,0 +1,26 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/generators/pretext_seed.yaml
+  - ../../methods/scorers/pretext_hist.yaml
+  - ../../methods/retrievers/none.yaml
+  - ../../methods/critics/none.yaml
+  - ../../methods/aggregators/none.yaml
+
+meta:
+  experiment_id: smoke_pretext_hist_congressional
+  stage: smoke
+  seed: 42
+
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  train_path: datasets/congressional_train.json
+  public_seed_path: datasets/initial_set.json
+  num_clients: 3
+  max_samples_per_client: 8
+  validation_ratio: 0.2
+
+federation:
+  rounds: 1
+  top_k_bad: 5

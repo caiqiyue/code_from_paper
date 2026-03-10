@@ -1,0 +1,26 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/generators/pretext_seed.yaml
+  - ../../methods/scorers/gradmm.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_qwen.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: scorer_gradmm_uid_openreview
+  stage: scorer_selection
+  seed: 42
+
+data:
+  dataset_name: openreview
+  task_type: instruction_tuning
+  train_path: datasets/openreview_init_data
+  public_seed_path: datasets/initial_set.json
+  num_clients: 3
+  max_samples_per_client: 8
+  validation_ratio: 0.2
+
+federation:
+  rounds: 1
+  top_k_bad: 5

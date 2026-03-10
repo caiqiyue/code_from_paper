@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from thesis_platform.core.schemas import Sample
+
+
+def _flatten_item(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value.strip()]
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            parts.extend(_flatten_item(item))
+        return parts
+    if isinstance(value, dict):
+        parts: list[str] = []
+        for item in value.values():
+            parts.extend(_flatten_item(item))
+        return parts
+    return [str(value).strip()]
+
+
+def _normalize_json_payload(payload: Any) -> list[str]:
+    if isinstance(payload, dict):
+        keys = sorted(payload.keys(), key=lambda item: int(item) if str(item).isdigit() else str(item))
+        return [" ".join(_flatten_item(payload[key])).strip() for key in keys if _flatten_item(payload[key])]
+    if isinstance(payload, list):
+        normalized: list[str] = []
+        for item in payload:
+            text = " ".join(_flatten_item(item)).strip()
+            if text:
+                normalized.append(text)
+        return normalized
+    raise ValueError("Unsupported payload type for dataset normalization.")
+
+
+def load_texts(path: Path) -> list[str]:
+    if path.is_dir():
+        texts: list[str] = []
+        for child in sorted(path.glob("*.json")):
+            texts.extend(load_texts(child))
+        return texts
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return _normalize_json_payload(payload)
+
+
+def build_samples(
+    texts: list[str],
+    *,
+    dataset_name: str,
+    source: str,
+    task_type: str,
+    round_id: int,
+    client_id: str,
+    prefix: str,
+) -> list[Sample]:
+    return [
+        Sample(
+            sample_id=f"{prefix}_{idx}",
+            client_id=client_id,
+            round_id=round_id,
+            source=source,
+            dataset_name=dataset_name,
+            task_type=task_type,
+            text=text,
+        )
+        for idx, text in enumerate(texts)
+    ]
+
+
+def load_samples(
+    path: Path,
+    *,
+    dataset_name: str,
+    source: str,
+    task_type: str,
+    round_id: int,
+    client_id: str,
+    prefix: str,
+) -> list[Sample]:
+    return build_samples(
+        load_texts(path),
+        dataset_name=dataset_name,
+        source=source,
+        task_type=task_type,
+        round_id=round_id,
+        client_id=client_id,
+        prefix=prefix,
+    )

@@ -1,0 +1,3 @@
+Compare the synthetic bad sample against the retrieved real samples.
+Return concise rules that improve specificity, domain fit, and structure.
+Do not rewrite the sample. Only give improvement rules.

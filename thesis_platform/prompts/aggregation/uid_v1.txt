@@ -1,0 +1,1 @@
+Merge critique rules using a dense, non-redundant summary that preserves the most informative guidance.

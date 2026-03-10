@@ -1,0 +1,3 @@
+scorer:
+  name: pretext_hist
+  score_direction: larger_is_worse

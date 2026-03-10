@@ -1,0 +1,7 @@
+generator:
+  name: pretext_seed
+  initial_prompt: "Generate text that matches the target dataset style."
+  generated_per_round: 20
+  mask: 0.3
+  t_steps: 2
+  seed: 42

@@ -1,0 +1,6 @@
+paths:
+  repo_root: ../../../..
+  model_root: models
+  dataset_root: datasets
+  output_root: outputs/thesis_platform
+  cache_root: thesis_platform/workspace/cache
