@@ -5,11 +5,17 @@ from thesis_platform.core.schemas import PairedSample
 
 
 class KNNRetriever:
+    """Retriever that uses embedding similarity to fetch real anchor samples."""
+
     def __init__(self, config, repo_root):
+        """Store the top-k retrieval width."""
+
         del repo_root
         self.top_k = int(config.get("top_k", 3))
 
     def retrieve(self, bad_samples, client_ctx):
+        """Retrieve the most similar local samples for each bad sample."""
+
         corpus = client_ctx.train_samples or client_ctx.all_samples
         if not bad_samples:
             return []

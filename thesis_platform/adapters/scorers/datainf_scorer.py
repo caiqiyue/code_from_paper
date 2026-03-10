@@ -5,12 +5,18 @@ from thesis_platform.core.schemas import ScoredSample
 
 
 class DataInfScorer:
+    """Adapter that exposes the DataInf-style scorer through the platform interface."""
+
     def __init__(self, config, repo_root):
+        """Store the DataInf scoring hyper-parameters."""
+
         del repo_root
         self.lambda_const_param = float(config.get("lambda_const_param", 10.0))
         self.score_direction = str(config.get("score_direction", "larger_is_worse"))
 
     def score(self, samples, client_ctx):
+        """Score synthetic samples against the client's validation anchor pool."""
+
         sample_vectors = client_ctx.embedder.embed_texts([sample.text for sample in samples])
         validation_pool = client_ctx.validation_samples or client_ctx.train_samples or client_ctx.all_samples
         val_vectors = client_ctx.embedder.embed_texts([sample.text for sample in validation_pool]) if validation_pool else sample_vectors

@@ -1,17 +1,10 @@
 import numpy as np
-import sys
-import os
 import re
 from tqdm import tqdm
 import textgrad as tg
 from textgrad.tasks import load_task
-from copy import deepcopy
-from string import Template
 from torch.utils.data import random_split
-from utils.prompt_template import SUMMARIZATION_TEMPLATE, UID_TEMPLATE, FORMATTING_INSTRUCTION
 from eval import eval_dataset
-from utils.prompt_complexity import calculate_text_complexity
-from pprint import pprint
 
 def run_training(args, experiment):
     """
@@ -21,12 +14,12 @@ def run_training(args, experiment):
         args (argparse.Namespace): Parsed command-line arguments.
         experiment (Experiment): Comet ML experiment object.
     """
-    llm_api_eval = tg.get_engine(engine_name=args.evaluation_engine)
-    llm_api_test = tg.get_engine(engine_name=args.test_engine)
-    tg.set_backward_engine(llm_api_eval, override=True)
+    llm_api_eval = tg.get_engine(engine_name=args.evaluation_engine)  # Critic model used for prompt scoring and textual backprop.
+    llm_api_test = tg.get_engine(engine_name=args.test_engine)  # Client-side task model whose prompt is being optimized.
+    tg.set_backward_engine(llm_api_eval, override=True)  # Route all backward calls through the evaluation engine.
 
     # Load datasets
-    train_set, val_set, test_set, eval_fn = load_task(args.task[0], evaluation_api=llm_api_eval)
+    train_set, val_set, test_set, eval_fn = load_task(args.task[0], evaluation_api=llm_api_eval)  # Load the shared task and its evaluator once.
     print(f"Whole Train/Val/Test Set Lengths: {len(train_set)}, {len(val_set)}, {len(test_set)}")
     experiment.log_parameters({"train_length": len(train_set), "val_length": len(val_set), "test_length": len(test_set)})
     
@@ -43,7 +36,7 @@ def run_training(args, experiment):
         experiment.log_parameter("0shot_eval_engine_test_acc", reference)
 
     # Federated setup
-    split_num = args.homo_split_num
+    split_num = args.homo_split_num  # Control how many homogeneous clients share the same task.
     optimizer_list, model_list, system_prompt_list = [], [], []
 
     for _ in range(split_num):
@@ -55,9 +48,9 @@ def run_training(args, experiment):
         optimizer_list.append(optimizer)
     
     # Split dataset for clients
-    client_train_sets = random_split(train_set, [len(train_set) // split_num] * (split_num - 1) + [len(train_set) - (split_num - 1) * (len(train_set) // split_num)])
-    client_val_sets = random_split(val_set, [len(val_set) // split_num] * (split_num - 1) + [len(val_set) - (split_num - 1) * (len(val_set) // split_num)])
-    train_loaders = [tg.tasks.DataLoader(cts, batch_size=args.batch_size, shuffle=True) for cts in client_train_sets]
+    client_train_sets = random_split(train_set, [len(train_set) // split_num] * (split_num - 1) + [len(train_set) - (split_num - 1) * (len(train_set) // split_num)])  # Partition the global train split across homogeneous clients.
+    client_val_sets = random_split(val_set, [len(val_set) // split_num] * (split_num - 1) + [len(val_set) - (split_num - 1) * (len(val_set) // split_num)])  # Mirror the partitioning strategy on validation data.
+    train_loaders = [tg.tasks.DataLoader(cts, batch_size=args.batch_size, shuffle=True) for cts in client_train_sets]  # Build one iterator per client shard.
 
     print(f"Client Train/Val/Test Set Lengths: {len(client_train_sets[0])}, {len(client_val_sets[0])}, {len(test_set)}")
     experiment.log_parameters({"client_train_length": len(client_train_sets[0]), "client_val_length": len(client_val_sets[0]), "client_test_length": len(test_set)})
@@ -113,9 +106,9 @@ def run_training(args, experiment):
                 last_batch_prompt = system_prompt.get_value()
 
                 # Perform the backward pass and update the prompt
-                total_loss = tg.sum(losses)
-                total_loss.backward()
-                optimizer_list[client_idx].step()
+                total_loss = tg.sum(losses)  # Merge each client's batch feedback before backpropagating.
+                total_loss.backward()  # Generate textual gradients for the client's prompt variable.
+                optimizer_list[client_idx].step()  # Ask the optimizer LLM to rewrite the client prompt.
 
                 # Re-run the same batch to calculate the updated loss value
                 updated_loss_value = 0
@@ -141,14 +134,14 @@ def run_training(args, experiment):
                 if args.proximal_update:
                     if updated_loss_value <= loss_value and updated_loss_value != 1.0:
                         print("Improving Failure! Drop updated prompt in this step.")
-                        system_prompt.set_value(last_batch_prompt)
+                        system_prompt.set_value(last_batch_prompt)  # Keep the prior client prompt if the candidate update underperforms.
                     else:
                         print("Improving Success!")
                         success_update += 1
                 else:
                     if updated_loss_value < loss_value:
                         print("Improving Failure! Drop updated prompt in this step.")
-                        system_prompt.set_value(last_batch_prompt)
+                        system_prompt.set_value(last_batch_prompt)  # Keep the prior client prompt if the candidate update underperforms.
                     else:
                         print("Improving Success!")
                         success_update += 1
@@ -162,7 +155,7 @@ def run_training(args, experiment):
                     break
     
     # Aggregate results
-    agg_val_acc = np.mean(eval_dataset(val_set, eval_fn, model_list[0]))
+    agg_val_acc = np.mean(eval_dataset(val_set, eval_fn, model_list[0]))  # Use the shared validation split to pick the best global prompt snapshot.
     if results["best_agg_val_acc"] is None or results["best_agg_val_acc"] < agg_val_acc:
         results["best_agg_val_acc"] = agg_val_acc
         results["best_agg_prompt"] = system_prompt.get_value()

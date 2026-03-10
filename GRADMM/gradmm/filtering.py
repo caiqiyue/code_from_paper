@@ -53,6 +53,7 @@ MODEL_MAP = {
 
 
 def str2bool(v):
+    """Convert common textual boolean values into Python booleans for argparse."""
     if isinstance(v, bool):
         return v
     if v.lower() in ("yes", "true", "t", "y", "1"):
@@ -149,6 +150,7 @@ def get_args(argv=None):
 
 
 def construct_prompt(dataset, pos_label, neg_label):
+    """Render the instruction prompt used by the filtering classifier."""
     return PROMPT_TEMPLATE[dataset].format_map({
         "pos_label": pos_label, "neg_label": neg_label
     })
@@ -214,6 +216,7 @@ def few_shot_classification(input_text, labels, model, tokenizer, instruction_pr
 
 
 def get_first_element(x):
+    """Return the first list element or the value itself when no list wrapping is used."""
     if isinstance(x, list):
         return x[0]
     else:
@@ -222,6 +225,7 @@ def get_first_element(x):
 
 def filter_synthetic_data(args, file_path, model, tokenizer):
     # Read the first JSONL file
+    """Drop or relabel synthetic samples whose inferred label disagrees with the stored label."""
     samples = []
     with open(file_path, 'r') as file:
         for line in file:
@@ -526,6 +530,7 @@ def extract_first_samples_per_label(file_path, top_n=100, start_idx=0, per_label
 
 
 def greedy_selection(args, file_path, model, tokenizer, real_pos_grads, real_neg_grads, previous_pos_grads=None, previous_neg_grads=None, deter_usm=True):
+    """Select synthetic samples greedily so their gradients best match the real-data gradients."""
     if previous_pos_grads is not None:
         new_json_file = args.json_file + f'_cond'
     else:
@@ -596,6 +601,7 @@ def greedy_selection(args, file_path, model, tokenizer, real_pos_grads, real_neg
 
 
 def grad_dist(target_grads, curr_grads, tag_factor=1, metric="cos"):
+    """Measure the distance between two gradient collections using the requested metric."""
     ret = 0.0
     n_g = 0
     
@@ -690,6 +696,7 @@ def compute_grads(args, model, tokenizer, sequences, labels, aggregate=True, agg
 
 
 def greedy_grad_selection(args, model, tokenizer, list_seq, list_label, avg_grad, best_previous_grads=None, top_n=50, deter_usm=True):
+    """Greedily build a subset whose running average gradients stay closest to the real target gradients."""
     list_syn_grads = compute_grads(
         args, 
         model, 
@@ -739,6 +746,7 @@ def greedy_grad_selection(args, model, tokenizer, list_seq, list_label, avg_grad
 
 
 def grad_similarity_selection(args, file_path, model, tokenizer, real_pos_grads, real_neg_grads, previous_pos_grads, previous_neg_grads):
+    """Keep only samples whose gradients remain compatible with previously selected gradients."""
     assert previous_neg_grads is not None, "Please provide previous neg grad"
     assert previous_pos_grads is not None, "Please provide previous pos grad"
     
@@ -803,6 +811,7 @@ def grad_similarity_selection(args, file_path, model, tokenizer, real_pos_grads,
 
 
 def grad_similarity_filtering(args, model, tokenizer, list_seq, list_label, avg_grad, previous_grads):
+    """Filter synthetic samples by checking whether each candidate reduces the gradient distance."""
     list_syn_grads = compute_grads(
         args, 
         model, 
@@ -833,6 +842,7 @@ def grad_similarity_filtering(args, model, tokenizer, list_seq, list_label, avg_
 
 
 def get_output_file_name(args):
+    """Build the default output stem for a filtering run from the current settings."""
     if args.clean:
         tag = "_clean"
     else:
@@ -875,6 +885,7 @@ def clean_text(text):
 
 
 def output_to_jsonl(args, list_samples, output_file, post_processing=False, num_out=None):
+    """Write filtered samples to JSONL and optionally strip prompt artifacts before export."""
     mean_perplexity = 0
     mean_rec_loss = 0
     mean_rec_loss_ids = 0
@@ -903,6 +914,7 @@ def output_to_jsonl(args, list_samples, output_file, post_processing=False, num_
     
     
 def load_real_data(dataset_name, split, device, n_gen_samples, n_fewshot, random_seed, subset=None):
+    """Load a labeled real-data subset for gradient-based filtering utilities."""
     dataset = TextDataset(
         device,
         dataset_name,
@@ -932,6 +944,7 @@ def load_real_data(dataset_name, split, device, n_gen_samples, n_fewshot, random
 
 
 def load_syn_data(syn_data_path, dataset="sst2"):
+    """Load a synthetic JSONL file and split the cleaned texts by label."""
     syn_data = load_dataset("json", data_files=syn_data_path)["train"]
     # syn_data = []
     # with open(syn_data_path, 'r') as file:
@@ -960,6 +973,7 @@ def load_syn_data(syn_data_path, dataset="sst2"):
     
     
 def load_model(model_name):
+    """Load the language model and tokenizer used during filtering."""
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_MAP[model_name])
     model = AutoModelForCausalLM.from_pretrained(
@@ -977,6 +991,7 @@ def load_model(model_name):
 
 
 def combine_grad(previous_grads, curr_grads, count):
+    """Update a running average gradient with one additional sample gradient."""
     new_previous_grads = []
     if count == 0 and previous_grads is None:
         for grad in curr_grads:
@@ -989,6 +1004,7 @@ def combine_grad(previous_grads, curr_grads, count):
 
 
 def remove_grad(previous_grads, curr_grads, count):
+    """Remove one sample gradient from a running average gradient estimate."""
     assert count > 0
     new_previous_grads = []
     
@@ -999,6 +1015,7 @@ def remove_grad(previous_grads, curr_grads, count):
 
 
 def deterministic_usm(list_syn_grads, list_idx, avg_grad, previous_grads=None):
+    """Refine a greedy subset with the deterministic USM exchange procedure."""
     x = []
     y = copy.deepcopy(list_idx)
     if previous_grads is not None:
@@ -1052,8 +1069,9 @@ def deterministic_usm(list_syn_grads, list_idx, avg_grad, previous_grads=None):
 
 
 def filtering(args, training_dir, model, tokenizer, device, skip_samples=0, num_out=None):
+  """Apply the requested filtering strategy to every generation run under a parent directory."""
   for run_id, run in tqdm(enumerate(training_dir)):
-    file_path = os.path.join(run, f'{args.json_file}.jsonl')
+    file_path = os.path.join(run, f'{args.json_file}.jsonl')  # Each child directory is expected to contain one generation artifact file.
     if not os.path.exists(file_path) or run_id < skip_samples:
         print(file_path)
         continue
@@ -1064,7 +1082,7 @@ def filtering(args, training_dir, model, tokenizer, device, skip_samples=0, num_
             top_n=args.top_n,
             per_label=args.per_label,
             interleave=args.interleave_label
-        )
+        )  # Keep the first N synthetic samples, optionally preserving label balance and ordering.
         new_json_file = f'first_{args.top_n}samples'
         if args.per_label:
             new_json_file += '_per_label'
@@ -1078,7 +1096,7 @@ def filtering(args, training_dir, model, tokenizer, device, skip_samples=0, num_
             per_label=args.per_label,
             interleave=args.interleave_label,
             balance_score=args.balance_score
-        )
+        )  # Rank samples by reconstruction loss plus perplexity and keep the best ones.
         new_json_file = args.json_file + f'_top{args.top_n}_score_alpha{args.coeff_perplexity}'
         if args.per_label:
             new_json_file += '_per_label'
@@ -1095,7 +1113,7 @@ def filtering(args, training_dir, model, tokenizer, device, skip_samples=0, num_
             interleave=args.interleave_label,
             reverse=True,
             balance_score=args.balance_score
-        )
+        )  # Rank samples by the same score but keep the worst-scoring tail instead.
         new_json_file = args.json_file + f'_bottom{args.top_n}_score_alpha{args.coeff_perplexity}'
         if args.per_label:
             new_json_file += '_per_label'
@@ -1120,11 +1138,11 @@ def filtering(args, training_dir, model, tokenizer, device, skip_samples=0, num_
             file_path,
             model,
             tokenizer
-        )
+        )  # Re-check the synthetic label with the LM classifier and drop mismatched samples.
         new_json_file = get_output_file_name(args)
 
     # Save the top samples to a new file (optional)
-    output_file = str(file_path).replace(f'{args.json_file}.jsonl', f'{new_json_file}.jsonl')
+    output_file = str(file_path).replace(f'{args.json_file}.jsonl', f'{new_json_file}.jsonl')  # Write the filtered corpus next to the source generation file.
     # print(output_file)
 
     output_to_jsonl(
@@ -1133,7 +1151,7 @@ def filtering(args, training_dir, model, tokenizer, device, skip_samples=0, num_
         output_file, 
         post_processing=args.clean, 
         num_out=num_out
-    )
+    )  # Optionally strip prompt remnants before exporting the final JSONL file.
 
     
 def compute_average_grads(args, model, tokenizer, sequences, labels):
@@ -1205,6 +1223,7 @@ def compute_average_grads(args, model, tokenizer, sequences, labels):
 
 
 def calculate_recon_loss_ids(list_sequence, list_label, avg_grad, model, tokenizer, dataset="sst2"):
+    """Recompute reconstruction losses for discrete synthetic texts against a target average gradient."""
     lm_embeddings = model.get_input_embeddings()
     list_loss = []
     
@@ -1245,7 +1264,7 @@ if __name__ == '__main__':
     tokenizer, model, device = load_model(args.model_name)
     
     file_dir = args.file_dir
-    training_dir = glob.glob(os.path.join(file_dir, '*'))
+    training_dir = glob.glob(os.path.join(file_dir, '*'))  # Scan every generation run under the configured experiment directory.
     print(len(training_dir))
     
     filtering(

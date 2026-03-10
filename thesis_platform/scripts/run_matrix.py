@@ -8,6 +8,8 @@ from thesis_platform.core.pipeline import run_pipeline
 
 
 def main() -> None:
+    """Run every experiment config under one directory tree."""
+
     parser = argparse.ArgumentParser(description="Run every experiment config under a directory.")
     parser.add_argument("--config_dir", required=True, help="Directory containing experiment YAML files.")
     args = parser.parse_args()

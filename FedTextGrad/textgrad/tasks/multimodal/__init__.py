@@ -2,6 +2,7 @@ from textgrad.engine import EngineLM
 
 
 def load_multimodal_instance_task(task_name: str, evaluation_api: EngineLM, *args, **kwargs):
+    """Instantiate a multimodal benchmark dataset by task name."""
     if task_name == "mathvista":
         from textgrad.tasks.multimodal.mathvista import MathVistaDataset
         test_set = MathVistaDataset(evaluation_api=evaluation_api, split="testmini", *args, **kwargs)

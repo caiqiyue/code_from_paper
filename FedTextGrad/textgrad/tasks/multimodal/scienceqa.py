@@ -12,6 +12,7 @@ from textgrad.variable import Variable
 
 def compress_image(decoded_image, max_size_bytes=3.6*1024*1024):
     # First, try saving as PNG without any compression
+    """Resize and compress an image before sending it to a multimodal model."""
     buffer = io.BytesIO()
     decoded_image.save(buffer, format='PNG')
     size = buffer.tell()
@@ -41,11 +42,13 @@ def compress_image(decoded_image, max_size_bytes=3.6*1024*1024):
 
 def preprocess_text(text):
     # Remove punctuation and convert to lowercase
+    """Normalize answer text before similarity or exact-match checks."""
     text = re.sub(r'[^\w\s]', '', text).lower()
     return text
 
 def find_most_similar_choice(text, choices):
     # Preprocess the given text
+    """Return the answer choice that best matches the extracted text."""
     text = preprocess_text(text)
     text_words = Counter(text.split())
     scores = []
@@ -76,6 +79,7 @@ def extract_answer(response_text):
 
 def normalize_extracted_answer(extracted_answer, question_data, options):
     # Normalize the extracted answer
+    """Normalize a parsed answer string before matching."""
     choices = question_data["choices"]
     options = options[:len(choices)]
 
@@ -96,9 +100,11 @@ def normalize_extracted_answer(extracted_answer, question_data, options):
 
 def safe_equal(a, b):
     # Check if two intergers are equal
+    """Compare two answers while handling missing values and formatting noise."""
     return a == b
 
 class ScienceQADataset(Dataset):
+    """Dataset wrapper for the ScienceQADataset benchmark or task split."""
     def __init__(self, evaluation_api:str, root: str=None, split: str="test", task_instruction: str=None, evaluation_instruction: str=None, *args, **kwargs):
         """ScienceQA dataset from HF."""
         if root is None:
@@ -113,6 +119,7 @@ class ScienceQADataset(Dataset):
         self.evaluation_instruction = self.get_default_evaluation_instruction(evaluation_instruction) # NOTE: check the evaluation instruction
         
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         pid = row["pid"]
         image = row["image"]
@@ -154,9 +161,11 @@ class ScienceQADataset(Dataset):
         return image_bytes, query, answer, ques_data, test_time_objective, instance_eval_fn # NOTE: check the sample format
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_default_task_instruction(self, instruction):
+        """Return the default instruction prompt for solving this task."""
         if instruction is not None:
             print("Using user-defined task instruction:\n", instruction, "\n")
             task_instruction = instruction
@@ -165,6 +174,7 @@ class ScienceQADataset(Dataset):
         return task_instruction
     
     def load_scienceqa_data(self):
+        """Load the ScienceQA split and its associated metadata."""
         scienceqa_dir = os.path.join(self.root, "scienceqa")
         try:
             from datasets import Dataset
@@ -181,6 +191,7 @@ class ScienceQADataset(Dataset):
             return data_img
         
     def get_default_evaluation_instruction(self, instruction):
+        """Return the default evaluator instruction for this task."""
         if instruction is not None:
             print("Using user-defined evaluation instruction:\n", instruction, "\n")
             evaluation_instruction = instruction
@@ -199,6 +210,7 @@ class ScienceQADataset(Dataset):
         
     def eval_extraction_and_matching(self, response_text, correct_answer, question_data):
         # Extract the precited answer text from the response
+        """Evaluate whether an extracted answer matches the expected target."""
         extracted_answer  = extract_answer(response_text)
 
         # Normalize the extracted answer to match the answer type

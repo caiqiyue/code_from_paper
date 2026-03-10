@@ -7,6 +7,7 @@ from .base import Dataset
 import re
 
 def eval_string_based(response_text, correct_answer):
+    """Compute correctness for MMLU answers using string matching."""
     ANSWER_PATTERN_MULTICHOICE = r"(?i)Answer\s*:\s*([A-D])"
     
     match = re.search(ANSWER_PATTERN_MULTICHOICE, response_text)
@@ -27,6 +28,7 @@ D) {D}
 """.strip()
 
 class MMLU(Dataset):
+    """Dataset wrapper for the MMLU benchmark or task split."""
     def __init__(self, subset:str, root: str=None, split: str="train", *args, **kwargs):
         """
         MMLU dataset from HF."""
@@ -42,6 +44,7 @@ class MMLU(Dataset):
         self._task_description = 'You will answer multiple-choice questions. Think step by step.'
             
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         question = row["question"]
         choices = row["choices"]
@@ -52,19 +55,24 @@ class MMLU(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_default_task_instruction(self):
+        """Return the default instruction prompt for solving this task."""
         return "Given a multiple choice question, the goal is to select the correct final answer from the choices."
 
 
 class MMLUInstanceDataset(MMLU):
+    """Dataset wrapper for the MMLUInstanceDataset benchmark or task split."""
     def __init__(self, evaluation_api, subset:str, root: str=None, split: str="train", max_samples=-1):
+        """Initialize the MMLUInstanceDataset instance."""
         super().__init__(subset, root, split, max_samples)
         self.evaluation_api = evaluation_api
 
         
     def _get_instance_test_time_objective(self, question: str):
+        """Build the instance-level objective used for test-time optimization."""
         evaluation_instruction = "Below is a multi-choice question and an answer. You are an expert scientist. Your job is to investigate the answer. Critically go through reasoning steps, consider your knowledge, and see if the answer is correct or if there are any critical mistakes."
         eval_fn = MultiChoiceTestTime(evaluation_instruction, engine=self.evaluation_api)
         def test_time_objective(instance: Variable):
@@ -73,6 +81,7 @@ class MMLUInstanceDataset(MMLU):
         
 
     def _legacy_get_instance_eval_fn(self, question_prompt: str, answer: str):
+        """Return the legacy instance-level evaluation function."""
         role_descriptions = [
             "Question for the task",
             "Correct answer",
@@ -98,13 +107,16 @@ class MMLUInstanceDataset(MMLU):
         return instance_eval_fn
 
     def _get_instance_eval_fn(self, question_prompt: str, answer: str):
+        """Return the instance-level evaluation function for this dataset."""
         eval_string_based_fn = lambda response: eval_string_based(response.value, answer)
         return eval_string_based_fn
     
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
     
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         question = row["question"]
         choices = row["choices"]
@@ -120,4 +132,5 @@ class MMLUInstanceDataset(MMLU):
         return question_prompt, answer, self._get_instance_test_time_objective(question_prompt), self._get_instance_eval_fn(question_prompt, answer)
 
     def get_default_task_instruction(self):
+        """Return the default instruction prompt for solving this task."""
         return "Given a multiple choice question, the goal is to select the correct final answer from the choices."

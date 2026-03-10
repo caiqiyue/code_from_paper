@@ -10,11 +10,13 @@ class SingletonBackwardEngine:
     _instance = None
 
     def __new__(cls):
+        """Create or return the singleton backward-engine holder."""
         if not cls._instance:
             cls._instance = super(SingletonBackwardEngine, cls).__new__(cls)
         return cls._instance
 
     def __init__(self):
+        """Initialize the singleton state on first construction."""
         if not hasattr(self, 'engine'):
             self.engine: EngineLM = None
     
@@ -43,6 +45,7 @@ class SingletonBackwardEngine:
         return self.engine
 
 def set_backward_engine(engine: Union[EngineLM, str], override: bool = False):
+    """Register the global backward engine used by autograd operations."""
     singleton_backward_engine = SingletonBackwardEngine()
     if isinstance(engine, str):
         engine = get_engine(engine)
@@ -50,6 +53,7 @@ def set_backward_engine(engine: Union[EngineLM, str], override: bool = False):
 
 
 def validate_engine_or_get_default(engine):
+    """Return an explicit engine or fall back to the globally configured one."""
     if (engine is None) and (SingletonBackwardEngine().get_engine() is None):
         raise Exception(
             "No engine provided. Either provide an engine as the argument to this call, or use `textgrad.set_backward_engine(engine)` to set the backward engine.")

@@ -5,7 +5,11 @@ from thesis_platform.core.schemas import Sample
 
 
 class PretextSeedGenerator:
+    """Server-side generator that produces synthetic samples from public seeds."""
+
     def __init__(self, config, repo_root):
+        """Read the minimal generator hyper-parameters from config."""
+
         del repo_root
         self.generated_per_round = int(config.get("generated_per_round", 100))
         self.mask_ratio = float(config.get("mask", 0.3))
@@ -13,6 +17,8 @@ class PretextSeedGenerator:
         self.seed = int(config.get("seed", 42))
 
     def generate(self, round_ctx):
+        """Generate one synthetic sample batch for the current round."""
+
         if not round_ctx.public_seed_samples:
             raise ValueError("pretext_seed requires public_seed_samples in the round context.")
         engine = VariationEngine(seed=self.seed + round_ctx.round_id, mask_ratio=self.mask_ratio, t_steps=self.t_steps)
@@ -20,7 +26,7 @@ class PretextSeedGenerator:
         generated: list[Sample] = []
         for idx in range(self.generated_per_round):
             source = pool[idx % len(pool)]
-            mutated = engine.mutate(source.text, index=idx)
+            mutated = engine.mutate(source.text, index=idx)  # Derive one candidate from a rotating seed sample.
             generated.append(
                 Sample(
                     sample_id=f"syn_r{round_ctx.round_id}_{idx}",

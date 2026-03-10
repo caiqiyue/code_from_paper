@@ -266,6 +266,7 @@ class ICLCollator:
     tokenizer: PreTrainedTokenizerBase
 
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Pad in-context-learning features to a common length and stack them into tensors."""
         if not isinstance(features[0], Mapping):
             features = [vars(f) for f in features]
         first = features[0]
@@ -310,6 +311,7 @@ class DataCollatorWithPaddingAndNesting:
     return_tensors: str = "pt"
 
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Flatten nested option lists and pad them with the tokenizer-aware collator."""
         features = [ff for f in features for ff in f]
         batch = self.tokenizer.pad(
             features,
@@ -339,6 +341,7 @@ class NondiffCollator(DataCollatorMixin):
     return_tensors: str = "pt"
 
     def torch_call(self, features):
+        """Pad non-differentiable training batches while preserving gold answers for metric computation."""
         import torch
 
         label_name = "label" if "label" in features[0].keys() else "labels"
@@ -368,6 +371,7 @@ class NondiffCollator(DataCollatorMixin):
         padding_side = self.tokenizer.padding_side
 
         def to_list(tensor_or_iterable):
+            """Convert tensors or iterables into plain Python lists before manual padding."""
             if isinstance(tensor_or_iterable, torch.Tensor):
                 return tensor_or_iterable.tolist()
             return list(tensor_or_iterable)
@@ -399,6 +403,7 @@ class SIGUSR1Callback(transformers.TrainerCallback):
     """
 
     def __init__(self) -> None:
+        """Register signal handlers so interrupted runs can checkpoint cleanly."""
         super().__init__()
         self.signal_received = False
         signal.signal(signal.SIGUSR1, self.handle_signal)
@@ -406,22 +411,27 @@ class SIGUSR1Callback(transformers.TrainerCallback):
         logger.warn("Handler registered")
 
     def handle_signal(self, signum, frame):
+        """Mark the callback state so the trainer stops after the current step."""
         self.signal_received = True
         logger.warn("Signal received")
 
     def on_step_end(self, args, state, control, **kwargs):
+        """Request a save and a graceful stop once an interrupt signal has been received."""
         if self.signal_received:
             control.should_save = True
             control.should_training_stop = True
 
     def on_train_end(self, args, state, control, **kwargs):
+        """Exit the process after the graceful stop has finished saving."""
         if self.signal_received:
             exit(0)
 
 
 class SystemMetricCallback(transformers.TrainerCallback):
 
+    """Track wall-clock time and GPU memory usage during fine-tuning."""
     def __init__(self, logger=None):
+        """Prepare GPU memory buffers for all visible devices."""
         if logger is None:
             self.logger = logging.getLogger(__name__)
         else:
@@ -430,6 +440,7 @@ class SystemMetricCallback(transformers.TrainerCallback):
         self.gpu_memory = [[] for _ in range(num_gpus)]
 
     def on_train_begin(self, args, state, control, **kwargs):
+        """Record the wall-clock start time of fine-tuning."""
         self.start_time = time.time()
         self.logger.info(
             "Start training: %s"
@@ -437,11 +448,13 @@ class SystemMetricCallback(transformers.TrainerCallback):
         )
 
     def on_step_begin(self, args, state, control, **kwargs):
+        """Capture the current GPU memory usage at each training step."""
         gpus = GPUtil.getGPUs()
         for i, gpu in enumerate(gpus):
             self.gpu_memory[i].append(gpu.memoryUsed)
 
     def on_train_end(self, args, state, control, **kwargs):
+        """Summarize timing and GPU memory statistics and persist them to disk."""
         total_time = time.time() - self.start_time
         # hours:minutes:seconds
         total_time = time.strftime("%H:%M:%S", time.gmtime(total_time))
@@ -498,12 +511,14 @@ class SystemMetricCallback(transformers.TrainerCallback):
 
 @dataclass
 class Prediction:
+    """Store the gold answer and the model prediction for one evaluation example."""
     correct_candidate: Union[int, str]
     predicted_candidate: Union[int, str]
 
 
 @contextlib.contextmanager
 def count_time(name):
+    """Log the runtime of a named code block."""
     logger.info("%s..." % name)
     start_time = time.time()
     try:
@@ -517,12 +532,14 @@ CURRENT_START_TIME = 0
 
 
 def start_accumulate_time():
+    """Start timing one accumulation window inside the training loop."""
     global CURRENT_START_TIME
     start_time = time.time()
     CURRENT_START_TIME = start_time
 
 
 def end_accumulate_time():
+    """Finish one accumulation window and add it to the running total."""
     global CURRENT_START_TIME
     global CURRENT_ACCUMULATE_TIME
     CURRENT_ACCUMULATE_TIME += time.time() - CURRENT_START_TIME
@@ -530,6 +547,7 @@ def end_accumulate_time():
 
 
 def report_actual_training_time():
+    """Return the accumulated time spent inside training steps."""
     global CURRENT_ACCUMULATE_TIME
     # wandb.log({f"actual_trianing_time": CURRENT_ACCUMULATE_TIME})
     return CURRENT_ACCUMULATE_TIME
@@ -537,6 +555,7 @@ def report_actual_training_time():
 
 @contextlib.contextmanager
 def temp_seed(seed):
+    """Temporarily switch NumPy to a deterministic random seed."""
     state = np.random.get_state()
     np.random.seed(seed)
     try:
@@ -547,21 +566,26 @@ def temp_seed(seed):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
 
+    """Serialize dataclasses and prediction objects into JSON-friendly dictionaries."""
     def default(self, o):
+        """Serialize dataclasses with asdict before falling back to the default encoder."""
         if is_dataclass(o):
             return asdict(o)
         return super().default(o)
 
 
 def write_predictions_to_file(final_preds, output):
+    """Write one prediction record per line as JSONL."""
     with open(output, "w") as f:
         for pred in final_preds:
             f.write(json.dumps(pred, cls=EnhancedJSONEncoder) + "\n")
 
 
 def write_metrics_to_file(metrics, output):
+    """Serialize an evaluation metric dictionary to JSON."""
     json.dump(metrics, open(output, "w"), cls=EnhancedJSONEncoder, indent=4)
 
 
 def parse_input_flags(input_string):
+    """Split a raw flag string into whitespace-delimited arguments."""
     return input_string.split(' ')

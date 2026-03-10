@@ -8,22 +8,27 @@ def normalize_answer(s):
     """Lower text and remove punctuation, articles and extra whitespace."""
 
     def remove_articles(text):
+        """Strip English articles from a string during answer normalization."""
         return re.sub(r"\b(a|an|the)\b", " ", text)
 
     def white_space_fix(text):
+        """Collapse repeated whitespace into single spaces during normalization."""
         return " ".join(text.split())
 
     def remove_punc(text):
+        """Remove punctuation characters during answer normalization."""
         exclude = set(string.punctuation)
         return "".join(ch for ch in text if ch not in exclude)
 
     def lower(text):
+        """Lowercase text during answer normalization."""
         return text.lower()
 
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
 
 def calculate_metric(predictions, metric_name):
+    """Compute the requested evaluation metric from a list of Prediction objects."""
     if metric_name == "accuracy":
         if isinstance(predictions[0].correct_candidate, list):
             return np.mean([

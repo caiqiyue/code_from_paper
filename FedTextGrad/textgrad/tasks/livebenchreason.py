@@ -13,6 +13,7 @@ import re
 
 
 def last_boxed_only_string(string: str):
+    """Extract the final LaTeX boxed expression from a reasoning response."""
     idx = string.rfind("\\boxed")
     if "\\boxed " in string:
         return "\\boxed " + string.split("\\boxed ")[-1].split("$")[0]
@@ -43,6 +44,7 @@ def last_boxed_only_string(string: str):
 
 
 def remove_boxed(s: str) -> str:
+    """Remove a surrounding LaTeX boxed wrapper from an answer."""
     if "\\boxed " in s:
         left = "\\boxed "
         assert s[: len(left)] == left
@@ -56,6 +58,7 @@ def remove_boxed(s: str) -> str:
     return s[len(left) : -1]
 
 def spatial_process_results(prediction: tg.Variable, ground_truth_answer: tg.Variable, debug=False) -> int:
+    """Score a spatial reasoning prediction against the reference answer."""
     prediction = prediction.value
     ground_truth_answer = ground_truth_answer.value
     
@@ -110,6 +113,7 @@ def spatial_process_results(prediction: tg.Variable, ground_truth_answer: tg.Var
 
 
 def web_of_lies_process_results(prediction: tg.Variable, ground_truth_answer: tg.Variable, debug=False) -> int:
+    """Score a Web of Lies reasoning prediction."""
     prediction = prediction.value
     ground_truth_answer = ground_truth_answer.value
     # pull out words in bold
@@ -137,6 +141,7 @@ def web_of_lies_process_results(prediction: tg.Variable, ground_truth_answer: tg
 
 
 def zebra_puzzle_process_results(prediction: tg.Variable, ground_truth_answer: tg.Variable) -> int:
+    """Score a Zebra Puzzle reasoning prediction."""
     prediction = prediction.value
     ground_truth_answer = ground_truth_answer.value
 
@@ -170,6 +175,7 @@ def zebra_puzzle_process_results(prediction: tg.Variable, ground_truth_answer: t
 
 
 class LiveBenchReasoning(Dataset):
+    """Dataset wrapper for the LiveBenchReasoning benchmark or task split."""
     def __init__(self, root: str=None, split: str="train", task: str=None, train_ratio=0.8, val_split_ratio=0.2, *args, **kwargs):
         """
         LiveBench dataset with math from HF."""
@@ -205,6 +211,7 @@ class LiveBenchReasoning(Dataset):
         self._task_description = "You will answer a reasoning question. Think step by step."
 
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         question = row["turns"]
         answer = row["ground_truth"]
@@ -212,8 +219,10 @@ class LiveBenchReasoning(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return "You will answer a reasoning question. Think step by step."
 

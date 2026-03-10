@@ -17,6 +17,7 @@ from .base import EngineLM, CachedEngine
 from .engine_utils import get_image_type_from_bytes
 
 class ChatAnthropic(EngineLM, CachedEngine):
+    """Anthropic chat-model adapter with retry and cache support."""
     SYSTEM_PROMPT = "You are a helpful, creative, and smart assistant."
 
     def __init__(
@@ -25,6 +26,7 @@ class ChatAnthropic(EngineLM, CachedEngine):
         system_prompt: str=SYSTEM_PROMPT,
         is_multimodal: bool=False,
     ):
+        """Initialize the ChatAnthropic instance."""
         root = platformdirs.user_cache_dir("textgrad")
         cache_path = os.path.join(root, f"cache_anthropic_{model_string}.db")
         super().__init__(cache_path=cache_path)
@@ -40,10 +42,12 @@ class ChatAnthropic(EngineLM, CachedEngine):
         self.is_multimodal = is_multimodal
 
     def __call__(self, prompt, **kwargs):
+        """Invoke the backend and return the generated response."""
         return self.generate(prompt, **kwargs)
     
     @retry(wait=wait_random_exponential(min=1, max=5), stop=stop_after_attempt(5))
     def generate(self, content: Union[str, List[Union[str, bytes]]], system_prompt: str=None, **kwargs):
+        """Generate a response with the configured model backend."""
         if isinstance(content, str):
             return self._generate_from_single_prompt(content, system_prompt=system_prompt, **kwargs)
         
@@ -58,6 +62,7 @@ class ChatAnthropic(EngineLM, CachedEngine):
         self, prompt: str, system_prompt: str=None, temperature=0, max_tokens=2000, top_p=0.99
     ):
 
+        """Generate a response for a plain-text prompt."""
         sys_prompt_arg = system_prompt if system_prompt else self.system_prompt
         cache_or_none = self._check_cache(sys_prompt_arg + prompt)
         if cache_or_none is not None:
@@ -82,6 +87,7 @@ class ChatAnthropic(EngineLM, CachedEngine):
         return response
 
     def _format_content(self, content: List[Union[str, bytes]]) -> List[dict]:
+        """Convert raw multimodal inputs into the provider-specific request format."""
         formatted_content = []
         for item in content:
             if isinstance(item, bytes):
@@ -109,6 +115,7 @@ class ChatAnthropic(EngineLM, CachedEngine):
     def _generate_from_multiple_input(
         self, content: List[Union[str, bytes]], system_prompt=None, temperature=0, max_tokens=2000, top_p=0.99
     ):
+        """Generate a response for multimodal or multi-part input content."""
         sys_prompt_arg = system_prompt if system_prompt else self.system_prompt
         formatted_content = self._format_content(content)
 

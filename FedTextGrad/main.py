@@ -33,13 +33,13 @@ def parse_arguments():
     parser.add_argument("--max_steps", type=int, default=3, help="Maximum training steps.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--do_not_run_larger_model", action="store_true", help="Skip running the larger model.")
-    parser.add_argument("--aggregate_method", type=str, default="summarization", help="Context aggregation method [concat, summarization, concat_uid, sum_uid].")
+    parser.add_argument("--aggregate_method", type=str, default="summarization", help="Aggregation method used by train_hetero_fed [concat, summarization, sum_uid].")
     parser.add_argument("--homo_split_num", type=int, default=3, help="Number of clients in homogeneous setting.")
     parser.add_argument("--comet_mode", type=str, default="offline", choices=["offline", "online"], help="Comet ML logging mode.")
     parser.add_argument("--comet_project_name", type=str, default="fedtextgrad", help="Comet ML project name.")
     parser.add_argument("--comet_log_path", type=str, default="./logs/comet_results/", help="Comet ML log directory.")
     parser.add_argument("--proximal_update", action="store_true", help="Enable proximal update to prevent updating when no accuracy improvement.")
-    parser.add_argument("--module", type=str, required=True, help="Module to run [train_debugging, train_centralized, train_homo_fed, train_multi_task, train_hetero_fed].")
+    parser.add_argument("--module", type=str, required=True, help="Module to run [train_centralized, train_homo_fed, train_hetero_fed].")
     
     return parser.parse_args()
 
@@ -86,30 +86,30 @@ def main():
     """
     Main function to set up the experiment and run the selected training module.
     """
-    args = parse_arguments()
-    os.environ["COMET_OFFLINE_DIRECTORY"] = args.comet_log_path
-    os.makedirs(args.comet_log_path, exist_ok=True)
+    args = parse_arguments()  # Parse the unified CLI shared by all experiment modes.
+    os.environ["COMET_OFFLINE_DIRECTORY"] = args.comet_log_path  # Persist offline Comet runs under the configured log root.
+    os.makedirs(args.comet_log_path, exist_ok=True)  # Ensure prompt snapshots and Comet artifacts have a writable directory.
     
     # Initialize Comet ML experiment
     if args.comet_mode == "offline":
-        experiment = OfflineExperiment(project_name=args.comet_project_name)
+        experiment = OfflineExperiment(project_name=args.comet_project_name)  # Keep experiment metadata on local disk only.
     else:
         comet_api_key = os.getenv("COMET_API_KEY")
         if not comet_api_key:
             print("Error: COMET_API_KEY not found in environment variables.")
             sys.exit(1)
-        experiment = Experiment(api_key=comet_api_key, project_name=args.comet_project_name)
+        experiment = Experiment(api_key=comet_api_key, project_name=args.comet_project_name)  # Stream metrics to Comet online.
     
-    experiment.log_parameters(vars(args))
-    set_seed(args.seed)
+    experiment.log_parameters(vars(args))  # Record the full experiment configuration for later comparison.
+    set_seed(args.seed)  # Align NumPy/Python randomness across repeated runs.
     
     # Locate and execute the specified module
-    module_file = f"{args.module}.py" if not args.module.endswith(".py") else args.module
-    module_path = os.path.join(os.getcwd(), module_file)
+    module_file = f"{args.module}.py" if not args.module.endswith(".py") else args.module  # Support both bare module names and explicit filenames.
+    module_path = os.path.join(os.getcwd(), module_file)  # Resolve the training entrypoint relative to the project root.
     
-    load_and_run_module(args.module, module_path, args, experiment)
+    load_and_run_module(args.module, module_path, args, experiment)  # Hand off control to the selected training routine.
     
-    experiment.end()
+    experiment.end()  # Flush metrics and close the Comet experiment cleanly.
 
 if __name__ == '__main__':
     main()

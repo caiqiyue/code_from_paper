@@ -27,6 +27,7 @@ def attn_forward_hook(self, *args, **kwargs):
     """
 
     def _expand_bsz(x, bsz):
+        """Broadcast a shared prefix tensor so it matches the current batch size."""
         x = x.reshape(x.size(0), self.num_heads, -1).transpose(0,1) # (num_prefix, hidden) -> (num_head, num_prefix, hidden/num_head)
         x = x.unsqueeze(0).expand(bsz, *x.shape) # -> (bsz, num_head, num_prefix, hidden/num_head)
         return x
@@ -89,6 +90,7 @@ def prepare_inputs_for_generation(
 
 class PrefixTuning:
 
+    """Inject trainable prefix key/value tensors into each transformer attention layer."""
     def __init__(self, model, num_prefix, reparam=True, embed_dim=512, mid_dim=512, float16=False, init_by_real_act=False):
         """
         Inputs:
@@ -172,6 +174,7 @@ class PrefixTuning:
 
 
     def add_prefix(self, module, first, input_embeds=None):
+        """Attach prefix parameters and optional reparameterization modules to one attention block."""
         device = module.k_proj.weight.data.device
         module.num_prefix = self.num_prefix
         module.reparam = self.reparam

@@ -15,6 +15,8 @@ from thesis_platform.evaluation.metrics import compute_critique_metrics, compute
 
 @dataclass(slots=True)
 class RoundArtifacts:
+    """Bundle of the main artifacts produced by one completed round."""
+
     generated_samples: list[Sample]
     scored_samples: list[ScoredSample]
     selected_bad_samples: list[ScoredSample]
@@ -26,7 +28,11 @@ class RoundArtifacts:
 
 
 class RoundRunner:
+    """Execute the per-round server/client orchestration logic."""
+
     def __init__(self, *, generator: Any, scorer: Any, retriever: Any, critic: Any, aggregator: Any):
+        """Store the adapter instances that participate in one round."""
+
         self.generator = generator
         self.scorer = scorer
         self.retriever = retriever
@@ -43,6 +49,8 @@ class RoundRunner:
         federation_cfg: dict[str, Any],
         output_dir: Path,
     ) -> RoundArtifacts:
+        """Run one full federation round and persist its artifacts to disk."""
+
         ensure_dir(output_dir)
         round_ctx = RoundContext(
             round_id=round_id,
@@ -53,7 +61,7 @@ class RoundRunner:
         )
 
         server_start = time.perf_counter()
-        generated_samples = self.generator.generate(round_ctx)
+        generated_samples = self.generator.generate(round_ctx)  # Server creates candidate synthetic samples.
         server_after_generation = time.perf_counter()
 
         scored_samples: list[ScoredSample] = []
@@ -64,23 +72,23 @@ class RoundRunner:
 
         for client_ctx in client_contexts:
             client_start = time.perf_counter()
-            client_scored = self.scorer.score(generated_samples, client_ctx)
+            client_scored = self.scorer.score(generated_samples, client_ctx)  # Each client scores the same synthetic pool.
             scored_samples.extend(client_scored)
             client_selected = [
                 item for item in select_top_k(client_scored, int(federation_cfg.get("top_k_bad", 10)))
                 if item.client_id == client_ctx.client_id
             ]
             selected_bad_samples.extend(client_selected)
-            paired_samples = self.retriever.retrieve(client_selected, client_ctx)
+            paired_samples = self.retriever.retrieve(client_selected, client_ctx)  # Retrieve local anchors for bad samples.
             retrieved_pairs.extend(paired_samples)
-            client_critiques = self.critic.critique(paired_samples, client_ctx)
+            client_critiques = self.critic.critique(paired_samples, client_ctx)  # Translate badness into textual rules.
             critiques.extend(client_critiques)
             client_latency_total += time.perf_counter() - client_start
 
-        prompt_update = self.aggregator.aggregate(critiques, server_ctx)
+        prompt_update = self.aggregator.aggregate(critiques, server_ctx)  # Server merges all critique rules.
         updated_prompt = server_ctx.prompt_text
         if prompt_update is not None:
-            updated_prompt = apply_prompt_update(server_ctx.prompt_text, prompt_update)
+            updated_prompt = apply_prompt_update(server_ctx.prompt_text, prompt_update)  # Build the next-round prompt.
 
         server_latency = time.perf_counter() - server_after_generation
         upload_tokens = sum(len(item.text.split()) for item in critiques)
@@ -96,7 +104,7 @@ class RoundRunner:
             )
         )
 
-        write_text(output_dir / "server_prompt.txt", server_ctx.prompt_text)
+        write_text(output_dir / "server_prompt.txt", server_ctx.prompt_text)  # Persist every intermediate artifact for analysis.
         write_jsonl(output_dir / "generated_samples.jsonl", generated_samples)
         write_jsonl(output_dir / "scored_samples.jsonl", scored_samples)
         write_jsonl(output_dir / "selected_bad_samples.jsonl", selected_bad_samples)

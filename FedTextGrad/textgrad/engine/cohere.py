@@ -14,6 +14,7 @@ from tenacity import (
 from .base import EngineLM, CachedEngine
 
 class ChatCohere(EngineLM, CachedEngine):
+    """Cohere chat-model adapter with retry and cache support."""
     DEFAULT_SYSTEM_PROMPT = "You are a helpful, creative, and smart assistant."
 
     def __init__(
@@ -41,6 +42,7 @@ class ChatCohere(EngineLM, CachedEngine):
         self, prompt, system_prompt=None, temperature=0, max_tokens=2000, top_p=0.99
     ):
 
+        """Generate a response with the configured model backend."""
         sys_prompt_arg = system_prompt if system_prompt else self.system_prompt
 
         cache_or_none = self._check_cache(sys_prompt_arg + prompt)
@@ -62,5 +64,6 @@ class ChatCohere(EngineLM, CachedEngine):
 
     @retry(wait=wait_random_exponential(min=1, max=5), stop=stop_after_attempt(5))
     def __call__(self, prompt, **kwargs):
+        """Invoke the backend and return the generated response."""
         return self.generate(prompt, **kwargs)
 

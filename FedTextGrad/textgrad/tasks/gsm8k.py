@@ -3,6 +3,7 @@ import platformdirs
 from .base import Dataset
 
 class GSM8K(Dataset):
+    """Dataset wrapper for the GSM8K benchmark or task split."""
     def __init__(self, subset:str, root: str=None, split: str="train", *args, **kwargs):
         """
         GSM8K dataset from HF."""
@@ -24,6 +25,7 @@ class GSM8K(Dataset):
         self.split = split
     
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         question = row["question"]
         answer = row["answer"]
@@ -31,15 +33,18 @@ class GSM8K(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return "You will answer a mathemetical reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value."
 
     
     
     
 class GSM8K_DSPy(GSM8K):
+    """Dataset wrapper for the GSM8K_DSPy benchmark or task split."""
     def __init__(self, root:str=None, split: str="train"):
         """DSPy splits for the GSM8K dataset."""
         import tqdm

@@ -1,9 +1,12 @@
+"""End-to-end orchestration for a single classification influence run."""
+
 from dataloader import create_dataloaders
 from lora_model import LORAEngine
 from influence import IFEngine
 import torch
 
 def run_experiment_core(config):
+    """Train a LoRA classifier, extract gradients, and compute influence scores."""
     print(config)
     model_name_or_path=config['model_name_or_path']
     task=config['task']
@@ -17,7 +20,7 @@ def run_experiment_core(config):
     compute_accurate=config['compute_accurate']
     low_rank=config['low_rank']
     if low_rank > 4:
-        compute_accurate=False
+        compute_accurate=False  # Exact HVP becomes too expensive once the adapter rank is larger.
     
     for run_id in range(N_repeat):
         # fine-tuning models
@@ -35,21 +38,21 @@ def run_experiment_core(config):
                                     lr=lr,
                                     task=task,
                                     low_rank=low_rank)
-        lora_engine.build_LORA_model()
-        lora_engine.train_LORA_model()
-        tr_grad_dict, val_grad_dict = lora_engine.compute_gradient(tokenized_datasets, collate_fn)
+        lora_engine.build_LORA_model()  # Attach LoRA adapters to the base classifier.
+        lora_engine.train_LORA_model()  # Fit the LoRA weights on the noisy GLUE subset.
+        tr_grad_dict, val_grad_dict = lora_engine.compute_gradient(tokenized_datasets, collate_fn)  # Collect per-sample gradients.
 
         del lora_engine, train_dataloader, eval_dataloader, tokenized_datasets, collate_fn
 
         # influence functions
         influence_engine = IFEngine()
-        influence_engine.preprocess_gradients(tr_grad_dict, val_grad_dict, noise_index)
-        influence_engine.compute_hvps(compute_accurate=compute_accurate)
-        influence_engine.compute_IF()
-        influence_engine.save_result(noise_index, run_id=run_id)
+        influence_engine.preprocess_gradients(tr_grad_dict, val_grad_dict, noise_index)  # Cache gradients and validation average.
+        influence_engine.compute_hvps(compute_accurate=compute_accurate)  # Build inverse-Hessian-vector approximations.
+        influence_engine.compute_IF()  # Convert HVPs into influence scores for all training samples.
+        influence_engine.save_result(noise_index, run_id=run_id)  # Persist runtime metadata and influence arrays.
 
         del tr_grad_dict, val_grad_dict, noise_index, influence_engine
         with torch.no_grad():
-            torch.cuda.empty_cache()
+            torch.cuda.empty_cache()  # Release GPU memory before the next repetition.
 
 

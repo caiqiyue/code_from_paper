@@ -14,6 +14,7 @@ except ImportError:
 
 def compress_image(decoded_image, max_size_bytes=3.6*1024*1024):
     # Convert image to RGB if it's in a mode that JPEG does not support
+    """Resize and compress an image before sending it to a multimodal model."""
     if decoded_image.mode not in ['RGB', 'L']:
         decoded_image = decoded_image.convert('RGB')
 
@@ -84,6 +85,7 @@ Extracted answer: B
 
 
 def verify_extraction(extraction):
+    """Check whether an extracted answer matches the expected target."""
     extraction = extraction.strip()
     if extraction == "" or extraction == None:
         return False
@@ -91,6 +93,7 @@ def verify_extraction(extraction):
 
 
 def create_test_prompt(demo_prompt, query, response):
+    """Build the evaluation prompt used for a MathVista sample."""
     demo_prompt = demo_prompt.strip()
     test_prompt = f"{query}\n\n{response}"
     full_prompt = f"{demo_prompt}\n\n{test_prompt}\n\nExtracted answer: "
@@ -98,6 +101,7 @@ def create_test_prompt(demo_prompt, query, response):
 
 
 def extract_answer(response, problem, quick_extract=False):
+    """Extract the final answer from a multimodal model generation."""
     question_type = problem['question_type']
     answer_type = problem['answer_type']
     choices = problem['choices']
@@ -223,6 +227,7 @@ def safe_equal(prediction, answer):
     
 
 class MathVistaDataset(Dataset):
+    """Dataset wrapper for the MathVistaDataset benchmark or task split."""
     def __init__(self, evaluation_api:str, root: str=None, split: str="testmini", task_instruction: str=None, evaluation_instruction: str=None, *args, **kwargs):
         """MathVista dataset from HF."""
         from datasets import load_dataset
@@ -238,6 +243,7 @@ class MathVistaDataset(Dataset):
         self.evaluation_instruction = self.get_default_evaluation_instruction(evaluation_instruction) # NOTE: check the evaluation instruction
     
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         pid = row["pid"]
         decoded_image = row["decoded_image"]
@@ -277,9 +283,11 @@ class MathVistaDataset(Dataset):
         return image_bytes, query, answer, ques_data, test_time_objective, instance_eval_fn # NOTE: check the sample format
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_default_task_instruction(self, instruction):
+        """Return the default instruction prompt for solving this task."""
         if instruction is not None:
             print("Using user-defined task instruction:\n", instruction, "\n")
             task_instruction = instruction
@@ -288,6 +296,7 @@ class MathVistaDataset(Dataset):
         return task_instruction
     
     def get_default_evaluation_instruction(self, instruction):
+        """Return the default evaluator instruction for this task."""
         if instruction is not None:
             print("Using user-defined evaluation instruction:\n", instruction, "\n")
             evaluation_instruction = instruction
@@ -296,6 +305,7 @@ class MathVistaDataset(Dataset):
         return evaluation_instruction
 
     def create_test_prompt(demo_prompt, query, response):
+        """Helper function for the mathvista task module."""
         demo_prompt = demo_prompt.strip()
         test_prompt = f"{query}\n\n{response}"
         full_prompt = f"{demo_prompt}\n\n{test_prompt}\n\nExtracted answer: "
@@ -314,6 +324,7 @@ class MathVistaDataset(Dataset):
         
     def eval_extraction_and_matching(self, response_text, correct_answer, question_data):
         # Extract the precited answer text from the response
+        """Evaluate whether an extracted answer matches the expected target."""
         extracted_answer  = extract_answer(response_text, question_data)
 
         # Normalize the extracted answer to match the answer type

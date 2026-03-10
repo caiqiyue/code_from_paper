@@ -9,12 +9,13 @@ from tqdm import tqdm
 
 
 def eval_sample(item, eval_fn, model):
+    """Evaluate one dataset sample with the current model and return its accuracy flag."""
     x, y = item
-    x = tg.Variable(x, requires_grad=False, role_description="query to the language model")
+    x = tg.Variable(x, requires_grad=False, role_description="query to the language model")  # Wrap the raw input so TextGrad can track roles consistently.
     if isinstance(y, np.integer):
         y = int(y)
-    y = tg.Variable(y, requires_grad=False, role_description="correct answer for the query")
-    response = model(x)
+    y = tg.Variable(y, requires_grad=False, role_description="correct answer for the query")  # Normalize labels into TextGrad variables as well.
+    response = model(x)  # Run the current prompt/model pair on a single example.
 
     try:
         eval_output_variable = eval_fn(inputs=dict(prediction=response, ground_truth_answer=y))
@@ -31,15 +32,16 @@ def eval_sample(item, eval_fn, model):
     
 
 def eval_dataset(test_set, eval_fn, model, max_samples: int=None, num_threads: int=64):
+    """Evaluate a dataset, optionally truncating the sample count and parallelizing requests."""
     if max_samples is None:
         max_samples = len(test_set)
     accuracy_list = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:  # Parallelize API-bound evaluations across samples.
         futures = []
         for _, sample in enumerate(test_set):
             
-            future = executor.submit(eval_sample, sample, eval_fn, model)
+            future = executor.submit(eval_sample, sample, eval_fn, model)  # Submit each example as an independent evaluation job.
             futures.append(future)
             if len(futures) >= max_samples:
                 break
@@ -51,7 +53,8 @@ def eval_dataset(test_set, eval_fn, model, max_samples: int=None, num_threads: i
     return accuracy_list 
 
 def run_validation_revert(system_prompt: tg.Variable, results, model, eval_fn, val_set):
-    val_performance = np.mean(eval_dataset(val_set, eval_fn, model))
+    """Run validation and restore the previous prompt if validation performance regresses."""
+    val_performance = np.mean(eval_dataset(val_set, eval_fn, model))  # Re-score the current prompt on the validation split.
     previous_performance = np.mean(results["validation_acc"][-1])
     print("val_performance: ", val_performance)
     print("previous_performance: ", previous_performance)
@@ -59,7 +62,7 @@ def run_validation_revert(system_prompt: tg.Variable, results, model, eval_fn, v
     
     if val_performance < previous_performance:
         print(f"rejected prompt: {system_prompt.value}")
-        system_prompt.set_value(previous_prompt)
+        system_prompt.set_value(previous_prompt)  # Revert to the last accepted prompt when validation drops.
         val_performance = previous_performance
 
     results["validation_acc"].append(val_performance)

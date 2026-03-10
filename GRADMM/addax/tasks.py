@@ -18,11 +18,13 @@ logger.setLevel(logging.INFO)
 
 
 def read_jsonl(path):
+    """Load a JSONL file into a list of Python dictionaries."""
     with open(path, "rb") as fp:
         return [json.loads(x.decode("utf-8")) for x in fp.readlines()]
 
 
 def get_task(task_name):
+    """Instantiate a real-data task adapter from its task name."""
     aa = task_name.split("__")
     if len(aa) == 2:
         task_group, subtask = aa
@@ -36,6 +38,7 @@ def get_task(task_name):
 
 
 def get_syn_task(task_name, data_path):
+    """Instantiate a synthetic-data task adapter and bind it to a JSONL file."""
     subtask = None
     class_ = getattr(sys.modules[__name__], f"{task_name}Dataset")
     instance = class_(subtask=subtask, path=data_path)
@@ -90,6 +93,7 @@ def process_task(
 
 @dataclass
 class Sample:
+    """Container for one task example, its raw fields, and the allowed answers."""
     id: int = None
     data: dict = None
     correct_candidate: Union[str, List[str]] = None
@@ -97,25 +101,31 @@ class Sample:
 
 
 class Dataset:
+    """Base task adapter that standardizes loading, templating, and subset sampling."""
     mixed_set = False
     train_sep = "\n\n"
     generation = False  # whether this is a generation task
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.subtask = subtask
         self.samples = None
 
     def get_task_name(self):
+        """Return the subtask identifier used by this dataset adapter."""
         return self.subtask
 
     def load_dataset(self):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         raise NotImplementedError
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         templates = {0: Template}
         return templates[template_version]
 
     def build_sample(self):
+        """Convert one raw dataset record into the shared Sample representation."""
         return
 
     def sample_train_sets(
@@ -126,6 +136,7 @@ class Dataset:
         num_train_sets=None,
         seed=None,
     ):
+        """Sample one or more train or demonstration sets according to the configured seeds."""
         if seed is not None:
             # one train/demo set using the designated seed
             seeds = [seed]
@@ -169,6 +180,7 @@ class Dataset:
         return train_samples
 
     def sample_subset(self, data_split="train", seed=0, num=100, exclude=None):
+        """Sample a random subset from one cached split."""
         with temp_seed(seed):
             samples = self.samples[data_split]
             lens = len(samples)
@@ -184,16 +196,20 @@ class Dataset:
 
     @property
     def valid_samples(self):
+        """Expose the cached validation examples."""
         return self.samples["valid"]
 
 
 class RottenTomatoesDataset(Dataset):
+    """Adapter for the Rotten Tomatoes task that exposes examples through the shared Sample interface."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("rotten_tomatoes")
         train_d = d["train"]
         validation_d = d["validation"]
@@ -205,6 +221,7 @@ class RottenTomatoesDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=None,
@@ -214,16 +231,20 @@ class RottenTomatoesDataset(Dataset):
         )
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: RottenTomatoesTemplate}[template_version]()
 
 
 class SynRottenTomatoesDataset(Dataset):
+    """Adapter that loads synthetic Rotten Tomatoes training data and pairs it with the real validation split."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, path=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(path, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_d = load_dataset("json", data_files=path)["train"]
         d = load_dataset("rotten_tomatoes")
         validation_d = d["validation"]
@@ -239,6 +260,7 @@ class SynRottenTomatoesDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=None,
@@ -248,6 +270,7 @@ class SynRottenTomatoesDataset(Dataset):
         )
 
     def process_sample(self, example):
+        """Normalize a synthetic example into the schema expected by this task template."""
         if isinstance(example["inputs"], list):
             sentence = example["inputs"][0].split("It was")[0]
         else:
@@ -261,16 +284,20 @@ class SynRottenTomatoesDataset(Dataset):
         return example
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: RottenTomatoesTemplate}[template_version]()
 
 
 class IMDBDataset(Dataset):
+    """Adapter for the IMDB task that exposes examples through the shared Sample interface."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_d = load_dataset(
             "json",
             data_files="../data/imdb/train_len256.jsonl",
@@ -287,6 +314,7 @@ class IMDBDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=None,
@@ -296,16 +324,20 @@ class IMDBDataset(Dataset):
         )
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: IMDBTemplate}[template_version]()
 
 
 class SynIMDBDataset(Dataset):
+    """Adapter that loads synthetic IMDB training data and pairs it with the real validation split."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, path=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(path, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_d = load_dataset("json", data_files=path)["train"]
         validation_d = load_dataset(
             "json",
@@ -322,6 +354,7 @@ class SynIMDBDataset(Dataset):
         self.num_valid = len(valid_samples)
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=None,
@@ -331,6 +364,7 @@ class SynIMDBDataset(Dataset):
         )
 
     def process_sample(self, example):
+        """Normalize a synthetic example into the schema expected by this task template."""
         if isinstance(example["inputs"], list):
             sentence = example["inputs"][0].split("It was")[0]
         else:
@@ -344,23 +378,27 @@ class SynIMDBDataset(Dataset):
         return example
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: IMDBTemplate}[template_version]()
 
 
 class RTPolarityDataset(Dataset):
+    """Adapter for the RT-Polarity task that exposes examples through the shared Sample interface."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_d = load_dataset(
             "json",
             data_files="../data/rtpolarity/train.jsonl",
         )["train"]
         validation_d = load_dataset(
             "json",
-            data_files="../data/rtpolarityy/validation.jsonl",
+            data_files="../data/rtpolarity/validation.jsonl",
         )["train"]
 
         train_samples = [self.build_sample(example) for example in train_d]
@@ -370,6 +408,7 @@ class RTPolarityDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=None,
@@ -379,20 +418,24 @@ class RTPolarityDataset(Dataset):
         )
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: RTPolarityTemplate}[template_version]()
 
 
 class SynRTPolarityDataset(Dataset):
+    """Adapter that loads synthetic RT-Polarity training data and pairs it with the real validation split."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, path=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(path, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_d = load_dataset("json", data_files=path)["train"]
         validation_d = load_dataset(
             "json",
-            data_files="../data/rtpolarityy/validation.jsonl",
+            data_files="../data/rtpolarity/validation.jsonl",
         )["train"]
 
         train_samples = [
@@ -406,6 +449,7 @@ class SynRTPolarityDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=None,
@@ -415,6 +459,7 @@ class SynRTPolarityDataset(Dataset):
         )
 
     def process_sample(self, example):
+        """Normalize a synthetic example into the schema expected by this task template."""
         if isinstance(example["inputs"], list):
             sentence = example["inputs"][0].split("It was")[0]
         else:
@@ -428,16 +473,20 @@ class SynRTPolarityDataset(Dataset):
         return example
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: RTPolarityTemplate}[template_version]()
 
 
 class SST2Dataset(Dataset):
+    """Adapter for the SST-2 task that exposes examples through the shared Sample interface."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("glue", "sst2")
         train_d = d["train"]
         validation_d = d["validation"]
@@ -449,6 +498,7 @@ class SST2Dataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=example["idx"],
@@ -458,16 +508,20 @@ class SST2Dataset(Dataset):
         )
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: SST2Template}[template_version]()
 
 
 class SynSST2Dataset(Dataset):
+    """Adapter that loads synthetic SST-2 training data and pairs it with the real validation split."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, path=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(path, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_d = load_dataset("json", data_files=path)["train"]
         d = load_dataset("glue", "sst2")
         validation_d = d["validation"]
@@ -483,6 +537,7 @@ class SynSST2Dataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         label = int(example["label"])
         return Sample(
             id=example["idx"],
@@ -492,6 +547,7 @@ class SynSST2Dataset(Dataset):
         )
 
     def process_sample(self, example):
+        """Normalize a synthetic example into the schema expected by this task template."""
         if isinstance(example["inputs"], list):
             sentence = example["inputs"][0].split("It was")[0]
         else:
@@ -505,16 +561,20 @@ class SynSST2Dataset(Dataset):
         return example
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: SST2Template}[template_version]()
 
 
 class COLADataset(Dataset):
+  """Adapter for the CoLA task that exposes examples through the shared Sample interface."""
   train_sep = "\n\n"
 
   def __init__(self, subtask=None, **kwargs) -> None:
+    """Load the dataset resources required by this task adapter."""
     self.load_dataset(subtask, **kwargs)
 
   def load_dataset(self, path, **kwargs):
+    """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
     d = load_dataset("glue", "cola")
     train_d = d["train"]
     validation_d = d["validation"]
@@ -532,6 +592,7 @@ class COLADataset(Dataset):
 
   # for generative tasks, candidates are []
   def build_sample(self, example):
+    """Convert one raw dataset record into the shared Sample representation."""
     label = int(example["label"])
     return Sample(
         id=example["idx"],
@@ -541,17 +602,21 @@ class COLADataset(Dataset):
     )
 
   def get_template(self, template_version=0):
+    """Return the prompt template used to encode this task."""
     return {0: ColaTemplate}[template_version]()
 
 
 class CopaDataset(Dataset):
+    """Adapter for the COPA task that exposes examples through the shared Sample interface."""
     train_sep = "\n\n"
     mixed_set = False
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_examples = load_dataset("super_glue", "copa")["train"]
         valid_examples = load_dataset("super_glue", "copa")["validation"]
 
@@ -561,6 +626,7 @@ class CopaDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             id=example["idx"],
             data=example,
@@ -571,15 +637,19 @@ class CopaDataset(Dataset):
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: CopaTemplate}[template_version]()
 
 
 class BoolQDataset(Dataset):
 
+    """Adapter for the BoolQ task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("boolq")
         train_set = d["train"]
         valid_set = d["validation"]
@@ -589,6 +659,7 @@ class BoolQDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example,
             candidates=["Yes", "No"],
@@ -598,6 +669,7 @@ class BoolQDataset(Dataset):
         return sample
 
     def get_template(self, template_version=2):
+        """Return the prompt template used to encode this task."""
         return {0: BoolQTemplate, 1: BoolQTemplateV2, 2: BoolQTemplateV3}[
             template_version
         ]()
@@ -605,10 +677,13 @@ class BoolQDataset(Dataset):
 
 class MultiRCDataset(Dataset):
 
+    """Adapter for the MultiRC task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("super_glue", "multirc")
         train_set = d["train"]
         valid_set = d["validation"]
@@ -618,6 +693,7 @@ class MultiRCDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example, candidates=[0, 1], correct_candidate=example["label"]
         )
@@ -625,15 +701,19 @@ class MultiRCDataset(Dataset):
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: MultiRCTemplate}[template_version]()
 
 
 class CBDataset(Dataset):
 
+    """Adapter for the CB task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("super_glue", "cb")
         train_set = d["train"]
         valid_set = d["validation"]
@@ -643,6 +723,7 @@ class CBDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example, candidates=[0, 1, 2], correct_candidate=example["label"]
         )
@@ -650,15 +731,19 @@ class CBDataset(Dataset):
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: CBTemplate}[template_version]()
 
 
 class WICDataset(Dataset):
 
+    """Adapter for the WiC task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("super_glue", "wic")
         train_set = d["train"]
         valid_set = d["validation"]
@@ -668,6 +753,7 @@ class WICDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example, candidates=[0, 1], correct_candidate=example["label"]
         )
@@ -675,15 +761,19 @@ class WICDataset(Dataset):
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: WICTemplate}[template_version]()
 
 
 class WSCDataset(Dataset):
 
+    """Adapter for the WSC task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("super_glue", "wsc.fixed")
         train_set = d["train"]
         valid_set = d["validation"]
@@ -693,6 +783,7 @@ class WSCDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example, candidates=[0, 1], correct_candidate=example["label"]
         )
@@ -700,15 +791,19 @@ class WSCDataset(Dataset):
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: WSCTemplate}[template_version]()
 
 
 class ReCoRDDataset(Dataset):
 
+    """Adapter for the ReCoRD task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("super_glue", "record")
         train_set = d["train"]
         valid_set = d["validation"]
@@ -718,6 +813,7 @@ class ReCoRDDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example,
             candidates=example["entities"],
@@ -727,15 +823,19 @@ class ReCoRDDataset(Dataset):
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: ReCoRDTemplateGPT3}[template_version]()
 
 
 class RTEDataset(Dataset):
 
+    """Adapter for the RTE task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("glue", "rte")
         train_set = d["train"]
         valid_set = d["validation"]
@@ -745,6 +845,7 @@ class RTEDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example, candidates=[0, 1], correct_candidate=example["label"]
         )
@@ -752,15 +853,19 @@ class RTEDataset(Dataset):
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: RTETemplate}[template_version]()
 
 
 class TwitterEmotionDataset(Dataset):
 
+    """Adapter for the Twitter Emotion task that exposes examples through the shared Sample interface."""
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(subtask, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         d = load_dataset("dair-ai/emotion", "split")
         train_set = d["train"].filter(lambda x: x["label"] in [0, 1])
         valid_set = d["validation"].filter(lambda x: x["label"] in [0, 1])
@@ -770,22 +875,27 @@ class TwitterEmotionDataset(Dataset):
         self.samples = {"train": train_samples, "valid": valid_samples}
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example, candidates=[0, 1], correct_candidate=example["label"]
         )
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: TwitterEmotionTemplate}[template_version]()
 
 
 class SynTwitterEmotionDataset(Dataset):
+    """Adapter that loads synthetic Twitter Emotion training data and pairs it with the real validation split."""
     train_sep = "\n\n"
 
     def __init__(self, subtask=None, path=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset(path, **kwargs)
 
     def load_dataset(self, path, **kwargs):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         train_d = load_dataset("json", data_files=path)["train"]
         train_d = train_d.rename_column("inputs", "text")
         d = load_dataset("dair-ai/emotion", "split")
@@ -799,27 +909,33 @@ class SynTwitterEmotionDataset(Dataset):
         self.num_valid = len(valid_samples)
 
     def process_sample(self, example):
+        """Normalize a synthetic example into the schema expected by this task template."""
         example["text"] = example["text"].split("Does the tweet express")[0]
         return example
 
     def build_sample(self, example):
+        """Convert one raw dataset record into the shared Sample representation."""
         sample = Sample(
             data=example, candidates=[0, 1], correct_candidate=example["label"]
         )
         return sample
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: TwitterEmotionTemplate}[template_version]()
 
 
 class SQuADDataset(Dataset):
+    """Adapter for the SQuAD task that exposes examples through the shared Sample interface."""
     metric_name = "f1"
     generation = True
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset()
 
     def load_dataset(self):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         dataset = load_dataset("squad")
         train_examples = dataset["train"]
         valid_examples = dataset["validation"]
@@ -836,6 +952,7 @@ class SQuADDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example, idx):
+        """Convert one raw dataset record into the shared Sample representation."""
         answers = example["answers"]["text"]
         assert len(answers) > 0
         return Sample(
@@ -851,17 +968,21 @@ class SQuADDataset(Dataset):
         )
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: SQuADv2Template}[template_version]()
 
 
 class DROPDataset(Dataset):
+    """Adapter for the DROP task that exposes examples through the shared Sample interface."""
     metric_name = "f1"
     generation = True
 
     def __init__(self, subtask=None, **kwargs) -> None:
+        """Load the dataset resources required by this task adapter."""
         self.load_dataset()
 
     def load_dataset(self):
+        """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
         dataset = load_dataset("drop")
         train_examples = dataset["train"]
         valid_examples = dataset["validation"]
@@ -878,6 +999,7 @@ class DROPDataset(Dataset):
 
     # for generative tasks, candidates are []
     def build_sample(self, example, idx):
+        """Convert one raw dataset record into the shared Sample representation."""
         answers = example["answers_spans"]["spans"]
         assert len(answers) > 0
         return Sample(
@@ -892,4 +1014,5 @@ class DROPDataset(Dataset):
         )
 
     def get_template(self, template_version=0):
+        """Return the prompt template used to encode this task."""
         return {0: DROPTemplate}[template_version]()

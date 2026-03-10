@@ -1,0 +1,6 @@
+# Required by config loading when you want standard YAML parsing instead of the built-in fallback parser.
+PyYAML>=6.0
+
+# Optional: install this when you want the KNN retriever to use a local sentence-transformer model
+# instead of the dependency-free hashing embedder fallback.
+# sentence-transformers>=2.2

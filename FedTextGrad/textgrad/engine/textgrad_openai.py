@@ -48,6 +48,7 @@ if os.getenv("VLLM_API_KEY"):
 
 
 class ChatOpenAI(EngineLM, CachedEngine):
+    """OpenAI-compatible chat-model adapter used for OpenAI, Ollama, and vLLM APIs."""
     DEFAULT_SYSTEM_PROMPT = "You are a helpful, creative, and smart assistant."
 
     def __init__(
@@ -104,6 +105,7 @@ class ChatOpenAI(EngineLM, CachedEngine):
 
     @retry(wait=wait_random_exponential(min=1, max=5), stop=stop_after_attempt(5))
     def generate(self, content: Union[str, List[Union[str, bytes]]], system_prompt: str=None, **kwargs):
+        """Generate a response with the configured model backend."""
         if isinstance(content, str):
             return self._generate_from_single_prompt(content, system_prompt=system_prompt, **kwargs)
         
@@ -118,6 +120,7 @@ class ChatOpenAI(EngineLM, CachedEngine):
         self, prompt: str, system_prompt: str=None, temperature=0, max_tokens=2000, top_p=0.99
     ):
 
+        """Generate a response for a plain-text prompt."""
         sys_prompt_arg = system_prompt if system_prompt else self.system_prompt
 
         cache_or_none = self._check_cache(sys_prompt_arg + prompt)
@@ -144,6 +147,7 @@ class ChatOpenAI(EngineLM, CachedEngine):
         return response
 
     def __call__(self, prompt, **kwargs):
+        """Invoke the backend and return the generated response."""
         return self.generate(prompt, **kwargs)
 
     def _format_content(self, content: List[Union[str, bytes]]) -> List[dict]:
@@ -173,6 +177,7 @@ class ChatOpenAI(EngineLM, CachedEngine):
     def _generate_from_multiple_input(
         self, content: List[Union[str, bytes]], system_prompt=None, temperature=0, max_tokens=2000, top_p=0.99
     ):
+        """Generate a response for multimodal or multi-part input content."""
         sys_prompt_arg = system_prompt if system_prompt else self.system_prompt
         formatted_content = self._format_content(content)
 
@@ -197,6 +202,7 @@ class ChatOpenAI(EngineLM, CachedEngine):
         return response_text
 
 class AzureChatOpenAI(ChatOpenAI):
+    """Azure OpenAI adapter that reuses the OpenAI-compatible chat client interface."""
     def __init__(
         self,
         model_string="gpt-35-turbo",

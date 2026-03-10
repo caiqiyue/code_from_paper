@@ -41,6 +41,7 @@ from .llm_backward_prompts import (
 )
 
 class StringBasedFunction(Function):
+    """Autograd wrapper for deterministic string-processing evaluators."""
     def __init__(self, fn: Callable, function_purpose: str):
         """
         Autograd function for string-based functions.
@@ -90,6 +91,7 @@ class StringBasedFunction(Function):
                  function_purpose: str, 
                  inputs: Dict[str, Variable], 
                  backward_engine: EngineLM):
+        """Propagate textual feedback through StringBasedFunction."""
         children_variables = response.predecessors
         if response.get_gradient_text().strip() == "":
             self._backward_through_string_fn_base(children_variables, response, inputs, function_purpose, backward_engine)
@@ -98,6 +100,7 @@ class StringBasedFunction(Function):
 
     @staticmethod
     def _construct_string_fn_chain_backward_prompt(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         conversation = CONVERSATION_TEMPLATE_STRING.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_STRING_FN_CHAIN.format(conversation=conversation, **backward_info)
         backward_prompt += OBJECTIVE_INSTRUCTION_CHAIN.format(**backward_info)
@@ -110,6 +113,7 @@ class StringBasedFunction(Function):
                                           inputs: Dict[str, Variable],
                                           function_purpose: str, 
                                           backward_engine: EngineLM):
+        """Propagate feedback to the source variables for this operation."""
         inputs_string = "\n\n".join([f"**{k.replace('_', ' ').capitalize()}(role: {v.get_role_description()})**: {v.get_short_value()}" for k, v in inputs.items()])
         
         for variable in variables:
@@ -147,6 +151,7 @@ class StringBasedFunction(Function):
 
     @staticmethod
     def _construct_string_fn_base_backward_prompt(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         conversation = CONVERSATION_TEMPLATE_STRING.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_STRING_FN_BASE.format(conversation=conversation, **backward_info)
         backward_prompt += OBJECTIVE_INSTRUCTION_BASE.format(**backward_info)
@@ -159,6 +164,7 @@ class StringBasedFunction(Function):
                                          inputs: Dict[str, Variable],
                                          function_purpose: str, 
                                          backward_engine: EngineLM):
+        """Propagate feedback to the source variables for this operation."""
         inputs_string = "\n\n".join([f"**{k.replace('_', ' ').capitalize()}(role: {v.get_role_description()})**: {v.get_short_value()}" for k, v in inputs.items()])
         
         for variable in variables:

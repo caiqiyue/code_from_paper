@@ -19,6 +19,7 @@ from .function import Function, BackwardContext
 
 
 class LLMCall(Function):
+    """Autograd-aware wrapper around a plain language-model call."""
     def __init__(self, engine: EngineLM, system_prompt: Variable = None):
         """The simple LLM call function. This function will call the LLM with the input and return the response, also register the grad_fn for backpropagation.
 
@@ -99,6 +100,7 @@ class LLMCall(Function):
 
     @staticmethod
     def _construct_llm_chain_backward_prompt(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         conversation = CONVERSATION_TEMPLATE.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_CHAIN.format(conversation=conversation, **backward_info)
         backward_prompt += OBJECTIVE_INSTRUCTION_CHAIN.format(**backward_info)
@@ -164,6 +166,7 @@ class LLMCall(Function):
 
     @staticmethod
     def _construct_llm_base_backward_prompt(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         conversation = CONVERSATION_TEMPLATE.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_BASE.format(conversation=conversation, **backward_info)
         backward_prompt += OBJECTIVE_INSTRUCTION_BASE.format(**backward_info)
@@ -226,6 +229,7 @@ class LLMCall(Function):
 
 
 class FormattedLLMCall(LLMCall):
+    """LLM call helper that first renders named variables into a format string."""
     def __init__(self, 
                  engine: EngineLM, 
                  format_string: str,
@@ -295,6 +299,7 @@ class FormattedLLMCall(LLMCall):
 
 class LLMCall_with_in_context_examples(LLMCall):
     
+    """LLM call variant that threads in-context examples through forward and backward passes."""
     def forward(self, input_variable: Variable, response_role_description: str = VARIABLE_OUTPUT_DEFAULT_ROLE, in_context_examples: List[str]=None) -> Variable:
         """
         The LLM call. This function will call the LLM with the input and return the response, also register the grad_fn for backpropagation.
@@ -370,6 +375,7 @@ class LLMCall_with_in_context_examples(LLMCall):
 
     @staticmethod
     def _construct_llm_chain_backward_prompt(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         conversation = CONVERSATION_TEMPLATE.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_CHAIN.format(conversation=conversation, **backward_info)
         backward_prompt += OBJECTIVE_INSTRUCTION_CHAIN.format(**backward_info)
@@ -438,6 +444,7 @@ class LLMCall_with_in_context_examples(LLMCall):
 
     @staticmethod
     def _construct_llm_base_backward_prompt(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         conversation = CONVERSATION_TEMPLATE.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_BASE.format(conversation=conversation, **backward_info)
         backward_prompt += OBJECTIVE_INSTRUCTION_BASE.format(**backward_info)

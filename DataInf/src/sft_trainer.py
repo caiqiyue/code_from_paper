@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Supervised fine-tuning entry point for LLaMA-style LoRA adapters."""
+
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -32,7 +34,7 @@ tqdm.pandas()
 @dataclass
 class ScriptArguments:
     """
-    The name of the Casual LM model we wish to fine with SFTTrainer
+    Hold CLI arguments for supervised fine-tuning with TRL's SFTTrainer.
     """
 
     model_name: Optional[str] = field(default="", metadata={"help": "the model name"})
@@ -75,7 +77,7 @@ if script_args.load_in_8bit and script_args.load_in_4bit:
 elif script_args.load_in_8bit or script_args.load_in_4bit:
     quantization_config = BitsAndBytesConfig(
         load_in_8bit=script_args.load_in_8bit, load_in_4bit=script_args.load_in_4bit
-    )
+    )  # Use bitsandbytes quantization when the user requests memory-saving loading.
     # Copy the model to each device
     device_map = {"": Accelerator().local_process_index}
     torch_dtype = torch.bfloat16
@@ -83,7 +85,7 @@ else:
     device_map = None
     quantization_config = None
     torch_dtype = None
-device_map = 'auto'
+device_map = 'auto'  # Let Transformers shard the model automatically across available devices.
 
 model = AutoModelForCausalLM.from_pretrained(
     script_args.model_name,
@@ -92,15 +94,15 @@ model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=script_args.trust_remote_code,
     torch_dtype=torch_dtype,
     use_auth_token=script_args.use_auth_token,
-)
+)  # Load the base causal LM before wrapping it with LoRA.
 model.config.use_cache = False
 
 # Step 2: Load the dataset
 try:
     # import pdb; pdb.set_trace()
-    dataset = load_dataset(script_args.dataset_name, split="train")
+    dataset = load_dataset(script_args.dataset_name, split="train")  # Prefer Hub datasets when a repo id is provided.
 except:
-    dataset = load_from_disk(script_args.dataset_name)
+    dataset = load_from_disk(script_args.dataset_name)  # Fall back to a local Dataset.save_to_disk() directory.
 
 # Step 3: Define the training arguments
 training_args = TrainingArguments(
@@ -127,7 +129,7 @@ if script_args.use_peft:
         lora_alpha=script_args.peft_lora_alpha,
         lora_dropout=0.05,
         target_modules = ["q_proj", "v_proj"]
-    )
+    )  # Restrict LoRA adapters to the attention query/value projections.
 
 else:
     peft_config = None
@@ -136,7 +138,7 @@ from transformers import LlamaForCausalLM, LlamaTokenizer, get_linear_schedule_w
 
 llama_tokenizer = LlamaTokenizer.from_pretrained(script_args.model_name)
 llama_tokenizer.padding_side = 'right'
-llama_tokenizer.pad_token = llama_tokenizer.eos_token
+llama_tokenizer.pad_token = llama_tokenizer.eos_token  # Reuse EOS as the pad token for decoder-only training.
 
 # Step 5: Define the Trainer
 trainer = SFTTrainer(
@@ -148,12 +150,12 @@ trainer = SFTTrainer(
     dataset_text_field=script_args.dataset_text_field,
     peft_config=peft_config,
     # optim="adamw_torch_fused"
-)
+ )  # Delegate packing, tokenization, and LoRA-aware training to TRL.
 # import pdb; pdb.set_trace()
 
-trainer.train()
+trainer.train()  # Run supervised fine-tuning until max steps or num_train_epochs is reached.
 
 # Step 6: Save the model
 # import pdb; pdb.set_trace()
-trainer.save_model(script_args.output_dir)
+trainer.save_model(script_args.output_dir)  # Save the trained LoRA adapter (or full model) to disk.
 

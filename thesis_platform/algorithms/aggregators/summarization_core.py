@@ -7,6 +7,8 @@ from thesis_platform.core.schemas import Critique, PromptUpdate
 
 
 def _normalize_rule(rule: str) -> str:
+    """Normalize one critique rule before frequency-based aggregation."""
+
     return re.sub(r"\s+", " ", rule.strip().lower())
 
 
@@ -17,6 +19,8 @@ def summarize_critiques(
     mode: str,
     max_rules: int = 5,
 ) -> PromptUpdate | None:
+    """Aggregate critique rules into a single prompt update."""
+
     if not critiques:
         return None
 
@@ -36,7 +40,7 @@ def summarize_critiques(
     if mode == "uid":
         ranked = sorted(
             counter.items(),
-            key=lambda item: (item[1] / max(1, len(item[0].split())), item[1], -len(item[0])),
+            key=lambda item: (item[1] / max(1, len(item[0].split())), item[1], -len(item[0])),  # Prefer dense and repeated rules.
             reverse=True,
         )
     else:

@@ -14,6 +14,7 @@ nltk.download('punkt')
 
 # Function to calculate Information Entropy
 def calculate_entropy(text):
+    """Compute the character-level entropy of a text string."""
     counts = Counter(text)
     total_chars = len(text)
     probs = [count / total_chars for count in counts.values()]
@@ -22,6 +23,7 @@ def calculate_entropy(text):
 
 # Function to calculate Compression Rate
 def calculate_compression_rate(text):
+    """Compute the compression ratio of a text string."""
     original_size = len(text.encode('utf-8'))
     compressed_size = len(zlib.compress(text.encode('utf-8')))
     compression_rate = compressed_size / original_size
@@ -29,6 +31,7 @@ def calculate_compression_rate(text):
 
 # Function to calculate TF-IDF
 def calculate_tfidf(text):
+    """Compute average TF-IDF statistics for a single text sample."""
     vectorizer = TfidfVectorizer()
     vectors = vectorizer.fit_transform([text])
     feature_names = vectorizer.get_feature_names_out()
@@ -40,6 +43,7 @@ def calculate_tfidf(text):
 
 # Function to calculate Perplexity using GPT-2
 def calculate_perplexity(text):
+    """Estimate text perplexity with a GPT-2 language model."""
     model_name = 'gpt2'
     tokenizer = GPT2Tokenizer.from_pretrained(model_name)
     model = GPT2LMHeadModel.from_pretrained(model_name)
@@ -69,6 +73,7 @@ def calculate_perplexity(text):
 # Function to calculate token length (using both NLTK and GPT tokenizer)
 def calculate_token_length(text):
     # Tokenize using NLTK (basic word-level tokenization)
+    """Return token counts from both NLTK and GPT-2 tokenizers."""
     nltk_tokens = nltk.word_tokenize(text)
     nltk_token_length = len(nltk_tokens)
 
@@ -82,6 +87,7 @@ def calculate_token_length(text):
 # Main function to calculate all complexity scores
 def calculate_text_complexity(text):
     # Calculate information entropy
+    """Aggregate the supported prompt-complexity metrics into one dictionary."""
     entropy = calculate_entropy(text)
 
     # Calculate compression rate

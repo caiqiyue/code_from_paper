@@ -58,6 +58,7 @@ class Optimizer(ABC):
     """
 
     def __init__(self, parameters: List[Variable]):
+        """Initialize the Optimizer instance."""
         for parameter in parameters:
             if type(parameter.value) !=  str:
                 raise NotImplementedError(f"We cannot yet update multimodal content and this data type: {type(parameter.value)}. We can only evaluate gradients using multimodal models. This may change soon (looking at you, GPT-5).")
@@ -79,6 +80,7 @@ class Optimizer(ABC):
 
 
 class TextualGradientDescent(Optimizer):
+    """Optimizer that updates prompt variables from textual feedback."""
     def __init__(self, 
                  parameters: List[Variable], 
                  verbose: int=0, 
@@ -134,6 +136,7 @@ class TextualGradientDescent(Optimizer):
         return "\n".join(constraints_ordered)
     
     def get_gradient_memory_text(self, variable: Variable):
+        """Format recent feedback entries for inclusion in the optimizer prompt."""
         grad_memory = ""
         variable_grad_memory = self.gradient_memory_dict[variable][-self.gradient_memory:]
         for i, grad_info in enumerate(variable_grad_memory):
@@ -141,9 +144,11 @@ class TextualGradientDescent(Optimizer):
         return grad_memory
     
     def update_gradient_memory(self, variable: Variable):
+        """Append the current gradient text to the optimizer memory buffer."""
         self.gradient_memory_dict[variable].append({"value": variable.get_gradient_text()})
     
     def _update_prompt(self, variable: Variable) -> Union[str, List[Union[str, bytes]]]:
+        """Build the optimizer prompt used to request an updated variable value."""
         grad_memory = self.get_gradient_memory_text(variable)
         optimizer_information = {
             "variable_desc": variable.get_role_description(),
@@ -194,6 +199,7 @@ class TextualGradientDescent(Optimizer):
 
 
 class TextualGradientDescentwithMomentum(Optimizer):
+    """Textual-gradient optimizer that keeps a short history of prior updates."""
     def __init__(self, 
                  engine: Union[str, EngineLM], 
                  parameters: List[Variable], 
@@ -202,6 +208,7 @@ class TextualGradientDescentwithMomentum(Optimizer):
                  new_variable_tags: List[str]=None,
                  in_context_examples: List[str]=None,
                  optimizer_system_prompt: str=OPTIMIZER_SYSTEM_PROMPT):
+        """Initialize the TextualGradientDescentwithMomentum instance."""
         super().__init__(parameters)
 
         if new_variable_tags is None:
@@ -227,10 +234,12 @@ class TextualGradientDescentwithMomentum(Optimizer):
 
     @property
     def constraint_text(self):
+        """Return the configured optimization constraints as formatted text."""
         constraints_ordered = [f"Constraint {i+1}: {constraint}" for i, constraint in enumerate(self.constraints)]
         return "\n".join(constraints_ordered)
     
     def _update_prompt(self, variable: Variable, momentum_storage_idx: int):
+        """Build the optimizer prompt used to request an updated variable value."""
         past_values = ""
         
         past_n_steps = self.momentum_storage[momentum_storage_idx]
@@ -258,12 +267,14 @@ class TextualGradientDescentwithMomentum(Optimizer):
 
 
     def _update_momentum_storage(self, variable: Variable, momentum_storage_idx: int):
+        """Record the latest variable state inside the momentum window."""
         if len(self.momentum_storage[momentum_storage_idx]) >= self.momentum_window:
             self.momentum_storage[momentum_storage_idx].pop(0)
         
         self.momentum_storage[momentum_storage_idx].append({"value": variable.value, "gradients": get_gradient_and_context_text(variable)})
         
     def step(self):
+        """Perform one optimizer update step."""
         for idx, parameter in enumerate(self.parameters):
             self._update_momentum_storage(parameter, momentum_storage_idx=idx)
             prompt_update_parameter = self._update_prompt(parameter, momentum_storage_idx=idx)

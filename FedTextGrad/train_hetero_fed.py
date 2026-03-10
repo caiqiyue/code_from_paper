@@ -1,8 +1,6 @@
 import os
 import re
 import sys
-from copy import deepcopy
-from string import Template
 from pathlib import Path
 from typing import Any, List, Tuple
 
@@ -74,9 +72,9 @@ def run_training(args: Any, experiment: Any) -> None:
         experiment: Comet ML experiment instance.
     """
     # Initialize engines.
-    llm_api_eval = tg.get_engine(engine_name=args.evaluation_engine)
-    llm_api_test = tg.get_engine(engine_name=args.test_engine)
-    tg.set_backward_engine(llm_api_eval, override=True)
+    llm_api_eval = tg.get_engine(engine_name=args.evaluation_engine)  # Critic model used to score updates across heterogeneous tasks.
+    llm_api_test = tg.get_engine(engine_name=args.test_engine)  # Client model that answers each task with its current prompt.
+    tg.set_backward_engine(llm_api_eval, override=True)  # Make textual autograd default to the evaluation engine.
 
     # Load tasks and associated datasets.
     train_set_list = []
@@ -86,7 +84,7 @@ def run_training(args: Any, experiment: Any) -> None:
     task_name_list = args.task
 
     for task_name in task_name_list:
-        train_set, val_set, test_set, eval_fn = load_task(task_name, evaluation_api=llm_api_eval)
+        train_set, val_set, test_set, eval_fn = load_task(task_name, evaluation_api=llm_api_eval)  # Materialize each task's data split and evaluator independently.
         train_set_list.append(train_set)
         val_set_list.append(val_set)
         test_set_list.append(test_set)
@@ -175,9 +173,9 @@ def run_training(args: Any, experiment: Any) -> None:
 
                     last_batch_prompt = system_prompt_list[idx].get_value()
 
-                    total_loss = tg.sum(losses)
-                    total_loss.backward()
-                    optimizer_list[idx].step()
+                    total_loss = tg.sum(losses)  # Merge per-example feedback into one client update signal.
+                    total_loss.backward()  # Write textual gradients onto the current task prompt.
+                    optimizer_list[idx].step()  # Turn the feedback into a revised task-specific prompt.
 
                     # Re-run batch to decide whether to update the prompt.
                     updated_loss_value = 0
@@ -210,14 +208,14 @@ def run_training(args: Any, experiment: Any) -> None:
                     if args.proximal_update:
                         if updated_loss_value <= loss_value and updated_loss_value != 1.0:
                             print("Improving Failure! Dropping updated prompt in this step.")
-                            system_prompt_list[idx].set_value(last_batch_prompt)
+                            system_prompt_list[idx].set_value(last_batch_prompt)  # Reject prompt changes that hurt the immediate batch score.
                         else:
                             print("Improving Success!")
                             success_update += 1
                     else:
                         if updated_loss_value < loss_value:
                             print("Improving Failure! Dropping updated prompt in this step.")
-                            system_prompt_list[idx].set_value(last_batch_prompt)
+                            system_prompt_list[idx].set_value(last_batch_prompt)  # Reject prompt changes that hurt the immediate batch score.
                         else:
                             print("Improving Success!")
                             success_update += 1
@@ -237,13 +235,13 @@ def run_training(args: Any, experiment: Any) -> None:
         if args.aggregate_method == "concat":
             concat_prompt = tg.autograd.functional.aggregate(system_prompt_list)
             print(f"\nConcat Prompt: {concat_prompt.get_value()}")
-            system_prompt = concat_prompt
+            system_prompt = concat_prompt  # Plain concatenation keeps every client prompt verbatim.
         elif args.aggregate_method == "summarization":
             concat_prompt = tg.autograd.functional.aggregate(system_prompt_list)
             print(f"\nConcat Prompt: {concat_prompt.get_value()}")
-            summarized_instruction = SUMMARIZATION_TEMPLATE.substitute(prompt=concat_prompt.get_value())
+            summarized_instruction = SUMMARIZATION_TEMPLATE.substitute(prompt=concat_prompt.get_value())  # Ask the evaluator model to summarize all client prompts.
             summarized_prompt = llm_api_eval(summarized_instruction)
-            summarized_prompt += FORMATTING_INSTRUCTION
+            summarized_prompt += FORMATTING_INSTRUCTION  # Force the aggregated prompt into the expected final format.
             print(f"\nSummarized Prompt: {summarized_prompt}")
             system_prompt = tg.Variable(
                 summarized_prompt,
@@ -256,9 +254,9 @@ def run_training(args: Any, experiment: Any) -> None:
         elif args.aggregate_method == "sum_uid":
             concat_prompt = tg.autograd.functional.aggregate(system_prompt_list)
             print(f"\nConcat Prompt: {concat_prompt.get_value()}")
-            sum_uid_instruction = UID_TEMPLATE.substitute(prompt=concat_prompt.get_value())
+            sum_uid_instruction = UID_TEMPLATE.substitute(prompt=concat_prompt.get_value())  # Inject UID guidance before summarizing client prompts.
             sum_uid_prompt = llm_api_eval(sum_uid_instruction)
-            sum_uid_prompt += FORMATTING_INSTRUCTION
+            sum_uid_prompt += FORMATTING_INSTRUCTION  # Force the aggregated prompt into the expected final format.
             print(f"\nSum UID Prompt: {sum_uid_prompt}")
             system_prompt = tg.Variable(
                 sum_uid_prompt,
@@ -273,10 +271,10 @@ def run_training(args: Any, experiment: Any) -> None:
 
         # Update each task's system prompt with the aggregated prompt.
         for idx in range(len(task_name_list)):
-            system_prompt_list[idx].set_value(system_prompt.get_value())
+            system_prompt_list[idx].set_value(system_prompt.get_value())  # Broadcast the aggregated prompt back to every heterogeneous client.
 
         # Use the first task's validation set as the representative for aggregation.
-        agg_val_acc = np.mean(eval_dataset(val_set_list[0], eval_fn_list[0], model_list[0]))
+        agg_val_acc = np.mean(eval_dataset(val_set_list[0], eval_fn_list[0], model_list[0]))  # Use the reference task to choose the best aggregated prompt.
         if "best_agg_val_acc" not in results:
             results["best_agg_val_acc"] = agg_val_acc
             results["best_agg_prompt"] = system_prompt.get_value()

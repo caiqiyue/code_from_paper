@@ -11,6 +11,7 @@ from typing import Union
 import numpy as np
 
 class Variable:
+    """Utility class used by the variable module."""
     def __init__(
         self,
         value: Union[str, bytes] = "",
@@ -72,13 +73,16 @@ class Variable:
             raise ValueError("Gradients are not yet supported for image inputs. Please provide a string input instead.")
 
     def __repr__(self):
+        """Return a developer-friendly representation of the Variable instance."""
         return f"Variable(value={self.value}, role={self.get_role_description()}, grads={self.gradients})"
 
     def __str__(self):
+        """Return a human-readable string for the Variable instance."""
         return str(self.value)
 
     def __add__(self, to_add):
         # For now, let's just assume variables can be passed to models
+        """Helper function used by the variable module."""
         if isinstance(to_add, Variable):
             ### Somehow handle the addition of variables
             total = Variable(
@@ -100,14 +104,17 @@ class Variable:
             return to_add.__add__(self)
 
     def set_role_description(self, role_description):
+        """Update the semantic role description attached to this variable."""
         self.role_description = role_description
 
     def reset_gradients(self):
+        """Clear gradients, gradient context, and reduction metadata."""
         self.gradients = set()
         self.gradients_context = dict()
         self._reduce_meta = []
 
     def get_role_description(self) -> str:
+        """Return the semantic role description of this variable."""
         return self.role_description
 
     def get_short_value(self, n_words_offset: int=10) -> str:
@@ -124,15 +131,19 @@ class Variable:
         return short_value
 
     def get_value(self):
+        """Return the raw value stored by this variable."""
         return self.value
 
     def set_value(self, value):
+        """Replace the raw value stored by this variable."""
         self.value = value
 
     def set_grad_fn(self, grad_fn):
+        """Attach the backward callback used during gradient propagation."""
         self.grad_fn = grad_fn
 
     def get_grad_fn(self):
+        """Return the backward callback attached to this variable."""
         return self.grad_fn
 
     def get_gradient_text(self) -> str:

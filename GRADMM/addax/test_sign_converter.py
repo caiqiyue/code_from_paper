@@ -5,7 +5,9 @@ from tqdm import tqdm
 
 
 class SignConverterTest(unittest.TestCase):
+    """Unit tests for the 1-bit sign encoding and decoding helpers."""
     def test_encode_decode_sign_1D(self):
+        """Verify that 1-D tensors keep the same signs after encode/decode round-trips."""
         for _ in tqdm(range(10)):
             # Create a random tensor
             dim1 = torch.randint(1, 10000, (1,)).item()
@@ -24,6 +26,7 @@ class SignConverterTest(unittest.TestCase):
         return True
 
     def test_encode_decode_sign(self):
+        """Verify that 2-D tensors keep the same signs after encode/decode round-trips."""
         for _ in tqdm(range(100)):
             # Create a random tensor
             dim1 = torch.randint(1, 10000, (1,)).item()

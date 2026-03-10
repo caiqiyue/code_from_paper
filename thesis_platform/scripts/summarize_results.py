@@ -6,6 +6,8 @@ from pathlib import Path
 
 
 def main() -> None:
+    """Summarize lightweight result fields across multiple finished experiments."""
+
     parser = argparse.ArgumentParser(description="Summarize experiment result JSON files.")
     parser.add_argument("--input", required=True, help="Directory containing experiment outputs.")
     args = parser.parse_args()

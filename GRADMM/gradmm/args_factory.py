@@ -2,6 +2,7 @@ import argparse
 
 
 def str2bool(v):
+    """Convert common textual boolean values into Python booleans for argparse."""
     if isinstance(v, bool):
         return v
     if v.lower() in ('yes', 'true', 't', 'y', '1'):

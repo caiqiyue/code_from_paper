@@ -8,6 +8,7 @@ from .config import SingletonBackwardEngine
 import re
 
 class TextLoss(Module):
+    """Single-field evaluation module that scores text outputs with an LLM."""
     def __init__(self, 
                  eval_system_prompt: Union[Variable, str],
                  engine: Union[EngineLM, str] = None):
@@ -53,6 +54,7 @@ class TextLoss(Module):
         return self.llm_call(instance)
 
 class MultiFieldEvaluation(Module):
+    """LLM-based evaluator that compares several named input fields."""
     def __init__(
         self,
         evaluation_instruction: Variable,
@@ -104,6 +106,7 @@ class MultiFieldEvaluation(Module):
                                                    system_prompt=self.system_prompt)
 
     def forward(self, inputs: List[Variable]):
+        """Run the forward computation for MultiFieldEvaluation."""
         for role_description, var in zip(self.role_descriptions, inputs):
             var.set_role_description(role_description)
         inputs_call = {"instruction": self.evaluation_instruction, 
@@ -113,6 +116,7 @@ class MultiFieldEvaluation(Module):
 
 
 class MultiFieldTokenParsedEvaluation(MultiFieldEvaluation):
+    """Multi-field evaluator that parses a tagged token from the model output."""
     def __init__(
         self,
         evaluation_instruction: Variable,
@@ -121,6 +125,7 @@ class MultiFieldTokenParsedEvaluation(MultiFieldEvaluation):
         system_prompt: Variable = None,
         parse_tags: List[str] = None,
     ):
+        """Initialize the MultiFieldTokenParsedEvaluation instance."""
         super().__init__(
             evaluation_instruction=evaluation_instruction,
             role_descriptions=role_descriptions,
@@ -173,6 +178,7 @@ class MultiFieldTokenParsedEvaluation(MultiFieldEvaluation):
 DEFAULT_TEST_TIME = "You are an intelligent assistant used as an evaluator, and part of an optimization system. You will analyze a solution to a multi-choice problem. Investigate the reasoning and answer. Do not try to solve the problem, only raise the potential issues and mistakes in the answer. Be creative, think about different perspectives, and be very critical."
 
 class MultiChoiceTestTime(Module):
+    """Test-time critic for analyzing the quality of multiple-choice answers."""
     def __init__(self,
                  evaluation_instruction: str,
                  engine: Union[EngineLM, str] = None,
@@ -212,6 +218,7 @@ class MultiChoiceTestTime(Module):
                                                    system_prompt=self.tt_system_prompt)
 
     def forward(self, question: str, prediction: Variable) -> Variable:
+        """Run the forward computation for MultiChoiceTestTime."""
         question_variable = Variable(question, 
                                      requires_grad=False, 
                                      role_description="the multiple choice question")
@@ -221,10 +228,12 @@ class MultiChoiceTestTime(Module):
                                        response_role_description=f"evaluation of the {prediction.get_role_description()}")
 
 class ImageQALoss(Module):
+    """Multimodal evaluation module for image question-answering tasks."""
     def __init__(self,
                  evaluation_instruction: str,
                  engine: Union[EngineLM, str] = None,
                  system_prompt: Variable = None):
+        """Initialize the ImageQALoss instance."""
         super().__init__()
         self.evaluation_instruction = Variable(evaluation_instruction, role_description="evaluation instruction", requires_grad=False)
         if ((engine is None) and (SingletonBackwardEngine().get_engine() is None)):
@@ -247,6 +256,7 @@ class ImageQALoss(Module):
 
     def forward(self, image: Variable, question: Variable, response: Variable) -> Variable:
         
+        """Run the forward computation for ImageQALoss."""
         inputs = {
             "Evaluation Instruction": self.evaluation_instruction,
             "Question": question,

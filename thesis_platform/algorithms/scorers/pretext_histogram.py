@@ -7,6 +7,8 @@ def compute_pretext_histogram_scores(
     candidate_vectors: list[list[float]],
     private_vectors: list[list[float]],
 ) -> tuple[list[float], list[dict[str, float]]]:
+    """Compute a histogram-style distribution matching score and flip it to badness."""
+
     if not candidate_vectors:
         return [], []
     if not private_vectors:
@@ -17,7 +19,7 @@ def compute_pretext_histogram_scores(
     for private_vector in private_vectors:
         sims = [cosine_similarity(private_vector, candidate_vector) for candidate_vector in candidate_vectors]
         similarities_by_real.append(sims)
-        nearest.append(max(range(len(sims)), key=lambda idx: sims[idx]))
+        nearest.append(max(range(len(sims)), key=lambda idx: sims[idx]))  # Assign each private sample to its closest synthetic sample.
 
     histogram = [0.0] * len(candidate_vectors)
     for index in nearest:

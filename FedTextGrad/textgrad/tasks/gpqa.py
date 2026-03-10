@@ -19,6 +19,7 @@ D) {D}
 """.strip()
 
 def eval_string_based(response_text, correct_answer):
+    """Compute correctness for GPQA answers using string matching."""
     ANSWER_PATTERN_MULTICHOICE = r"(?i)Answer\s*:\s*([A-D])"
     
     match = re.search(ANSWER_PATTERN_MULTICHOICE, response_text)
@@ -27,6 +28,7 @@ def eval_string_based(response_text, correct_answer):
     return score
 
 class GPQA(Dataset):
+    """Dataset wrapper for the GPQA benchmark or task split."""
     def __init__(self, subset:str, root: str=None, *args, **kwargs):
         """
         GPQA dataset from HF."""
@@ -41,6 +43,7 @@ class GPQA(Dataset):
         self._task_description = 'GPQA task' # Need to update
             
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         
         choices = [row['Incorrect Answer 1'], row['Incorrect Answer 2'], row['Incorrect Answer 3'], row['Correct Answer']]
@@ -58,19 +61,24 @@ class GPQA(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_default_task_instruction(self):
+        """Return the default instruction prompt for solving this task."""
         return "Given a multiple choice question, the goal is to select the correct answer from the choices."
 
 
 class GPQAInstanceDataset(GPQA):
+    """Dataset wrapper for the GPQAInstanceDataset benchmark or task split."""
     def __init__(self, evaluation_api, subset:str, root: str=None, split: str="train", max_samples=-1):
+        """Initialize the GPQAInstanceDataset instance."""
         super().__init__(subset, root, split, max_samples)
         self.evaluation_api = evaluation_api
 
         
     def _get_instance_test_time_objective(self, question: str):
+        """Build the instance-level objective used for test-time optimization."""
         evaluation_instruction = "Below is a multi-choice question and a prediction. You are an expert scientist. Your job is to investigate the prediction. Critically go through reasoning steps, and see if there is a reason why the prediction could be incorrect."
         evaluation_instruction += "\nUse the Janusian Process. Think about whether alternative answers could be true. Raise creative and critical objections to the solution, when needed."
         eval_fn = MultiChoiceTestTime(evaluation_instruction, engine=self.evaluation_api)
@@ -80,6 +88,7 @@ class GPQAInstanceDataset(GPQA):
         
 
     def _legacy_get_instance_eval_fn(self, question_prompt: str, answer: str):
+        """Return the legacy instance-level evaluation function."""
         role_descriptions = [
             "Question for the task",
             "Correct answer",
@@ -106,13 +115,16 @@ class GPQAInstanceDataset(GPQA):
     
     
     def _get_instance_eval_fn(self, question_prompt: str, answer: str):
+        """Return the instance-level evaluation function for this dataset."""
         eval_string_based_fn = lambda response: eval_string_based(response.value, answer)
         return eval_string_based_fn
     
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
     
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         
         choices = [row['Incorrect Answer 1'], row['Incorrect Answer 2'], row['Incorrect Answer 3'], row['Correct Answer']]
@@ -133,11 +145,13 @@ class GPQAInstanceDataset(GPQA):
         return question_prompt, answer, self._get_instance_test_time_objective(question_prompt), self._get_instance_eval_fn(question_prompt, answer)
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return "Given a multiple choice question, the goal is to select the correct final answer from the choices."
 
 
 
 class GPQAInstanceDatasetOpenAI(Dataset):
+    """Dataset wrapper for the GPQAInstanceDatasetOpenAI benchmark or task split."""
     def __init__(self, evaluation_api, subset:str, root: str=None, *args, **kwargs):
         """
         GPQA dataset from OpenAI (from https://github.com/openai/simple-evals/)"""
@@ -157,6 +171,7 @@ class GPQAInstanceDatasetOpenAI(Dataset):
 
     
     def _get_instance_test_time_objective(self, question: str):
+        """Build the instance-level objective used for test-time optimization."""
         evaluation_instruction = "Below is a multi-choice question and a prediction. You are a critical and creative scientist. Your job is to investigate the prediction. Critically go through reasoning steps, and see if there is a reason why the prediction could be incorrect."
         evaluation_instruction = "\nUse the Janusian Process, think about whether alternative answers could be true."
         eval_fn = MultiChoiceTestTime(evaluation_instruction, engine=self.evaluation_api)
@@ -166,6 +181,7 @@ class GPQAInstanceDatasetOpenAI(Dataset):
         
 
     def _legacy_get_instance_eval_fn(self, question_prompt: str, answer: str):
+        """Return the legacy instance-level evaluation function."""
         role_descriptions = [
             "Question for the task",
             "Correct answer",
@@ -192,13 +208,16 @@ class GPQAInstanceDatasetOpenAI(Dataset):
     
     
     def _get_instance_eval_fn(self, question_prompt: str, answer: str):
+        """Return the instance-level evaluation function for this dataset."""
         eval_string_based_fn = lambda response: eval_string_based(response.value, answer)
         return eval_string_based_fn
     
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
     
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         
         choices = [
@@ -222,4 +241,5 @@ class GPQAInstanceDatasetOpenAI(Dataset):
         return question_prompt, answer, self._get_instance_test_time_objective(question_prompt), self._get_instance_eval_fn(question_prompt, answer)
 
     def get_default_task_instruction(self):
+        """Return the default instruction prompt for solving this task."""
         return "Given a multiple choice question, the goal is to select the correct final answer from the choices."

@@ -4,14 +4,20 @@ import math
 
 
 def dot(left: list[float], right: list[float]) -> float:
+    """Return the dot product of two vectors."""
+
     return sum(l * r for l, r in zip(left, right))
 
 
 def l2_norm(vector: list[float]) -> float:
+    """Return the Euclidean norm of one vector."""
+
     return math.sqrt(sum(value * value for value in vector))
 
 
 def normalize(vector: list[float]) -> list[float]:
+    """Return a unit-normalized copy of a vector."""
+
     norm = l2_norm(vector)
     if norm <= 0:
         return list(vector)
@@ -19,6 +25,8 @@ def normalize(vector: list[float]) -> list[float]:
 
 
 def mean_vector(vectors: list[list[float]]) -> list[float]:
+    """Return the element-wise mean over a list of vectors."""
+
     if not vectors:
         return []
     dim = len(vectors[0])
@@ -30,18 +38,26 @@ def mean_vector(vectors: list[list[float]]) -> list[float]:
 
 
 def subtract(left: list[float], right: list[float]) -> list[float]:
+    """Subtract two vectors element-wise."""
+
     return [l - r for l, r in zip(left, right)]
 
 
 def add(left: list[float], right: list[float]) -> list[float]:
+    """Add two vectors element-wise."""
+
     return [l + r for l, r in zip(left, right)]
 
 
 def scale(vector: list[float], factor: float) -> list[float]:
+    """Multiply a vector by a scalar."""
+
     return [value * factor for value in vector]
 
 
 def cosine_similarity(left: list[float], right: list[float]) -> float:
+    """Compute cosine similarity between two vectors."""
+
     left_norm = l2_norm(left)
     right_norm = l2_norm(right)
     if left_norm <= 0 or right_norm <= 0:

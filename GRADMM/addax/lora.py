@@ -39,6 +39,7 @@ class LoRALinear(nn.Linear):
         merge_weights: bool = False, # Not sure if this will affect saving/loading models so just set it to be False
         **kwargs
     ):
+        """Create a linear layer augmented with trainable low-rank LoRA factors."""
         nn.Linear.__init__(self, in_features, out_features, **kwargs)
 
         self.r = r
@@ -64,6 +65,7 @@ class LoRALinear(nn.Linear):
             self.weight.data = self.weight.data.transpose(0, 1)
 
     def reset_parameters(self):
+        """Initialize the base layer and the LoRA factors."""
         nn.Linear.reset_parameters(self)
         if hasattr(self, 'lora_A'):
             # initialize A the same way as the default for nn.Linear and B to zero
@@ -71,7 +73,9 @@ class LoRALinear(nn.Linear):
             nn.init.zeros_(self.lora_B)
 
     def train(self, mode: bool = True):
+        """Merge or unmerge LoRA weights when switching between training and evaluation."""
         def T(w):
+            """Transpose weights when the wrapped layer stores them in fan-in/fan-out order."""
             return w.transpose(0, 1) if self.fan_in_fan_out else w
         nn.Linear.train(self, mode)
         if mode:
@@ -88,7 +92,9 @@ class LoRALinear(nn.Linear):
                 self.merged = True       
 
     def forward(self, x: torch.Tensor):
+        """Apply the frozen base projection together with the low-rank LoRA update."""
         def T(w):
+            """Transpose weights when the wrapped layer stores them in fan-in/fan-out order."""
             return w.transpose(0, 1) if self.fan_in_fan_out else w
         if self.r > 0 and not self.merged:
             result = F.linear(x, T(self.weight), bias=self.bias)
@@ -101,6 +107,7 @@ class LoRALinear(nn.Linear):
 
 class LoRA:
 
+    """Inject LoRA adapters into supported attention projections and freeze the base model."""
     def __init__(self, model, r, alpha, float16):
         """
         Input:

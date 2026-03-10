@@ -5,10 +5,16 @@ from thesis_platform.core.schemas import ScoredSample
 
 
 class PretextHistogramScorer:
+    """Adapter that wraps the PrE-Text-style histogram scorer."""
+
     def __init__(self, config, repo_root):
+        """Keep the constructor signature consistent with other adapters."""
+
         del config, repo_root
 
     def score(self, samples, client_ctx):
+        """Score synthetic samples by histogram-style distribution support."""
+
         candidate_vectors = client_ctx.embedder.embed_texts([sample.text for sample in samples])
         private_pool = client_ctx.train_samples or client_ctx.all_samples
         private_vectors = client_ctx.embedder.embed_texts([sample.text for sample in private_pool]) if private_pool else candidate_vectors

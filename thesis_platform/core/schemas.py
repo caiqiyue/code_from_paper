@@ -6,6 +6,8 @@ from typing import Any
 
 @dataclass(slots=True)
 class Sample:
+    """Unified sample object used throughout the whole platform pipeline."""
+
     sample_id: str
     client_id: str
     round_id: int
@@ -21,6 +23,8 @@ class Sample:
 
 @dataclass(slots=True)
 class ScoredSample(Sample):
+    """Sample enriched with a badness score returned by a scorer adapter."""
+
     score: float = 0.0
     score_name: str = ""
     score_direction: str = "larger_is_worse"
@@ -36,6 +40,8 @@ class ScoredSample(Sample):
         score_direction: str = "larger_is_worse",
         meta: dict[str, Any] | None = None,
     ) -> "ScoredSample":
+        """Build a scored sample while preserving the original sample payload."""
+
         merged_meta = dict(sample.meta)
         if meta:
             merged_meta.update(meta)
@@ -59,6 +65,8 @@ class ScoredSample(Sample):
 
 @dataclass(slots=True)
 class PairedSample:
+    """A bad sample bundled with retrieved real anchor samples."""
+
     pair_id: str
     client_id: str
     round_id: int
@@ -69,6 +77,8 @@ class PairedSample:
 
 @dataclass(slots=True)
 class Critique:
+    """Structured textual feedback generated from a bad/real sample comparison."""
+
     critique_id: str
     client_id: str
     round_id: int
@@ -81,6 +91,8 @@ class Critique:
 
 @dataclass(slots=True)
 class PromptUpdate:
+    """Aggregated prompt-level update produced by a server-side aggregator."""
+
     update_id: str
     round_id: int
     rules: list[str]

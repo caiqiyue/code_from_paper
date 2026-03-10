@@ -30,6 +30,7 @@ class MultimodalLLMCall(Function):
     def __init__(self, 
                  engine: Union[str, EngineLM], 
                  system_prompt: Variable = None):
+        """Initialize the MultimodalLLMCall instance."""
         super().__init__()
         self.engine = validate_engine_or_get_default(engine)
         validate_multimodal_engine(self.engine)
@@ -87,6 +88,7 @@ class MultimodalLLMCall(Function):
 
     
     def backward(self, response: Variable, input_content: List[Union[str, bytes]], system_prompt: str, backward_engine: EngineLM):
+        """Propagate textual feedback through MultimodalLLMCall."""
         validate_multimodal_engine(backward_engine)
 
         children_variables = response.predecessors
@@ -97,6 +99,7 @@ class MultimodalLLMCall(Function):
 
     @staticmethod
     def _construct_multimodal_llm_chain_backward_content(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         content = [c for c in backward_info["input_content"]]
         conversation = MULTIMODAL_CONVERSATION_TEMPLATE.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_CHAIN.format(conversation=conversation, **backward_info)
@@ -111,6 +114,7 @@ class MultimodalLLMCall(Function):
                                                input_content: List[Union[str, bytes]],
                                                system_prompt: str,
                                                backward_engine: EngineLM):
+        """Propagate feedback to the source variables for this operation."""
         for variable in variables:
             if not variable.requires_grad:
                 continue
@@ -146,6 +150,7 @@ class MultimodalLLMCall(Function):
 
     @staticmethod
     def _construct_multimodal_llm_base_backward_content(backward_info: dict[str, str]) -> str:
+        """Construct the prompt or content used by the corresponding backward pass."""
         content = [c for c in backward_info["input_content"]]
         conversation = MULTIMODAL_CONVERSATION_TEMPLATE.format(**backward_info)
         backward_prompt = CONVERSATION_START_INSTRUCTION_BASE.format(conversation=conversation, **backward_info)
@@ -160,6 +165,7 @@ class MultimodalLLMCall(Function):
                                               input_content: List[Union[str, bytes]],
                                               system_prompt: str,
                                               backward_engine: EngineLM):
+        """Propagate feedback to the source variables for this operation."""
         for variable in variables:
             if not variable.requires_grad:
                 continue
@@ -195,11 +201,13 @@ class MultimodalLLMCall(Function):
 
 
 class OrderedFieldsMultimodalLLMCall(MultimodalLLMCall):
+    """Multimodal LLM call that serializes named fields in a fixed order."""
     def __init__(self, 
                  engine: Union[str, EngineLM], 
                  fields: List[str],
                  system_prompt: Variable = None):
 
+        """Initialize the OrderedFieldsMultimodalLLMCall instance."""
         self.engine = validate_engine_or_get_default(engine)
         validate_multimodal_engine(self.engine)
 
@@ -213,6 +221,7 @@ class OrderedFieldsMultimodalLLMCall(MultimodalLLMCall):
                 inputs: dict[str, Variable], 
                 response_role_description: str = VARIABLE_OUTPUT_DEFAULT_ROLE) -> Variable:
         # Assert that all variables are either strings or bytes
+        """Run the forward computation for OrderedFieldsMultimodalLLMCall."""
         for variable in inputs.values():
             if not isinstance(variable.get_value(), (str, bytes)):
                 raise ValueError(f"MultimodalLLMCall only accepts str or bytes, got {type(variable.get_value())}")

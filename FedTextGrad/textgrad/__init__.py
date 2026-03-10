@@ -3,7 +3,9 @@ import logging
 import json
 from datetime import datetime
 class CustomJsonFormatter(logging.Formatter):
+    """JSON log formatter used by the package-level logger."""
     def format(self, record: logging.LogRecord) -> str:
+        """Serialize a log record into JSON for file-based experiment traces."""
         super(CustomJsonFormatter, self).format(record)
         output = {k: str(v) for k, v in record.__dict__.items()}
         return json.dumps(output, indent=4)

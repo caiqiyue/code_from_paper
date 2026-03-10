@@ -68,12 +68,12 @@ def run_training(args: Any, experiment: Any) -> None:
         experiment: Comet ML experiment instance.
     """
     # Initialize language model engines.
-    llm_api_eval = tg.get_engine(engine_name=args.evaluation_engine)
-    llm_api_test = tg.get_engine(engine_name=args.test_engine)
-    tg.set_backward_engine(llm_api_eval, override=True)
+    llm_api_eval = tg.get_engine(engine_name=args.evaluation_engine)  # Use the stronger/scoring model to critique prompt updates.
+    llm_api_test = tg.get_engine(engine_name=args.test_engine)  # Use the train-time model that actually answers the task queries.
+    tg.set_backward_engine(llm_api_eval, override=True)  # Make textual backprop default to the evaluation engine.
 
     # Load dataset and evaluation function.
-    train_set, val_set, test_set, eval_fn = load_task(args.task[0], evaluation_api=llm_api_eval)
+    train_set, val_set, test_set, eval_fn = load_task(args.task[0], evaluation_api=llm_api_eval)  # Load split datasets plus the task-specific evaluator.
     print("Train/Val/Test Set Lengths:", len(train_set), len(val_set), len(test_set))
     dataset_length = {
         "train_length": len(train_set),
@@ -92,7 +92,7 @@ def run_training(args: Any, experiment: Any) -> None:
     experiment.log_parameter("task_description", STARTING_SYSTEM_PROMPT)
 
     # Prepare data loader.
-    train_loader = tg.tasks.DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
+    train_loader = tg.tasks.DataLoader(train_set, batch_size=args.batch_size, shuffle=True)  # Batch training samples for repeated prompt updates.
 
     # Setup the model for 0-shot evaluation.
     system_prompt = tg.Variable(
@@ -149,9 +149,9 @@ def run_training(args: Any, experiment: Any) -> None:
             last_batch_prompt = system_prompt.get_value()
 
             # Backpropagation and optimization step.
-            total_loss = tg.sum(losses)
-            total_loss.backward()
-            optimizer.step()
+            total_loss = tg.sum(losses)  # Merge per-example textual losses into one differentiable aggregate.
+            total_loss.backward()  # Ask the backward engine to write textual feedback onto the prompt variable.
+            optimizer.step()  # Convert feedback into a new prompt proposal.
 
             # Recompute loss after update.
             updated_loss_value, _ = compute_batch_loss_and_outputs(model, eval_fn, batch_x, batch_y)
@@ -162,14 +162,14 @@ def run_training(args: Any, experiment: Any) -> None:
             if args.proximal_update:
                 if updated_loss_value <= loss_value and updated_loss_value != 1.0:
                     print("Improving Failure! Reverting to previous prompt.")
-                    system_prompt.set_value(last_batch_prompt)
+                    system_prompt.set_value(last_batch_prompt)  # Reject prompt edits that make the batch score worse.
                 else:
                     print("Improving Success!")
                     success_update += 1
             else:
                 if updated_loss_value < loss_value:
                     print("Improving Failure! Reverting to previous prompt.")
-                    system_prompt.set_value(last_batch_prompt)
+                    system_prompt.set_value(last_batch_prompt)  # Reject prompt edits that make the batch score worse.
                 else:
                     print("Improving Success!")
                     success_update += 1
@@ -183,7 +183,7 @@ def run_training(args: Any, experiment: Any) -> None:
                 break
 
         # Validate after each epoch.
-        validation_acc = np.mean(eval_dataset(val_set, eval_fn, model))
+        validation_acc = np.mean(eval_dataset(val_set, eval_fn, model))  # Track generalization after each epoch, not just batch-local gains.
         print("Validation Acc:", validation_acc)
         results["validation_acc"].append(validation_acc)
         results["prompt"].append(system_prompt.get_value())
@@ -202,7 +202,7 @@ def run_training(args: Any, experiment: Any) -> None:
     experiment.log_parameter("update_success_rate", update_success_rate)
 
     # Evaluate on test set.
-    results["last_test_acc"] = np.mean(eval_dataset(test_set, eval_fn, model))
+    results["last_test_acc"] = np.mean(eval_dataset(test_set, eval_fn, model))  # Report final test accuracy for the last accepted prompt.
     print("Test Acc:", results["last_test_acc"])
     experiment.log_parameter("last_test_acc", results["last_test_acc"])
 
@@ -214,7 +214,7 @@ def run_training(args: Any, experiment: Any) -> None:
     experiment.log_asset(str(last_prompt_file))
 
     # Evaluate using the best prompt.
-    system_prompt.set_value(results["best_prompt"])
+    system_prompt.set_value(results["best_prompt"])  # Re-evaluate with the best validation prompt before saving the best result.
     results["best_test_acc"] = np.mean(eval_dataset(test_set, eval_fn, model))
     print("Test Acc:", results["best_test_acc"])
     experiment.log_parameter("best_test_acc", results["best_test_acc"])

@@ -10,7 +10,11 @@ from thesis_platform.core.experiment_runner import ExperimentRunner
 
 
 class PipelineTests(unittest.TestCase):
+    """Exercise the full single-round pipeline against a temporary dataset."""
+
     def test_single_round_pipeline_outputs_expected_files(self) -> None:
+        """Verify one round produces every mandatory artifact in the output folder."""
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir)
             train_path = tmp_root / "train.json"

@@ -1,3 +1,5 @@
+"""LoRA model builders and per-sample gradient extractors."""
+
 from tqdm import tqdm
 import pickle
 import torch
@@ -19,6 +21,8 @@ from datasets import Dataset
 import evaluate
 
 class LORAEngine(object):
+    """Fine-tune a sequence classifier with LoRA and extract per-sample gradients."""
+
     def __init__(self, 
                 model_name_or_path="roberta-large",
                 target_modules=["value"],
@@ -29,6 +33,7 @@ class LORAEngine(object):
                 lr=3e-4,
                 low_rank=2,
                 task="mrpc"):
+        """Store the configuration needed to build and train the classifier."""
         self.model_name_or_path=model_name_or_path
         self.target_modules=target_modules
         self.train_dataloader=train_dataloader
@@ -40,12 +45,9 @@ class LORAEngine(object):
         self.low_rank=low_rank
         
     def build_LORA_model(self):
-        '''
-        This function fine-tunes a model for classification tasks. 
-        For text generation tasks, please see `notebooks/Influential_Data_Identification-Llama2-Math.ipynb`.
-        '''
+        """Load the classifier backbone and attach LoRA adapters to it."""
         self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name_or_path,
-                                                                        return_dict=True)
+                                                                        return_dict=True)  # Load the base classifier before PEFT wrapping.
         self.model.config.use_cache = False
         self.model.config.pad_token_id = self.model.config.eos_token_id
             
@@ -55,14 +57,11 @@ class LORAEngine(object):
                                  r=self.low_rank,
                                  lora_alpha=self.low_rank, 
                                  lora_dropout=0.05)
-        self.model = get_peft_model(self.model, peft_config)
+        self.model = get_peft_model(self.model, peft_config)  # Replace target modules with trainable low-rank adapters.
         self.model.print_trainable_parameters()
 
     def train_LORA_model(self):
-        '''
-        This function fine-tunes a model for GLUE classification tasks. 
-        For text generation tasks, please see `notebooks/Influential_Data_Identification-Llama2-Math.ipynb`.
-        '''
+        """Fine-tune the LoRA classifier and report GLUE validation metrics each epoch."""
         metric = evaluate.load("glue", self.task)
         optimizer = AdamW(params=self.model.parameters(), lr=self.lr)
 
@@ -73,7 +72,7 @@ class LORAEngine(object):
             num_training_steps=(len(self.train_dataloader)*self.num_epochs),
         )
 
-        self.model.to(self.device)
+        self.model.to(self.device)  # Move both the backbone and LoRA adapters to the target accelerator.
         for epoch in range(self.num_epochs):
             self.model.train()
             for step, batch in enumerate(tqdm(self.train_dataloader)):
@@ -81,9 +80,9 @@ class LORAEngine(object):
                 outputs = self.model(**batch)
                 loss = outputs.loss
                 loss.backward()
-                optimizer.step()
-                lr_scheduler.step()
-                optimizer.zero_grad()
+                optimizer.step()  # Update only LoRA-trainable parameters.
+                lr_scheduler.step()  # Keep the learning-rate schedule synchronized with optimizer steps.
+                optimizer.zero_grad()  # Clear gradients before the next mini-batch.
 
             self.model.eval()
             for step, batch in enumerate(tqdm(self.eval_dataloader)):
@@ -102,6 +101,7 @@ class LORAEngine(object):
 
 
     def compute_gradient(self, tokenized_datasets, collate_fn):
+        """Extract one gradient dictionary per train and validation example."""
         train_dataloader_stochastic = DataLoader(tokenized_datasets["train"], 
                                                   shuffle=False,
                                                   collate_fn=collate_fn,
@@ -114,7 +114,7 @@ class LORAEngine(object):
         self.model.eval()
         tr_grad_dict = {}
         for step, batch in enumerate(tqdm(train_dataloader_stochastic)):
-            self.model.zero_grad() # zeroing out gradient
+            self.model.zero_grad()  # Isolate the gradient contribution of the current sample.
             batch.to(self.device)
             outputs = self.model(**batch)
             loss = outputs.loss
@@ -136,7 +136,7 @@ class LORAEngine(object):
             
         val_grad_dict = {}
         for step, batch in enumerate(tqdm(val_dataloader_stochastic)):
-            self.model.zero_grad() # zeroing out gradient
+            self.model.zero_grad()  # Isolate the gradient contribution of the current validation sample.
             batch.to(self.device)
             outputs = self.model(**batch)
             loss = outputs.loss
@@ -160,20 +160,24 @@ class LORAEngine(object):
 
 
 class LORAEngineGeneration(object):
+    """Load a causal LM plus LoRA adapter and extract per-sample gradients."""
+
     def __init__(self, 
                 base_path,
                 project_path,
                 dataset_name='math_with_reason',
                 device="cuda"):
+        """Store dataset/model paths and immediately load the model plus datasets."""
         self.base_path = base_path
         self.project_path = project_path
         self.dataset_name = dataset_name
-        self.adapter_path = f"{self.project_path}/models/{self.dataset_name}_13bf"
+        self.adapter_path = f"{self.project_path}/models/{self.dataset_name}_13bf"  # Expect adapters saved by sft_trainer.py.
         self.device=device
         self.load_pretrained_network()
         self.load_datasets()
 
     def load_pretrained_network(self):
+        """Load the base LLaMA model, tokenizer, and fine-tuned LoRA adapter."""
         # setup tokenizer
         self.tokenizer = LlamaTokenizer.from_pretrained(self.base_path)
         self.tokenizer.padding_side = "right"
@@ -191,17 +195,21 @@ class LORAEngineGeneration(object):
         )
 
         # load a pre-trained model.
-        self.model = PeftModel.from_pretrained(base_model, self.adapter_path, is_trainable=True)
+        self.model = PeftModel.from_pretrained(base_model, self.adapter_path, is_trainable=True)  # Re-attach the trained LoRA adapter.
         self.finetuned_config = LoraConfig.from_pretrained(pretrained_model_name_or_path=self.adapter_path)
 
     def load_datasets(self):
+        """Load the local HuggingFace train/test datasets for the selected task."""
         self.train_dataset = Dataset.load_from_disk(f"{self.project_path}/datasets/{self.dataset_name}_train.hf")
         self.validation_dataset = Dataset.load_from_disk(f"{self.project_path}/datasets/{self.dataset_name}_test.hf")
 
     def create_tokenized_datasets(self):
-        tokenize_func = lambda x: self.tokenizer(
-            x["prompt"], truncation=True, padding=True, max_length=128, return_tensors="pt" # text should be more appropritate
-        ).to(self.device)
+        """Tokenize prompt-only inputs and prepare collators for gradient extraction."""
+        def tokenize_func(example_batch):
+            """Tokenize prompt strings for causal-LM forward passes."""
+            return self.tokenizer(
+                example_batch["prompt"], truncation=True, padding=True, max_length=128, return_tensors="pt"  # Tokenize the prompt field consumed during gradient extraction.
+            ).to(self.device)
 
         if 'with_reason' in self.dataset_name:
             column_list=["text", "answer", "variation", "prompt", "reason"]
@@ -219,11 +227,14 @@ class LORAEngineGeneration(object):
             batched=True,
             remove_columns=column_list,
         )
-        collate_fn = lambda x: self.tokenizer.pad(x, padding="longest", return_tensors="pt")
+        def collate_fn(examples):
+            """Pad one or more causal-LM samples into a tensor batch."""
+            return self.tokenizer.pad(examples, padding="longest", return_tensors="pt")
 
         return tokenized_datasets, collate_fn
 
     def compute_gradient(self, tokenized_datasets, collate_fn):
+        """Extract one LoRA gradient dictionary per train/validation generation sample."""
         train_dataloader_stochastic = DataLoader(tokenized_datasets["train"], 
                                                   shuffle=False,
                                                   collate_fn=collate_fn,
@@ -236,8 +247,8 @@ class LORAEngineGeneration(object):
         self.model.eval()
         tr_grad_dict = {}
         for step, batch in enumerate(tqdm(train_dataloader_stochastic)):
-            self.model.zero_grad() # zeroing out gradient
-            batch['labels'] = batch['input_ids']
+            self.model.zero_grad()  # Isolate the gradient contribution of the current training sample.
+            batch['labels'] = batch['input_ids']  # Reuse the token ids as causal-LM supervision targets.
             batch.to(self.device)
             outputs = self.model(**batch)
             loss = outputs.loss
@@ -257,8 +268,8 @@ class LORAEngineGeneration(object):
             
         val_grad_dict = {}
         for step, batch in enumerate(tqdm(val_dataloader_stochastic)):
-            self.model.zero_grad() # zeroing out gradient
-            batch['labels'] = batch['input_ids']
+            self.model.zero_grad()  # Isolate the gradient contribution of the current validation sample.
+            batch['labels'] = batch['input_ids']  # Reuse the token ids as causal-LM supervision targets.
             batch.to(self.device)
             outputs = self.model(**batch)
             loss = outputs.loss
@@ -277,4 +288,3 @@ class LORAEngineGeneration(object):
             del grad_dict
             
         return tr_grad_dict, val_grad_dict
-

@@ -5,7 +5,9 @@ import json
 
 
 class LeetCodeHardEval(Dataset):
+    """Dataset wrapper for the LeetCodeHardEval benchmark or task split."""
     def __init__(self, root: str = None):
+        """Initialize the LeetCodeHardEval instance."""
         if root is None:
             root = platformdirs.user_cache_dir("textgrad")
 
@@ -18,9 +20,11 @@ class LeetCodeHardEval(Dataset):
         self._task_description = 'You will solve a hard coding problem from LeetCode. You will be given a prompt describing a problem. You need to write a function that passes all the tests.'
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return self._task_description
 
     def _check_or_download_dataset(self):
+        """Ensure the dataset exists locally and download it when missing."""
         data_path = f"{self.root}/leetcode-hard.jsonl"
         if os.path.exists(data_path):
             return
@@ -33,6 +37,7 @@ class LeetCodeHardEval(Dataset):
             f.write(r.content)
 
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.dataset[index]
         task_id = row["task_id"]
         prompt = row["prompt"]
@@ -41,4 +46,5 @@ class LeetCodeHardEval(Dataset):
         return task_id, prompt, tests
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.dataset)

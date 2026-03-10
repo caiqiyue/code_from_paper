@@ -9,10 +9,14 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
 
 def _tokens(text: str) -> list[str]:
+    """Tokenize critique inputs into simple lowercase lexical units."""
+
     return [token.lower() for token in TOKEN_RE.findall(text)]
 
 
 def _redact(text: str) -> str:
+    """Apply a light-weight redaction pass suitable for the MVP."""
+
     text = re.sub(r"\b\d+\b", "<NUMBER>", text)
     text = re.sub(r"\b[A-Z][a-z]{2,}\b", "<ENTITY>", text)
     return text
@@ -24,6 +28,8 @@ def build_critique(
     max_rules: int = 2,
     redact_enable: bool = True,
 ) -> Critique:
+    """Generate structured critique rules by contrasting bad and real samples."""
+
     bad_tokens = Counter(_tokens(pair.bad_sample.text))
     real_text = " ".join(sample.text for sample in pair.real_samples)
     real_tokens = Counter(_tokens(real_text))

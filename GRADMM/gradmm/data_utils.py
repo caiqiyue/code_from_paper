@@ -8,9 +8,11 @@ from sklearn.model_selection import train_test_split
 
 
 class TextDataset:
+    """Cache a stratified slice of real texts and labels for GRADMM generation."""
     def __init__(
         self, device, dataset, split, n_inputs, batch_size, n_fewshot=1, seed=42
     ):
+        """Load a stratified subset of the requested split and cache generation plus few-shot examples."""
         seq_keys = {
             'sst2': 'sentence',
             'rotten_tomatoes': 'text',
@@ -85,6 +87,7 @@ class TextDataset:
         assert len(self.labels) == n_inputs + n_fewshot
 
     def __getitem__(self, idx):
+        """Return the cached sequences and labels for a single sampled item."""
         return (self.seqs[idx], self.labels[idx])
 
 
@@ -98,6 +101,7 @@ class BatchDatasetLoader:
         batch_size: int,
         drop_last: bool = True,
     ):
+        """Initialize the batch loader and shuffle the cached samples once."""
         self.seqs = seqs
         self.labels = labels
         self.batch_size = batch_size
@@ -110,28 +114,33 @@ class BatchDatasetLoader:
         )
 
     def _shuffle_data(self):
+        """Shuffle the cached samples and reset the internal cursor."""
         combined = list(zip(self.seqs, self.labels))
         random.shuffle(combined)
         self.seqs, self.labels = zip(*combined)
         self.index = 0  # Reset index after shuffling
 
     def _sort_data(self):
+        """Sort the cached samples by sequence length before iteration."""
         combined = list(zip(self.seqs, self.labels))
         combined.sort(key=lambda x: len(x[0]))
         self.seqs, self.labels = zip(*combined)
         self.index = 0  # Reset index after sorting
 
     def __len__(self):
+        """Return the number of batches produced in one pass through the cached data."""
         if self.drop_last:
             return self.length // self.batch_size
         else:
             return (self.length + self.batch_size - 1) // self.batch_size
 
     def __iter__(self):
+        """Shuffle the cached samples and return the loader itself as an iterator."""
         self._shuffle_data()  # Shuffle at the beginning of each new epoch
         return self
 
     def __next__(self):
+        """Yield the next mini-batch and reshuffle automatically when the cache is exhausted."""
         if self.index >= self.length:
             self._shuffle_data()  # Reshuffle if all samples have been used
             self.index = 0
@@ -163,6 +172,7 @@ class ClusterDatasetLoader:
       labels: List[Any],
       cluster_labels: List[int],
   ):
+    """Group samples by cluster label so one cluster is yielded at a time."""
     self.seqs = seqs
     self.labels = labels
     self.length = len(self.labels)
@@ -175,17 +185,21 @@ class ClusterDatasetLoader:
     print(f'Num samples: {self.length}, num clusters: {self.num_clusters}')
 
   def __len__(self):
+    """Return the number of cached clusters."""
     return self.num_clusters
 
   def _shuffle_data(self):
+    """Shuffle the cluster visitation order and reset the iterator state."""
     random.shuffle(self.list_labels)
     self.index = 0  # Reset index after shuffling
 
   def __iter__(self):
+    """Shuffle cluster order and expose the loader as an iterator."""
     self._shuffle_data()  # Shuffle at the beginning of each new epoch
     return self
 
   def __next__(self):
+    """Yield all samples that belong to the next cluster."""
     if self.index >= self.length:
       self._shuffle_data()  # Reshuffle if all samples have been used
       self.index = 0

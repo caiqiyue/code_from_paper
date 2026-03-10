@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 
 def set_all_seeds(seed):
+    """Seed PyTorch, NumPy, and Python random for reproducible experiments."""
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(seed)
@@ -47,6 +48,7 @@ def load_rng_states(work_dir):
 
 
 def count_lines(file_path: str):
+    """Count how many lines are stored in a text file."""
     with open(file_path, "r") as file:
         line_count = sum(1 for _ in file)
     
@@ -84,6 +86,7 @@ def compute_grads_lm(
     create_graph=False,
     gen_grad_clip="",
 ):
+    """Compute gradients with respect to trainable model parameters from input embeddings."""
     criterion = nn.CrossEntropyLoss()
     outputs = model(inputs_embeds=x_embeds, attention_mask=attention_mask)
     logits = outputs.logits[:, -1, :]
@@ -124,6 +127,7 @@ def compute_grads_lm_ids(
     create_graph=False,
     gen_grad_clip="",
 ):
+    """Compute gradients from discrete token IDs instead of continuous embeddings."""
     criterion = nn.CrossEntropyLoss()
     outputs = model(input_ids=ids, attention_mask=attention_mask)
     logits = outputs.logits[:, -1, :]
@@ -153,6 +157,7 @@ def compute_grads_lm_ids(
 
 
 def cos_sim(x, y):
+    """Compute cosine similarity between two tensors flattened into one vector comparison."""
     return (x * y).sum() / (x.norm(p=2) * y.norm(p=2))
 
 
@@ -498,6 +503,7 @@ def sample_sequence(
     top_k=0,
     top_p=0.0,
 ):
+    """Decode embeddings into token IDs by mixing LM sampling with embedding-nearest-neighbor scores."""
     dp = torch.bmm(inputs_embeds, embeddings_weight.transpose(1, 2))
     norm1 = inputs_embeds.norm(p=2, dim=2).unsqueeze(2)
     norm2 = embeddings_weight.norm(p=2, dim=2).unsqueeze(1)
@@ -555,6 +561,7 @@ def sample_sequence(
 
 
 def get_perplexity_loss(x_embeds, label_ids, model):
+    """Compute the autoregressive language-model loss for the current synthetic embeddings."""
     output = model(inputs_embeds=x_embeds)
     logits = output.logits
     shift_logits = logits[..., :-1, :].contiguous()
@@ -698,6 +705,7 @@ def get_embed_diff(args, model, ids, avg_embeds):
 
 
 def remove_padding(tokenizer, ids, first_prompt_end_index):
+    """Decode generated IDs and split off the prompt suffix when two prompt segments are used."""
     if len(ids) > first_prompt_end_index:
         return [
             tokenizer.decode(ids[:first_prompt_end_index]),

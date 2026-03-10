@@ -6,6 +6,7 @@ from textgrad.engine import EngineLM, get_engine
 from .config import SingletonBackwardEngine
 
 class BlackboxLLM(Module):
+    """Model wrapper that combines an engine with a trainable system prompt."""
     def __init__(self, engine: Union[EngineLM, str] = None, system_prompt: Union[Variable, str] = None):
         """
         Initialize the LLM module.

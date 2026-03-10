@@ -1,3 +1,5 @@
+"""Influence-function engines for classification and generation experiments."""
+
 from time import time
 from tqdm import tqdm
 from collections import defaultdict
@@ -6,12 +8,16 @@ import pickle, os
 import torch
 
 class IFEngine(object):
+    """Compute influence scores for classification tasks using per-sample gradients."""
+
     def __init__(self):
+        """Initialize containers for runtime statistics, HVPs, and influence scores."""
         self.time_dict=defaultdict(list)
         self.hvp_dict=defaultdict(list)
         self.IF_dict=defaultdict(list)
 
     def preprocess_gradients(self, tr_grad_dict, val_grad_dict, noise_index):
+        """Store gradients and precompute the averaged validation gradient."""
         self.tr_grad_dict = tr_grad_dict
         self.val_grad_dict = val_grad_dict
         self.noise_index = noise_index
@@ -21,6 +27,7 @@ class IFEngine(object):
         self.compute_val_grad_avg()
 
     def compute_val_grad_avg(self):
+        """Average validation gradients layer by layer."""
         # Compute the avg gradient on the validation dataset
         self.val_grad_avg_dict={}
         for weight_name in self.val_grad_dict[0]:
@@ -29,6 +36,7 @@ class IFEngine(object):
                 self.val_grad_avg_dict[weight_name] += self.val_grad_dict[val_id][weight_name] / self.n_val
 
     def compute_hvps(self, lambda_const_param=10, compute_accurate=True):
+        """Run all enabled Hessian-vector product approximations."""
         self.compute_hvp_identity()
         self.compute_hvp_proposed(lambda_const_param=lambda_const_param)
         self.compute_hvp_LiSSA(lambda_const_param=lambda_const_param)
@@ -36,11 +44,13 @@ class IFEngine(object):
             self.compute_hvp_accurate(lambda_const_param=lambda_const_param)
 
     def compute_hvp_identity(self):
+        """Use the validation gradient itself as an identity-Hessian baseline."""
         start_time = time()
         self.hvp_dict['identity'] = self.val_grad_avg_dict.copy()
         self.time_dict['identity'] = time()-start_time
 
     def compute_hvp_proposed(self, lambda_const_param=10):
+        """Compute the closed-form DataInf approximation from the paper."""
         start_time = time()
         hvp_proposed_dict={}
         for weight_name in self.val_grad_avg_dict:
@@ -49,19 +59,20 @@ class IFEngine(object):
             for tr_id in self.tr_grad_dict:
                 tmp_grad = self.tr_grad_dict[tr_id][weight_name]
                 S[tr_id]=torch.mean(tmp_grad**2)
-            lambda_const = torch.mean(S) / lambda_const_param # layer-wise lambda
+            lambda_const = torch.mean(S) / lambda_const_param  # Layer-wise damping stabilizes the inverse Hessian estimate.
             
             # hvp computation
             hvp=torch.zeros(self.val_grad_avg_dict[weight_name].shape)
             for tr_id in self.tr_grad_dict:
                 tmp_grad = self.tr_grad_dict[tr_id][weight_name]
-                C_tmp = torch.sum(self.val_grad_avg_dict[weight_name] * tmp_grad) / (lambda_const + torch.sum(tmp_grad**2))
-                hvp += (self.val_grad_avg_dict[weight_name] - C_tmp*tmp_grad) / (self.n_train*lambda_const)
+                C_tmp = torch.sum(self.val_grad_avg_dict[weight_name] * tmp_grad) / (lambda_const + torch.sum(tmp_grad**2))  # Project validation gradient onto the sample gradient.
+                hvp += (self.val_grad_avg_dict[weight_name] - C_tmp*tmp_grad) / (self.n_train*lambda_const)  # Accumulate the closed-form correction from each train sample.
             hvp_proposed_dict[weight_name] = hvp 
         self.hvp_dict['proposed'] = hvp_proposed_dict
         self.time_dict['proposed'] = time()-start_time
 
     def compute_hvp_accurate(self, lambda_const_param=10):
+        """Compute the exact damped inverse-Hessian product via eigendecomposition."""
         start_time = time()
         hvp_accurate_dict={}
         for weight_name in self.val_grad_avg_dict:
@@ -70,7 +81,7 @@ class IFEngine(object):
             for tr_id in self.tr_grad_dict:
                 tmp_grad = self.tr_grad_dict[tr_id][weight_name]
                 S[tr_id]=torch.mean(tmp_grad**2)
-            lambda_const = torch.mean(S) / lambda_const_param # layer-wise lambda
+            lambda_const = torch.mean(S) / lambda_const_param  # Match the damping used by the approximations.
 
             # hvp computation (eigenvalue decomposition)
             AAt_matrix = torch.zeros(torch.outer(self.tr_grad_dict[0][weight_name].reshape(-1), 
@@ -91,6 +102,7 @@ class IFEngine(object):
         self.time_dict['accurate'] = time()-start_time 
 
     def compute_hvp_LiSSA(self, lambda_const_param=10, n_iteration=10, alpha_const=1.):
+        """Estimate the inverse-Hessian product with the LiSSA recursion."""
         start_time = time()
         hvp_LiSSA_dict={}
         for weight_name in self.val_grad_avg_dict:
@@ -99,7 +111,7 @@ class IFEngine(object):
             for tr_id in self.tr_grad_dict:
                 tmp_grad = self.tr_grad_dict[tr_id][weight_name]
                 S[tr_id]=torch.mean(tmp_grad**2)
-            lambda_const = torch.mean(S) / lambda_const_param # layer-wise lambda
+            lambda_const = torch.mean(S) / lambda_const_param  # Use the same damping scale as the other estimators.
 
             # hvp computation
             running_hvp=self.val_grad_avg_dict[weight_name]
@@ -114,17 +126,19 @@ class IFEngine(object):
         self.time_dict['LiSSA'] = time()-start_time 
 
     def compute_IF(self):
+        """Turn HVP estimates into one influence score per training example."""
         for method_name in self.hvp_dict:
             if_tmp_dict = {}
             for tr_id in self.tr_grad_dict:
                 if_tmp_value = 0
                 for weight_name in self.val_grad_avg_dict:
                     if_tmp_value += torch.sum(self.hvp_dict[method_name][weight_name]*self.tr_grad_dict[tr_id][weight_name])
-                if_tmp_dict[tr_id]= -if_tmp_value 
+                if_tmp_dict[tr_id]= -if_tmp_value  # Influence is minus the H^{-1}g dot training-gradient term.
                 
             self.IF_dict[method_name] = pd.Series(if_tmp_dict, dtype=float).to_numpy()    
 
     def save_result(self, noise_index, run_id=0):
+        """Serialize runtime metadata, noisy indices, and influence arrays to disk."""
         results={}
         results['runtime']=self.time_dict
         results['noise_index']=noise_index
@@ -134,15 +148,16 @@ class IFEngine(object):
             pickle.dump(results, file)
 
 class IFEngineGeneration(object):
-    '''
-    This class computes the influence function for every validation data point
-    '''
+    """Compute a validation-by-training influence matrix for generation tasks."""
+
     def __init__(self):
+        """Initialize containers for runtime statistics, HVPs, and influence matrices."""
         self.time_dict = defaultdict(list)
         self.hvp_dict = defaultdict(list)
         self.IF_dict = defaultdict(list)
 
     def preprocess_gradients(self, tr_grad_dict, val_grad_dict):
+        """Store generation-task gradients without averaging validation samples."""
         self.tr_grad_dict = tr_grad_dict
         self.val_grad_dict = val_grad_dict
 
@@ -150,15 +165,18 @@ class IFEngineGeneration(object):
         self.n_val = len(self.val_grad_dict.keys())
 
     def compute_hvps(self, lambda_const_param=10):
+        """Run the enabled HVP approximations for every validation sample."""
         self.compute_hvp_identity()
         self.compute_hvp_proposed(lambda_const_param=lambda_const_param)
 
     def compute_hvp_identity(self):
+        """Use each validation gradient directly as the identity-Hessian baseline."""
         start_time = time()
         self.hvp_dict["identity"] = self.val_grad_dict.copy()
         self.time_dict["identity"] = time() - start_time
 
     def compute_hvp_proposed(self, lambda_const_param=10):
+        """Apply the closed-form DataInf approximation per validation example."""
         start_time = time()
         hvp_proposed_dict=defaultdict(dict)
         for val_id in tqdm(self.val_grad_dict.keys()):
@@ -168,19 +186,20 @@ class IFEngineGeneration(object):
                 for tr_id in self.tr_grad_dict:
                     tmp_grad = self.tr_grad_dict[tr_id][weight_name]
                     S[tr_id]=torch.mean(tmp_grad**2)
-                lambda_const = torch.mean(S) / lambda_const_param # layer-wise lambda
+                lambda_const = torch.mean(S) / lambda_const_param  # Damping is shared across all validation points in the layer.
 
                 # hvp computation
                 hvp=torch.zeros(self.val_grad_dict[val_id][weight_name].shape)
                 for tr_id in self.tr_grad_dict:
                     tmp_grad = self.tr_grad_dict[tr_id][weight_name]
-                    C_tmp = torch.sum(self.val_grad_dict[val_id][weight_name] * tmp_grad) / (lambda_const + torch.sum(tmp_grad**2))
-                    hvp += (self.val_grad_dict[val_id][weight_name] - C_tmp*tmp_grad) / (self.n_train*lambda_const)
+                    C_tmp = torch.sum(self.val_grad_dict[val_id][weight_name] * tmp_grad) / (lambda_const + torch.sum(tmp_grad**2))  # Measure alignment between one validation and one training gradient.
+                    hvp += (self.val_grad_dict[val_id][weight_name] - C_tmp*tmp_grad) / (self.n_train*lambda_const)  # Aggregate all training-sample corrections.
                 hvp_proposed_dict[val_id][weight_name] = hvp
         self.hvp_dict['proposed'] = hvp_proposed_dict
         self.time_dict['proposed'] = time()-start_time
 
     def compute_IF(self):
+        """Convert HVPs into a full validation-by-training influence matrix."""
         for method_name in self.hvp_dict:
             print("Computing IF for method: ", method_name)
             if_tmp_dict = defaultdict(dict)
@@ -194,6 +213,7 @@ class IFEngineGeneration(object):
             self.IF_dict[method_name] = pd.DataFrame(if_tmp_dict, dtype=float)   
 
     def save_result(self, run_id=0):
+        """Serialize runtime metadata and influence matrices to disk."""
         results={}
         results['runtime']=self.time_dict
         results['influence']=self.IF_dict

@@ -162,6 +162,7 @@ if is_accelerate_available("0.28.0"):
 
 
 def _is_peft_model(model):
+    """Check whether the wrapped model is a PEFT adapter model."""
     if is_peft_available():
         classes_to_check = (PeftModel,) if is_peft_available() else ()
         # Here we also check if the model is an instance of `PeftMixedModel` introduced in peft>=0.7.0: https://github.com/huggingface/transformers/pull/28321
@@ -177,6 +178,7 @@ def _is_peft_model(model):
 
 def _get_fsdp_ckpt_kwargs():
     # TODO: @AjayP13, @younesbelkada replace this check with version check at the next `accelerate` release
+    """Return the checkpoint keyword arguments supported by the installed accelerate version."""
     if is_accelerate_available() and "adapter_only" in list(
         inspect.signature(save_fsdp_model).parameters
     ):
@@ -254,6 +256,7 @@ class OurTrainer(Trainer):
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         ] = None,
     ):
+        """Initialize the customized trainer and persist the run arguments alongside the output directory."""
         super().__init__(
             model=model,
             args=args,
@@ -289,6 +292,7 @@ class OurTrainer(Trainer):
         # assert unwrap_model(model) is self.model, "internal model should be a reference to self.model"
 
         # Save model checkpoint
+        """Save checkpoints together with optimizer state and the custom main_results summary."""
         checkpoint_folder = f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}"
 
         if self.hp_search_backend is None and trial is None:
@@ -347,6 +351,7 @@ class OurTrainer(Trainer):
     def _maybe_log_save_evaluate(
         self, tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval
     ):
+        """Perform the custom logging, evaluation, and checkpoint bookkeeping after each save step."""
         if (
             self.control.should_log
             and self.state.global_step > self._globalstep_last_logged
@@ -623,6 +628,7 @@ class OurTrainer(Trainer):
         trial=None,
         ignore_keys_for_eval=None,
     ):
+        """Run the customized HuggingFace training loop with Addax-specific logging and callbacks."""
         self._train_batch_size = batch_size
         # Data loader and number of training steps
         train_dataloader = self.get_train_dataloader()
@@ -631,6 +637,7 @@ class OurTrainer(Trainer):
         if self.args.linear_probing:
 
             def _get_token_prediction_layer(model):
+                """Return the LM head used as the token classifier during linear probing."""
                 if model.config.model_type == "opt":
                     return model.lm_head
                 else:
@@ -641,6 +648,7 @@ class OurTrainer(Trainer):
                 features = {}
 
                 def __hook(model_, input_, output_):
+                    """Capture the hidden features fed into the token prediction layer."""
                     features["features"] = input_[0].detach()
 
                 _get_token_prediction_layer(model).register_forward_hook(__hook)

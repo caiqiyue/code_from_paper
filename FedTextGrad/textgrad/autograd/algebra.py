@@ -136,6 +136,7 @@ class Aggregate(Function):
         return aggregated_variable
         
     def backward(self, aggregated_variable: Variable, backward_engine: EngineLM):
+        """Propagate aggregated feedback back to each source variable."""
         children_variable = aggregated_variable.predecessors
         for variable in children_variable:
             aggregate_gradients = aggregated_variable.get_gradient_text()

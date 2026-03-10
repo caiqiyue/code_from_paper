@@ -9,10 +9,14 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
 
 def _tokenize(text: str) -> list[str]:
+    """Split text into lowercase lexical tokens for heuristic scoring."""
+
     return [token.lower() for token in TOKEN_RE.findall(text)]
 
 
 def _rarity_score(text: str, corpus_freq: Counter[str]) -> float:
+    """Approximate perplexity with a rarity-based token score."""
+
     tokens = _tokenize(text)
     if not tokens:
         return 0.0
@@ -27,12 +31,14 @@ def compute_gradmm_scores(
     corpus_texts: list[str],
     alpha: float,
 ) -> tuple[list[float], list[dict[str, float]]]:
+    """Compute a light-weight GRADMM-style badness score."""
+
     if not sample_vectors:
         return [], []
     if not reference_vectors:
         reference_vectors = sample_vectors
 
-    ref = mean_vector(reference_vectors)
+    ref = mean_vector(reference_vectors)  # Average real-sample vector acts as the reference gradient target.
     corpus_freq: Counter[str] = Counter()
     for text in corpus_texts:
         corpus_freq.update(_tokenize(text))
@@ -41,7 +47,7 @@ def compute_gradmm_scores(
     meta: list[dict[str, float]] = []
     for vector, text in zip(sample_vectors, texts):
         rec_loss = l2_norm(subtract(vector, ref))
-        cosine_distance = 1.0 - cosine_similarity(vector, ref)
+        cosine_distance = 1.0 - cosine_similarity(vector, ref)  # Capture direction mismatch against the reference pool.
         perplexity = _rarity_score(text, corpus_freq)
         score = rec_loss + cosine_distance + alpha * perplexity
         scores.append(score)

@@ -56,6 +56,7 @@ logger = get_logger(__name__, log_level="INFO")
 
 
 def save_model_card(repo_id: str, images=None, base_model=str, dataset_name=str, repo_folder=None):
+    """Write a lightweight model card plus sample images for the trained LoRA weights."""
     img_str = ""
     for i, image in enumerate(images):
         image.save(os.path.join(repo_folder, f"image_{i}.png"))
@@ -84,6 +85,7 @@ These are LoRA adaption weights for {base_model}. The weights were fine-tuned on
 
 
 def parse_args():
+    """Parse CLI arguments for Stable Diffusion LoRA fine-tuning."""
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
         "--pretrained_model_name_or_path",
@@ -376,17 +378,18 @@ DATASET_NAME_MAPPING = {
 
 
 def main():
+    """Run text-to-image LoRA fine-tuning, checkpointing, and optional validation."""
     args = parse_args()
     logging_dir = Path(args.output_dir, args.logging_dir)
 
-    accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)
+    accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)  # Centralize checkpoints and tracker logs under one run directory.
 
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
         log_with=args.report_to,
         project_config=accelerator_project_config,
-    )
+    )  # Handle device placement, mixed precision, and distributed synchronization.
     if args.report_to == "wandb":
         if not is_wandb_available():
             raise ImportError("Make sure to install wandb if you want to use it for logging during training.")
@@ -422,7 +425,7 @@ def main():
                 repo_id=args.hub_model_id or Path(args.output_dir).name, exist_ok=True, token=args.hub_token
             ).repo_id
     # Load scheduler, tokenizer and models.
-    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
+    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")  # Recreate the diffusion noising process from the base checkpoint.
     tokenizer = CLIPTokenizer.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="tokenizer", revision=args.revision
     )
@@ -465,7 +468,7 @@ def main():
     text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     # Add adapter and make sure the trainable params are in float32.
-    unet.add_adapter(unet_lora_config)
+    unet.add_adapter(unet_lora_config)  # Inject trainable LoRA layers into the frozen UNet attention blocks.
     if args.mixed_precision == "fp16":
         # only upcast trainable parameters (LoRA) into fp32
         cast_training_params(unet, dtype=torch.float32)
@@ -531,7 +534,7 @@ def main():
             args.dataset_config_name,
             cache_dir=args.cache_dir,
             data_dir=args.train_data_dir,
-        )
+        )  # Pull the named dataset from the Hub or a local cache.
     else:
         data_files = {}
         if args.train_data_dir is not None:
@@ -540,7 +543,7 @@ def main():
             "imagefolder",
             data_files=data_files,
             cache_dir=args.cache_dir,
-        )
+        )  # Build an imagefolder dataset from local files plus metadata.jsonl captions.
         # See more about loading custom images at
         # https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder
 
@@ -570,6 +573,7 @@ def main():
     # Preprocessing the datasets.
     # We need to tokenize input captions and transform the images.
     def tokenize_captions(examples, is_train=True):
+        """Tokenize captions while handling either one string or multiple captions per image."""
         captions = []
         for caption in examples[caption_column]:
             if isinstance(caption, str):
@@ -598,14 +602,16 @@ def main():
     )
 
     def unwrap_model(model):
+        """Return the underlying model even when wrapped by Accelerate/torch.compile."""
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
         return model
 
     def preprocess_train(examples):
+        """Convert images to tensors and tokenize the paired captions."""
         images = [image.convert("RGB") for image in examples[image_column]]
-        examples["pixel_values"] = [train_transforms(image) for image in images]
-        examples["input_ids"] = tokenize_captions(examples)
+        examples["pixel_values"] = [train_transforms(image) for image in images]  # Normalize every image into the latent-model input range.
+        examples["input_ids"] = tokenize_captions(examples)  # Encode the text prompt paired with each image.
         return examples
 
     with accelerator.main_process_first():
@@ -615,6 +621,7 @@ def main():
         train_dataset = dataset["train"].with_transform(preprocess_train)
 
     def collate_fn(examples):
+        """Stack transformed image tensors and token ids into one batch."""
         pixel_values = torch.stack([example["pixel_values"] for example in examples])
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
         input_ids = torch.stack([example["input_ids"] for example in examples])
@@ -646,7 +653,7 @@ def main():
     # Prepare everything with our `accelerator`.
     unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         unet, optimizer, train_dataloader, lr_scheduler
-    )
+    )  # Move models/loaders to the right devices and wrap them for distributed execution.
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
@@ -714,7 +721,7 @@ def main():
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(unet):
                 # Convert images to latent space
-                latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
+                latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()  # Encode pixels into the VAE latent space used by diffusion training.
                 latents = latents * vae.config.scaling_factor
 
                 # Sample noise that we'll add to the latents
@@ -732,7 +739,7 @@ def main():
 
                 # Add noise to the latents according to the noise magnitude at each timestep
                 # (this is the forward diffusion process)
-                noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+                noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)  # Corrupt the clean latents according to the sampled timestep.
 
                 # Get the text embedding for conditioning
                 encoder_hidden_states = text_encoder(batch["input_ids"], return_dict=False)[0]
@@ -750,7 +757,7 @@ def main():
                     raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
                 # Predict the noise residual and compute loss
-                model_pred = unet(noisy_latents, timesteps, encoder_hidden_states, return_dict=False)[0]
+                model_pred = unet(noisy_latents, timesteps, encoder_hidden_states, return_dict=False)[0]  # Predict the noise residual conditioned on the prompt.
 
                 if args.snr_gamma is None:
                     loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
@@ -813,7 +820,7 @@ def main():
                                     shutil.rmtree(removing_checkpoint)
 
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
-                        accelerator.save_state(save_path)
+                        accelerator.save_state(save_path)  # Save optimizer, scheduler, and distributed state for resume.
 
                         unwrapped_unet = unwrap_model(unet)
                         unet_lora_state_dict = convert_state_dict_to_diffusers(
@@ -885,7 +892,7 @@ def main():
         unet = unet.to(torch.float32)
 
         unwrapped_unet = unwrap_model(unet)
-        unet_lora_state_dict = convert_state_dict_to_diffusers(get_peft_model_state_dict(unwrapped_unet))
+        unet_lora_state_dict = convert_state_dict_to_diffusers(get_peft_model_state_dict(unwrapped_unet))  # Export only the learned LoRA weights.
         StableDiffusionPipeline.save_lora_weights(
             save_directory=args.output_dir,
             unet_lora_layers=unet_lora_state_dict,
@@ -919,7 +926,7 @@ def main():
             pipeline = pipeline.to(accelerator.device)
 
             # load attention processors
-            pipeline.load_lora_weights(args.output_dir)
+            pipeline.load_lora_weights(args.output_dir)  # Reload the final LoRA weights for end-of-run qualitative checks.
 
             # run inference
             generator = torch.Generator(device=accelerator.device)

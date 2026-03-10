@@ -44,7 +44,9 @@ __version__ = '1.4.0'
 
 
 class GPU:
+    """Container for one GPU status snapshot returned by nvidia-smi."""
     def __init__(self, ID, uuid, load, memoryTotal, memoryUsed, memoryFree, driver, gpu_name, serial, display_mode, display_active, temp_gpu):
+        """Store one row of GPU telemetry parsed from nvidia-smi."""
         self.id = ID
         self.uuid = uuid
         self.load = load
@@ -60,6 +62,7 @@ class GPU:
         self.temperature = temp_gpu
 
 def safeFloatCast(strNumber):
+    """Convert a string into float and fall back to NaN on parsing failures."""
     try:
         number = float(strNumber)
     except ValueError:
@@ -67,6 +70,7 @@ def safeFloatCast(strNumber):
     return number
 
 def getGPUs():
+    """Query nvidia-smi and parse the current status of every visible GPU."""
     if platform.system() == "Windows":
         # If the platform is Windows and nvidia-smi 
         # could not be found from the environment path, 
@@ -138,6 +142,7 @@ def getAvailable(order = 'first', limit=1, maxLoad=0.5, maxMemory=0.5, memoryFre
     #     Limit sets the upper limit for the number of GPUs to return. E.g. if limit = 2, but only one is available, only one is returned.
 
     # Get device IDs, load and memory usage
+    """Return GPU IDs that satisfy the requested load and memory constraints."""
     GPUs = getGPUs()
 
     # Determine, which GPUs are available
@@ -175,6 +180,7 @@ def getAvailable(order = 'first', limit=1, maxLoad=0.5, maxMemory=0.5, memoryFre
 
 def getAvailability(GPUs, maxLoad=0.5, maxMemory=0.5, memoryFree=0, includeNan=False, excludeID=[], excludeUUID=[]):
     # Determine, which GPUs are available
+    """Compute a binary availability mask for a list of GPU snapshots."""
     GPUavailability = [1 if (gpu.memoryFree>=memoryFree) and (gpu.load < maxLoad or (includeNan and math.isnan(gpu.load))) and (gpu.memoryUtil < maxMemory  or (includeNan and math.isnan(gpu.memoryUtil))) and ((gpu.id not in excludeID) and (gpu.uuid not in excludeUUID)) else 0 for gpu in GPUs]
     return GPUavailability
 
@@ -186,6 +192,7 @@ def getFirstAvailable(order = 'first', maxLoad=0.5, maxMemory=0.5, attempts=1, i
     #        firstAvailableGPU = GPUs[i].id
     #        break
     #return firstAvailableGPU
+    """Poll until at least one GPU satisfies the requested availability constraints."""
     for i in range(attempts):
         if (verbose):
             print('Attempting (' + str(i+1) + '/' + str(attempts) + ') to locate available GPU.')
@@ -208,6 +215,7 @@ def getFirstAvailable(order = 'first', maxLoad=0.5, maxMemory=0.5, attempts=1, i
 
 
 def showUtilization(all=False, attrList=None, useOldCode=False):
+    """Print a formatted summary of the current GPU utilization metrics."""
     GPUs = getGPUs()
     if (all):
         if (useOldCode):

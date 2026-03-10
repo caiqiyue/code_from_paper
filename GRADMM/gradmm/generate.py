@@ -332,6 +332,7 @@ def generation(
     elif args.lr_decay_type == "LambdaLR":
 
         def lr_lambda(current_step: int):
+            """Linearly decay the learning rate to zero across the configured optimization horizon."""
             return max(
                 0.0,
                 float(args.lr_max_it - current_step) / float(max(1, args.lr_max_it)),
@@ -425,6 +426,7 @@ def generation(
             z_embeds.data[:] = lm_embeddings(z_ids.unsqueeze(0)).detach().clone()
 
             def closure():
+                """Compute the current optimization objective and backpropagate through the synthetic embeddings."""
                 opt.zero_grad()
                 rec_loss = get_reconstruction_loss(
                     model,
@@ -557,6 +559,7 @@ def generation(
             )
         else:
             def closure():
+                """Compute the current optimization objective and backpropagate through the synthetic embeddings."""
                 opt.zero_grad()
                 rec_loss = get_reconstruction_loss(
                     model,
@@ -1237,9 +1240,10 @@ def compute_average_grads(args, model, tokenizer, sequences, labels):
 
 
 def main():
+    """Run the full GRADMM generation pipeline and write synthetic samples plus summary artifacts."""
     summary_metrics = {}
     args = get_args()
-    args.work_dir = os.path.join(args.work_base_dir, get_args_flags(args))
+    args.work_dir = os.path.join(args.work_base_dir, get_args_flags(args))  # Derive a unique output directory from the current hyper-parameter setting.
     if os.path.exists(args.work_dir):
         print("Work directory already exists: ", args.work_dir)
         if args.overwrite:
@@ -1268,7 +1272,7 @@ def main():
                     os.path.join(args.work_dir, "synthetic_data.jsonl")
                 )
                 # args.n_gen = args.n_gen - num_samples // 2
-                args.skip_first_samples += num_samples // (2 * args.gen_bs)
+                args.skip_first_samples += num_samples // (2 * args.gen_bs)  # Resume from the last completed positive/negative generation pair.
                 print("Remaining n_gen: ", args.n_gen - args.skip_first_samples)
                 with open(
                     os.path.join(args.work_dir, "summary_metrics.pkl"), "rb"
@@ -1298,14 +1302,14 @@ def main():
         neg_generations = []
     
     os.makedirs(args.work_dir, exist_ok=True)
-    summary_metrics["args"] = vars(args)
+    summary_metrics["args"] = vars(args)  # Persist the exact CLI configuration for later filtering and fine-tuning.
     print("\n\n\nCommand:", " ".join(sys.argv), "\n\n\n", flush=True)
     print("Full args:", args, "\n\n\n", flush=True)
     wandb.init(
         project="gradmm",
         config=args,
         name=get_args_flags(args),
-    )
+    )  # Track generation metrics under the same tag used for the output folder.
 
     device = torch.device(args.device)
     model, tokenizer = None, None
@@ -1336,7 +1340,7 @@ def main():
     print("\n\ngenerating..\n", flush=True)
 
     # prepare inputs
-    samples_dict = get_gen_samples(args)
+    samples_dict = get_gen_samples(args)  # Draw the real reference examples whose gradients will be matched.
     pos_sequences = samples_dict["pos_sequences"]
     neg_sequences = samples_dict["neg_sequences"]
     pos_labels = samples_dict["pos_labels"]
@@ -1348,7 +1352,7 @@ def main():
 
     with open(
         os.path.join(args.work_dir, "real_train_data.jsonl"), "w"
-    ) as f:
+    ) as f:  # Save the exact real examples used to define the target gradients.
         count = 0
         for seq, label in zip(pos_sequences, pos_labels):
             data = {"id": count, "inputs": seq, "label": label.item()}
@@ -1415,10 +1419,10 @@ def main():
     # Create data loaders
     pos_data_loader = BatchDatasetLoader(
         pos_sequences, pos_labels, args.batch_size
-    )
+    )  # Cycle positive reference samples across generation rounds.
     neg_data_loader = BatchDatasetLoader(
         neg_sequences, neg_labels, args.batch_size
-    )
+    )  # Cycle negative reference samples across generation rounds.
 
     pos_previous_grad = None
     neg_previous_grad = None
@@ -1442,8 +1446,8 @@ def main():
     for i in range(args.n_gen):
         print(f"Generate input #{i} of {args.n_gen}.")
         # Sample a mini-batch of real data
-        pos_sequences, pos_labels = next(pos_data_loader)
-        neg_sequences, neg_labels = next(neg_data_loader)
+        pos_sequences, pos_labels = next(pos_data_loader)  # Sample the real positive batch to approximate with synthetic texts.
+        neg_sequences, neg_labels = next(neg_data_loader)  # Sample the real negative batch to approximate with synthetic texts.
         # Calculate average gradients & embeddings
         if pos_true_grads is None or args.batch_size < summary_metrics["pos_num_samples"]:
             print("Calculating average gradients for positive samples.")
@@ -1455,7 +1459,7 @@ def main():
                 pos_closest_index,
             ) = compute_average_grads(
                 args, model, tokenizer, pos_sequences, pos_labels
-            )
+            )  # Average the real gradients so the optimizer has a single target direction.
         else:
             pos_true_embeds, pos_prompt_lengths = compute_list_embeds(
                 args, model, tokenizer, pos_sequences, pos_labels
@@ -1470,7 +1474,7 @@ def main():
                 neg_closest_index,
             ) = compute_average_grads(
                 args, model, tokenizer, neg_sequences, neg_labels
-            )
+            )  # Average the real gradients so the optimizer has a single target direction.
         else:
             neg_true_embeds, neg_prompt_lengths = compute_list_embeds(
                 args, model, tokenizer, neg_sequences, neg_labels
@@ -1537,7 +1541,7 @@ def main():
             unique_prefixes,
             only_init=True if i < args.skip_first_samples else False,
             previous_grad=pos_previous_grad,
-        )
+        )  # Optimize positive synthetic samples in embedding space and decode them back to text.
         # Negative generation
         print("Negative average sequence length", np.mean(neg_prompt_lengths))
         if args.use_auto_gen_tokens:
@@ -1560,7 +1564,7 @@ def main():
             unique_prefixes,
             only_init=True if i < args.skip_first_samples else False,
             previous_grad=neg_previous_grad,
-        )
+        )  # Optimize negative synthetic samples in embedding space and decode them back to text.
         if i < args.skip_first_samples:
             continue
         # Update previous gradients if not independent generations

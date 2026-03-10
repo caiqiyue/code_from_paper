@@ -20,14 +20,17 @@ __MULTIMODAL_ENGINES__ = ["gpt-4-turbo",
                           ]
 
 def _check_if_multimodal(engine_name: str):
+    """Return whether the engine name corresponds to a multimodal backend."""
     return any([name == engine_name for name in __MULTIMODAL_ENGINES__])
 
 def validate_multimodal_engine(engine):
+    """Raise an error when a non-multimodal engine is used for multimodal data."""
     if not _check_if_multimodal(engine.model_string):
         raise ValueError(
             f"The engine provided is not multimodal. Please provide a multimodal engine, one of the following: {__MULTIMODAL_ENGINES__}")
 
 def get_engine(engine_name: str, **kwargs) -> EngineLM:
+    """Instantiate the engine adapter that matches the requested engine name."""
     if engine_name in __ENGINE_NAME_SHORTCUTS__:
         engine_name = __ENGINE_NAME_SHORTCUTS__[engine_name]
 

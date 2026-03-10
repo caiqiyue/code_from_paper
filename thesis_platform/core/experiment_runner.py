@@ -17,15 +17,21 @@ from thesis_platform.models.embedding import build_embedder
 
 
 class ExperimentRunner:
+    """Top-level experiment orchestrator for one resolved experiment config."""
+
     def __init__(self, config: ExperimentConfig):
+        """Prepare stable paths, logging, and output directories for one run."""
+
         self.config = config
         self.logger = get_logger()
         self.repo_root = config.repo_root()
-        self.output_root = ensure_dir(config.output_root())
+        self.output_root = ensure_dir(config.output_root())  # Ensure the shared output root exists early.
         self.experiment_id = str(config.meta.get("experiment_id", config.path.stem))
         self.experiment_dir = ensure_dir(self.output_root / self.experiment_id)
 
     def _load_public_seed_samples(self) -> list[Any]:
+        """Load the public seed pool used by the server-side generator."""
+
         public_seed_path = self.config.resolve_path(self.config.data.get("public_seed_path"))
         if public_seed_path is None:
             return []
@@ -40,6 +46,8 @@ class ExperimentRunner:
         )
 
     def _load_client_contexts(self) -> list[ClientContext]:
+        """Load the dataset and partition it into per-client runtime contexts."""
+
         train_path = self.config.resolve_path(self.config.data.get("train_path"))
         if train_path is None:
             raise ValueError("data.train_path must be configured.")
@@ -52,7 +60,7 @@ class ExperimentRunner:
             client_id="raw",
             prefix="real",
         )
-        partitions = partition_samples(
+        partitions = partition_samples(  # Split one dataset into stable per-client buckets.
             all_samples,
             num_clients=int(self.config.data.get("num_clients", 3)),
             max_samples_per_client=int(self.config.data.get("max_samples_per_client", 16)),
@@ -60,7 +68,7 @@ class ExperimentRunner:
             seed=int(self.config.meta.get("seed", 42)),
         )
         retriever_cfg = self.config.retriever
-        embedder = build_embedder(retriever_cfg.get("embedding_model"), self.repo_root)
+        embedder = build_embedder(retriever_cfg.get("embedding_model"), self.repo_root)  # Share one embedder across clients.
         contexts: list[ClientContext] = []
         for idx, bucket in enumerate(partitions):
             client_id = f"client_{idx}"
@@ -77,6 +85,8 @@ class ExperimentRunner:
         return contexts
 
     def run(self) -> dict[str, Any]:
+        """Run the configured experiment end to end and return the summary payload."""
+
         from thesis_platform import adapters  # noqa: F401
 
         public_seed_samples = self._load_public_seed_samples()
@@ -86,7 +96,7 @@ class ExperimentRunner:
         scorer = create("scorer", str(self.config.scorer.get("name")), self.config.scorer, self.repo_root)
         retriever = create("retriever", str(self.config.retriever.get("name", "knn")), self.config.retriever, self.repo_root)
         critic = create("critic", str(self.config.critic.get("name", "none")), self.config.critic, self.repo_root)
-        aggregator = create("aggregator", str(self.config.aggregator.get("name", "none")), self.config.aggregator, self.repo_root)
+        aggregator = create("aggregator", str(self.config.aggregator.get("name", "none")), self.config.aggregator, self.repo_root)  # Build adapters from the registry.
         round_runner = RoundRunner(
             generator=generator,
             scorer=scorer,
@@ -113,7 +123,7 @@ class ExperimentRunner:
         all_round_metrics: list[dict[str, Any]] = []
         for round_id in range(rounds):
             round_dir = ensure_dir(self.experiment_dir / f"round_{round_id:03d}")
-            artifacts = round_runner.run_round(
+            artifacts = round_runner.run_round(  # Execute one full generator-to-aggregator loop.
                 round_id=round_id,
                 server_ctx=server_ctx,
                 client_contexts=client_contexts,
@@ -121,7 +131,7 @@ class ExperimentRunner:
                 federation_cfg=self.config.federation,
                 output_dir=round_dir,
             )
-            server_ctx.prompt_text = artifacts.updated_prompt
+            server_ctx.prompt_text = artifacts.updated_prompt  # Feed the updated prompt into the next round.
             server_ctx.prompt_history.append(server_ctx.prompt_text)
             all_round_metrics.append({"round_id": round_id, **artifacts.round_metrics})
 

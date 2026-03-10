@@ -1,3 +1,5 @@
+"""Generate local HuggingFace datasets for sentence and math reasoning tasks."""
+
 import numpy as np
 import pandas as pd
 from datasets import Dataset
@@ -17,9 +19,11 @@ transformation_names = ['1. Reverse Order of Words',
  '10. Repeat Each Word Twice']
 
 def reverse_order_of_words(s: str) -> str:
+    """Reverse the order of words in a sentence."""
     return " ".join(s.split()[::-1])
 
 def capitalize_every_other_letter(s: str) -> str:
+    """Alternate lowercase/uppercase characters across the full string."""
     result = ""
     for i, char in enumerate(s):
         if i % 2 == 0:
@@ -29,31 +33,39 @@ def capitalize_every_other_letter(s: str) -> str:
     return result
 
 def insert_number_1_between_every_word(s: str) -> str:
+    """Insert the token '1' between every adjacent pair of words."""
     return " 1 ".join(s.split())
 
 def replace_vowels_with_star(s: str) -> str:
+    """Replace every vowel with an asterisk."""
     vowels = "aeiouAEIOU"
     return "".join(["*" if char in vowels else char for char in s])
 
 def double_every_consonant(s: str) -> str:
+    """Duplicate every consonant while leaving vowels and punctuation unchanged."""
     consonants = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ"
     return "".join([char * 2 if char in consonants else char for char in s])
 
 def capitalize_every_word(s: str) -> str:
+    """Title-case every whitespace-delimited word."""
     return " ".join([word.capitalize() for word in s.split()])
 
 def remove_all_vowels(s: str) -> str:
+    """Drop all vowels from the input string."""
     vowels = "aeiouAEIOU"
     return "".join([char for char in s if char not in vowels])
 
 def add_ly_to_end_of_each_word(s: str) -> str:
+    """Append 'ly' to each word in the sentence."""
     return " ".join([word + "ly" for word in s.split()])
 
 def remove_all_consonants(s: str) -> str:
+    """Drop all consonants while keeping vowels, digits, and punctuation."""
     consonants = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ"
     return "".join([char for char in s if char not in consonants])
 
 def repeat_each_word_twice(s: str) -> str:
+    """Repeat every word twice in-place."""
     return " ".join([word + " " + word for word in s.split()])
 
 transformations = {
@@ -191,12 +203,14 @@ PATTERNS = [
 
 
 def adjust_pattern(pattern, desired_length):
+    """Pad or trim a V/C pattern to match the requested synthetic word length."""
     while len(pattern) < desired_length:
         pattern += random.choice(["V", "C"])
     return pattern[:desired_length]
 
 
 def generate_word():
+    """Generate a pseudo-word following a vowel/consonant pattern."""
     desired_length = np.random.randint(4, 10)
     pattern = random.choice(PATTERNS)
     pattern = adjust_pattern(pattern, desired_length)
@@ -213,33 +227,43 @@ def generate_word():
 import re
 
 def count_a(s):
+    """Count how many times the letter 'a' appears, case-insensitively."""
     return s.lower().count('a')
 
 def count_words(s):
+    """Count whitespace-delimited words."""
     return len(s.split())
 
 def count_uppercase(s):
+    """Count uppercase alphabetic characters."""
     return sum(1 for c in s if c.isupper())
 
 def count_vowels(s):
+    """Count vowels, case-insensitively."""
     return sum(1 for c in s.lower() if c in 'aeiou')
 
 def count_consonants(s):
+    """Count consonants, case-insensitively."""
     return sum(1 for c in s.lower() if c in 'bcdfghjklmnpqrstvwxyz')
 
 def count_numbers(s):
+    """Count numeric characters."""
     return sum(c.isdigit() for c in s)
 
 def count_characters_without_spaces(s):
+    """Count all characters except spaces."""
     return len(s.replace(" ", ""))
 
 def count_words_end_vowel(s):
+    """Count words whose final character is a vowel."""
     return sum(1 for word in s.split() if word[-1].lower() in 'aeiou')
 
 def count_non_alphanumeric(s):
+    """Count punctuation and other non-alphanumeric, non-space characters."""
     return sum(1 for c in s if not c.isalnum() and not c.isspace())
 
 def count_words_longer_than_4(s):
+    """Count words whose length is strictly greater than four."""
     return sum(1 for word in s.split() if len(word) > 4)
 
 count_tasks = {
@@ -429,6 +453,7 @@ math_problems["simple_interest"]["reason"] = "Interest = ({A} * {B} * {C}) // 10
 
 
 def generate_grammar_datasets():
+    """Build and save the sentence-transformation train/test datasets."""
     print('Generate datasets for SENTENCE TRANSFORMATION PROBLEM')
     train_df = []
     test_df = []
@@ -441,30 +466,31 @@ def generate_grammar_datasets():
         title = transformation_names[title_num - 1].split(". ")[1]
         for idx, phrase in enumerate(phrases):
             # break
-            transformed_phrase = v(phrase)
+            transformed_phrase = v(phrase)  # Apply one fixed transformation to the seed phrase.
             prompt = f"""{name} is a chatbot that performs a specific transformation on sentences: {title}
     For example:
     {phrase} -> """
-            text = prompt + f""" {transformed_phrase}</s>"""
+            text = prompt + f""" {transformed_phrase}</s>"""  # Pack prompt plus target text for causal-LM fine-tuning.
             answer = transformed_phrase
             if idx < len(phrases) - 10:
-                train_df.append([prompt, text, answer, title])
+                train_df.append([prompt, text, answer, title])  # Reserve most samples for training.
             else:
-                test_df.append([prompt, text, answer, title])
+                test_df.append([prompt, text, answer, title])  # Hold out the last 10 phrases per transformation.
     train_df = pd.DataFrame(train_df, columns=["prompt", "text", "answer", "variation"])
     test_df = pd.DataFrame(test_df, columns=["prompt", "text", "answer", "variation"])
     train_dataset = Dataset.from_pandas(train_df)
-    train_dataset.save_to_disk("datasets/grammars_train.hf")
+    train_dataset.save_to_disk("datasets/grammars_train.hf")  # Persist as a local HuggingFace dataset directory.
     print('First five samples in the training dataset')
     print(train_df.head(5))
     test_dataset = Dataset.from_pandas(test_df)
-    test_dataset.save_to_disk("datasets/grammars_test.hf")
+    test_dataset.save_to_disk("datasets/grammars_test.hf")  # Persist the held-out evaluation split.
     print('First five samples in the test dataset')
     print(test_df.head(5))
     print('Done!')
 
     
 def generate_math_datasets(with_reason=True):
+    """Build and save the math word-problem datasets, optionally with reasoning traces."""
     print('Generate datasets for MATH PROBLEM')
     train_df = []
     test_df = []
@@ -472,12 +498,12 @@ def generate_math_datasets(with_reason=True):
         solution_func = v["solution"]
         for idx in range(100):
             A, B, C, D = np.random.randint(1, 100, size=4)
-            reason = v["reason"].format(**{"A": A, "B": B, "C": C, "D": D})
-            problem = v["problem"].format(**{"A": A, "B": B, "C": C, "D": D})
+            reason = v["reason"].format(**{"A": A, "B": B, "C": C, "D": D})  # Instantiate the reasoning template with sampled numbers.
+            problem = v["problem"].format(**{"A": A, "B": B, "C": C, "D": D})  # Instantiate the final word problem text.
             prompt = f"""Solve the following math problem. {problem} -> """
             answer = solution_func(A, B, C, D)
             if with_reason == True:
-                text = prompt + f"""Reason: {reason} Answer: {answer}</s>"""
+                text = prompt + f"""Reason: {reason} Answer: {answer}</s>"""  # Include the chain-of-thought style rationale in the target.
                 column_list=["prompt", "text", "answer", "reason", "variation"]
                 dataset_name = 'math_with_reason'
                 if idx < 90:
@@ -485,7 +511,7 @@ def generate_math_datasets(with_reason=True):
                 else:
                     test_df.append([prompt, text, answer, reason, title])
             else:
-                text = prompt + f"""Answer: {answer}</s>"""
+                text = prompt + f"""Answer: {answer}</s>"""  # Supervise only the final answer without reasoning text.
                 column_list=["prompt", "text", "answer", "variation"]
                 dataset_name = 'math_without_reason'
                 if idx < 90:
@@ -497,12 +523,12 @@ def generate_math_datasets(with_reason=True):
     test_df = pd.DataFrame(test_df, columns=column_list)
 
     train_dataset = Dataset.from_pandas(train_df)
-    train_dataset.save_to_disk(f"datasets/{dataset_name}_train.hf")
+    train_dataset.save_to_disk(f"datasets/{dataset_name}_train.hf")  # Persist the training split for later SFT runs.
     print('First five samples in the train dataset')
     print(train_df.head(5))
 
     test_dataset = Dataset.from_pandas(test_df)
-    test_dataset.save_to_disk(f"datasets/{dataset_name}_test.hf")
+    test_dataset.save_to_disk(f"datasets/{dataset_name}_test.hf")  # Persist the evaluation split for influence analysis.
     print('First five samples in the test dataset')
     print(test_df.head(5))
     print('Done!')

@@ -14,6 +14,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class ChatVLLM(EngineLM, CachedEngine):
     # Default system prompt for VLLM models
+    """Direct vLLM adapter for locally hosted Hugging Face chat models."""
     DEFAULT_SYSTEM_PROMPT = ""
 
     def __init__(
@@ -21,6 +22,7 @@ class ChatVLLM(EngineLM, CachedEngine):
         model_string="meta-llama/Meta-Llama-3-8B-Instruct",
         system_prompt=DEFAULT_SYSTEM_PROMPT,
     ):
+        """Initialize the ChatVLLM instance."""
         root = platformdirs.user_cache_dir("textgrad")
         # root = "/home/chenmh/.ollama/models/manifests/registry.ollama.ai/library/"
         cache_path = os.path.join(root, f"{model_string}")
@@ -59,6 +61,7 @@ class ChatVLLM(EngineLM, CachedEngine):
     def generate(
         self, prompt, system_prompt=None, temperature=0, max_tokens=2000, top_p=0.99
     ):
+        """Generate a response with the configured model backend."""
         sys_prompt_arg = system_prompt if system_prompt else self.system_prompt
         cache_or_none = self._check_cache(sys_prompt_arg + prompt)
         if cache_or_none is not None:
@@ -84,4 +87,5 @@ class ChatVLLM(EngineLM, CachedEngine):
         return response
 
     def __call__(self, prompt, **kwargs):
+        """Invoke the backend and return the generated response."""
         return self.generate(prompt, **kwargs)

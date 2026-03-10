@@ -17,6 +17,7 @@ from .base import Dataset
 import re
 
 def amps_hard_process_results(prediction: tg.Variable, ground_truth_answer: tg.Variable) -> int:
+    """Score an AMPS-Hard prediction against the reference answer."""
     prediction = prediction.value
     ground_truth_answer = ground_truth_answer.value
 
@@ -40,6 +41,7 @@ def amps_hard_process_results(prediction: tg.Variable, ground_truth_answer: tg.V
     return retval
 
 def last_boxed_only_string(string: str) -> Optional[str]:
+    """Extract the final LaTeX boxed expression from a generation."""
     idx = string.rfind("\\boxed")
     if "\\boxed " in string:
         return "\\boxed " + string.split("\\boxed ")[-1].split("$")[0]
@@ -145,6 +147,7 @@ def normalize_final_answer(final_answer: str) -> str:
 
 
 def remove_boxed(s: str) -> str:
+    """Remove a surrounding LaTeX boxed wrapper from an answer."""
     if "\\boxed " in s:
         left = "\\boxed "
         assert s[: len(left)] == left
@@ -158,6 +161,7 @@ def remove_boxed(s: str) -> str:
     return s[len(left) : -1]
 
 def mathcontest_process_results(prediction: tg.Variable, ground_truth_answer: tg.Variable, question_text: str) -> int:
+    """Score a math competition prediction against the reference answer."""
     prediction = prediction.value
     ground_truth_answer = ground_truth_answer.value
 
@@ -206,6 +210,7 @@ def mathcontest_process_results(prediction: tg.Variable, ground_truth_answer: tg
 
 def extract_answer(statement, letter):
 
+    """Extract the final answer span from a model generation."""
     pattern = r'\\textbf{\(([A-E])\)\s?}(.*?)(?:\\qquad|\$)'
     matches = re.findall(pattern, statement)
     answers = {match[0]: match[1].strip() for match in matches}
@@ -223,6 +228,7 @@ def extract_answer(statement, letter):
 
 
 def last_boxed_only_string(string: str) -> Optional[str]:
+    """Extract the final LaTeX boxed expression from a generation."""
     idx = string.rfind("\\boxed")
     if "\\boxed " in string:
         return "\\boxed " + string.split("\\boxed ")[-1].split("$")[0]
@@ -253,6 +259,7 @@ def last_boxed_only_string(string: str) -> Optional[str]:
 
 
 def remove_boxed(s: str) -> str:
+    """Remove a surrounding LaTeX boxed wrapper from an answer."""
     if "\\boxed " in s:
         left = "\\boxed "
         assert s[: len(left)] == left
@@ -266,6 +273,7 @@ def remove_boxed(s: str) -> str:
     return s[len(left) : -1]
 
 def match_expression_completions_to_ground_truth(completions, ground_truth):
+    """Match normalized math expressions against the ground truth answer."""
     num_matches = 0
     for i in range(len(ground_truth)):
         if i not in completions:
@@ -280,6 +288,7 @@ def match_expression_completions_to_ground_truth(completions, ground_truth):
     return num_matches/len(ground_truth)
 
 def remove_nonnumeric_chars_at_ends(s):
+    """Trim non-numeric characters from the edges of an extracted answer."""
     start_index = 0
     while start_index < len(s) and not s[start_index].isdigit():
         start_index += 1
@@ -291,6 +300,7 @@ def remove_nonnumeric_chars_at_ends(s):
 
 def extract_expression_completions_from_generation(generation):
     # generation has Answer: comma separated list of numbers. I want to extract the last such comma separated list
+    """Extract candidate mathematical expressions from a generated solution."""
     split_string = "Answer"
     numbers = [k.strip() for k in generation.split(split_string)[-1].split(',')]
 
@@ -307,6 +317,7 @@ def extract_expression_completions_from_generation(generation):
     return numbers
 
 def proof_rearrangement_process_results(prediction: tg.Variable, ground_truth_answer: tg.Variable, edit_distance=False) -> int:
+    """Score an olympiad-style proof rearrangement answer."""
     prediction = prediction.value
     ground_truth_answer = ground_truth_answer.value
     
@@ -325,6 +336,7 @@ def proof_rearrangement_process_results(prediction: tg.Variable, ground_truth_an
     return frac_matches
 
 class LiveBenchMath(Dataset):
+    """Dataset wrapper for the LiveBenchMath benchmark or task split."""
     def __init__(self, root: str=None, split: str="train", task: str=None, train_ratio=0.8, val_split_ratio=0.2, *args, **kwargs):
         """
         LiveBench dataset with math from HF."""
@@ -361,6 +373,7 @@ class LiveBenchMath(Dataset):
         self._task_description = "You will answer a mathematics reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value."
             
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         question = row["turns"]
         answer = row["ground_truth"]
@@ -368,10 +381,13 @@ class LiveBenchMath(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return "You will answer a mathematics reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value."
 
     def get_default_task_instruction(self):
+        """Return the default instruction prompt for solving this task."""
         return "You will answer a mathematics reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value."

@@ -6,6 +6,8 @@ from thesis_platform.core.schemas import ScoredSample
 
 
 def select_top_k(scored_samples: list[ScoredSample], top_k: int) -> list[ScoredSample]:
+    """Select the highest-scoring bad samples independently for each client."""
+
     grouped: dict[str, list[ScoredSample]] = defaultdict(list)
     for sample in scored_samples:
         grouped[sample.client_id].append(sample)

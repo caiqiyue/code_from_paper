@@ -5,12 +5,18 @@ from thesis_platform.core.schemas import ScoredSample
 
 
 class GradMMScorer:
+    """Adapter that exposes the GRADMM-style scorer through the platform interface."""
+
     def __init__(self, config, repo_root):
+        """Store the GRADMM weighting hyper-parameters."""
+
         del repo_root
         self.alpha = float(config.get("alpha", 0.5))
         self.score_direction = str(config.get("score_direction", "larger_is_worse"))
 
     def score(self, samples, client_ctx):
+        """Score synthetic samples against the client's reference sample pool."""
+
         sample_vectors = client_ctx.embedder.embed_texts([sample.text for sample in samples])
         reference_pool = client_ctx.train_samples or client_ctx.all_samples
         reference_vectors = client_ctx.embedder.embed_texts([sample.text for sample in reference_pool]) if reference_pool else sample_vectors

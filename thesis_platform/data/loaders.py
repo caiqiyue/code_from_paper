@@ -8,6 +8,8 @@ from thesis_platform.core.schemas import Sample
 
 
 def _flatten_item(value: Any) -> list[str]:
+    """Flatten nested JSON payload fragments into a plain text list."""
+
     if value is None:
         return []
     if isinstance(value, str):
@@ -26,6 +28,8 @@ def _flatten_item(value: Any) -> list[str]:
 
 
 def _normalize_json_payload(payload: Any) -> list[str]:
+    """Normalize supported JSON dataset shapes into a list of raw texts."""
+
     if isinstance(payload, dict):
         keys = sorted(payload.keys(), key=lambda item: int(item) if str(item).isdigit() else str(item))
         return [" ".join(_flatten_item(payload[key])).strip() for key in keys if _flatten_item(payload[key])]
@@ -40,6 +44,8 @@ def _normalize_json_payload(payload: Any) -> list[str]:
 
 
 def load_texts(path: Path) -> list[str]:
+    """Load text samples from a JSON file or a directory of JSON files."""
+
     if path.is_dir():
         texts: list[str] = []
         for child in sorted(path.glob("*.json")):
@@ -60,6 +66,8 @@ def build_samples(
     client_id: str,
     prefix: str,
 ) -> list[Sample]:
+    """Wrap raw texts into the platform's unified Sample schema."""
+
     return [
         Sample(
             sample_id=f"{prefix}_{idx}",
@@ -84,6 +92,8 @@ def load_samples(
     client_id: str,
     prefix: str,
 ) -> list[Sample]:
+    """Load texts from disk and convert them into Sample objects."""
+
     return build_samples(
         load_texts(path),
         dataset_name=dataset_name,

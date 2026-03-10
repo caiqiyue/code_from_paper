@@ -192,6 +192,7 @@ def load_task(task_name: str, evaluation_api: EngineLM, *args, **kwargs) -> Tupl
 
 
 def load_instance_task(task_name: str, evaluation_api: EngineLM, *args, **kwargs):
+    """Instantiate an instance-level benchmark dataset by task name."""
     if "MMLU_" in task_name:
         subset = task_name[5:]
         test_set = MMLUInstanceDataset(evaluation_api=evaluation_api, subset=subset, split="test", *args, **kwargs)

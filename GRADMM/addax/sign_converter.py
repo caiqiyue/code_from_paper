@@ -14,6 +14,7 @@ import contextlib
 
 @contextlib.contextmanager
 def profile_time_memory(message: str = "", prefix=None):
+    """Measure elapsed time and peak CUDA memory inside a context block."""
     start_time = time.time()
     metrics = {}
     initial_peak_memory = 0
@@ -117,6 +118,7 @@ def decode_sign(packed_signs: torch.Tensor, original_shape: tuple) -> torch.Tens
 
 
 def main():
+    """Run the standalone sign-conversion demo used for manual profiling."""
     torch.cuda.init()
     for device_id in range(torch.cuda.device_count()):
         torch.cuda.reset_peak_memory_stats(device_id)

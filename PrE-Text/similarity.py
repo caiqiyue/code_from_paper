@@ -1,45 +1,32 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+"""Embedding helpers for private texts and synthetic candidates."""
 
 import numpy as np
-import torch
-import os
-from accelerate import Accelerator
-from sentence_transformers import models, SentenceTransformer
-from transformers import RobertaForMaskedLM, RobertaTokenizer
+
 from variation import Variation
 
-class Similarity:
-    @staticmethod
-    def sentence_embedding(texts, embedding_model, device='cuda'):
-        """
-        texts: list of texts
-        config: holds all the various things you need
-        returns: sentence embeddings
-        """
-        sentence_embeddings = embedding_model.encode(
-            texts, device=device
-        )
-        return np.vstack(sentence_embeddings)
 
+class Similarity:
+    """Build the embeddings used by nearest-neighbor quality scoring."""
+
+    @staticmethod
+    def sentence_embedding(texts, embedding_model, device="cuda"):
+        """Encode raw texts into sentence embeddings with the chosen encoder."""
+        sentence_embeddings = embedding_model.encode(texts, device=device)  # Run batched embedding inference.
+        return np.vstack(sentence_embeddings)
 
     @staticmethod
     def concat_embedding(texts, config):
-        mpnet_embeds = Similarity.sentence_embedding(texts, config['mpnet'], device=config['device'])
+        """Compute the sentence-transformer embeddings used by the DP histogram."""
+        mpnet_embeds = Similarity.sentence_embedding(
+            texts,
+            config["mpnet"],
+            device=config["device"],
+        )
         return mpnet_embeds
-
-
 
     @staticmethod
     def lookahead_embedding(parent_set, attention_mask, mlm_probability, config):
-        """
-        texts: list of texts:
-        config: holds the configurations
-        returns: sentence_embeddings
-        """
+        """Average embeddings over several future variations of the same parent set."""
         tokenizer = config["tokenizer"]
         embeddings_list = []
         for _ in range(config["lookahead"]):
@@ -47,15 +34,13 @@ class Similarity:
                 {"input_ids": parent_set, "attention_mask": attention_mask},
                 mlm_probability,
                 config,
-            )['input_ids']
+            )["input_ids"]
             curr_variation_texts = tokenizer.batch_decode(
-                curr_variation, ignore_special_tokens=True
-            )
-            curr_variation_embedding = Similarity.concat_embedding(
-                curr_variation_texts, config
-            )[None, :, :]
+                curr_variation,
+                skip_special_tokens=True,
+            )  # Convert the sampled future candidates back to text before embedding.
+            curr_variation_embedding = Similarity.concat_embedding(curr_variation_texts, config)[None, :, :]
             embeddings_list.append(curr_variation_embedding)
-        embeddings_cat = np.concatenate(embeddings_list, axis=0)
-        embeddings_mean = np.mean(embeddings_cat, axis=0)
+        embeddings_cat = np.concatenate(embeddings_list, axis=0)  # Stack lookahead samples along the Monte Carlo axis.
+        embeddings_mean = np.mean(embeddings_cat, axis=0)  # Average future embeddings to reduce score variance.
         return embeddings_mean
-

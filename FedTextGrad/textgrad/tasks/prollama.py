@@ -9,6 +9,7 @@ from .base import Dataset
 import re
 
 def eval_string_based(response_text, correct_answer):
+    """Compute correctness for ProLLaMA answers using string matching."""
     ANSWER_PATTERN_MULTICHOICE = r"(?i)Answer\s*:\s*([A-D])"
     
     match = re.search(ANSWER_PATTERN_MULTICHOICE, response_text)
@@ -18,6 +19,7 @@ def eval_string_based(response_text, correct_answer):
 
 
 class ProLLaMA(Dataset):
+    """Dataset wrapper for the ProLLaMA benchmark or task split."""
     def __init__(self, root: str=None, split: str="train", val_split_ratio=0.2, *args, **kwargs):
         """
         MMLU dataset from HF."""
@@ -46,6 +48,7 @@ class ProLLaMA(Dataset):
         self._task_description = 'You will classify the a given amino acid sequence to a superfamily. Think step by step.'
             
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data.iloc[index]
         question = row["instruction"] + row["input"]
         answer = row["output"]
@@ -53,10 +56,13 @@ class ProLLaMA(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return "Given a amino acid sequence. Your goal is to determine its superfamily."
 
     def get_default_task_instruction(self):
+        """Return the default instruction prompt for solving this task."""
         return "Given a amino acid sequence. Your goal is to determine its superfamily."

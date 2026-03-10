@@ -5,12 +5,14 @@ import platformdirs
 from urllib.parse import urlparse
 
 def is_valid_url(url):
+    """Return whether the provided string is a valid HTTP or HTTPS URL."""
     result = urlparse(url)
     return all([result.scheme, result.netloc])
 
 
 def download_and_cache_image(image_url: str) -> str:
     # Set up cache directory
+    """Download an image once and reuse the cached copy on later calls."""
     assert is_valid_url(image_url), "Invalid URL"
     root = platformdirs.user_cache_dir("textgrad")
     image_cache_dir = os.path.join(root, "image_cache")

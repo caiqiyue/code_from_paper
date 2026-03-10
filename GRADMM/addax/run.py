@@ -38,6 +38,7 @@ logger.setLevel(logging.INFO)
 @dataclass
 class OurArguments(TrainingArguments):
     # dataset and sampling strategy
+    """Extend HuggingFace TrainingArguments with task, prompt-tuning, and synthetic-data options."""
     task_name: (
         str
     ) = (  # task name should match the string before Dataset in the Dataset
@@ -181,6 +182,7 @@ class OurArguments(TrainingArguments):
 
 
 def parse_args():
+    """Parse command-line arguments into the custom TrainingArguments dataclass."""
     parser = HfArgumentParser(OurArguments)
     args = parser.parse_args_into_dataclasses()[0]
     print(args)
@@ -188,6 +190,7 @@ def parse_args():
 
 
 def set_seed(seed: int):
+    """Seed Python, NumPy, and PyTorch for reproducible fine-tuning."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -205,6 +208,7 @@ class Framework:
     """
 
     def __init__(self, args, task):
+        """Bind experiment arguments to a task adapter and load the requested model stack."""
         self.args = args
         self.task = task
         self.model, self.tokenizer = self.load_model()
@@ -539,13 +543,17 @@ class Framework:
 
         class HFDataset(Dataset):
 
+            """Wrap pre-tokenized training examples in the minimal Dataset interface expected by Trainer."""
             def __init__(self, data):
+                """Store the pre-tokenized examples that will be served to the trainer."""
                 self.data = data
 
             def __len__(self):
+                """Return how many pre-tokenized examples are available."""
                 return len(self.data)
 
             def __getitem__(self, idx):
+                """Return one pre-tokenized example by index."""
                 return self.data[idx]
 
         def _convert(samples):
@@ -647,6 +655,7 @@ class Framework:
             self.args.alpha_dict = {}
 
             def optimizer_hook(parameter) -> None:
+                """Apply the per-parameter SGD update immediately after gradients are accumulated."""
                 optimizer_dict[parameter].step()
                 optimizer_dict[parameter].zero_grad()
 
@@ -747,21 +756,22 @@ def result_file_tag(args):
 
 
 def main():
+    """Load the task, build train/eval splits, and launch fine-tuning or ICL evaluation."""
     args = parse_args()
     # args.report_to = list()
 
     os.makedirs(args.output_dir, exist_ok=True)
-    addax_exp_root_path = os.environ.get("ADDAX_EXP_ROOT_PATH", "result")
+    addax_exp_root_path = os.environ.get("ADDAX_EXP_ROOT_PATH", "result")  # Root directory for logs, metrics, and optional checkpoints.
     os.makedirs(addax_exp_root_path, exist_ok=True)
 
     set_seed(args.seed)
     if "Syn" in args.task_name:
-        task = get_syn_task(args.task_name, data_path=args.syn_data_path)
+        task = get_syn_task(args.task_name, data_path=args.syn_data_path)  # Synthetic adapters replace the training split but keep real validation data.
         # Use all syn data for training
         print(f"Update num_train from {args.num_train} to {task.num_train}")
         args.num_train = task.num_train
     else:
-        task = get_task(args.task_name)
+        task = get_task(args.task_name)  # Real-data adapters load both train and validation splits from the source dataset.
 
     # Also add a logging file handler
     # Move it after changing some hyper-parameters above
@@ -783,17 +793,17 @@ def main():
         num_eval_to_keep=args.num_eval_to_keep,
         seed=args.seed,
         mix_train_val=args.mix_train_val,
-        kept_eval_as_train=args.kept_eval_as_train)
+        kept_eval_as_train=args.kept_eval_as_train)  # Re-split validation data into dev/eval roles according to the experiment setting.
     train_sets = task.sample_train_sets(
         num_train=args.num_train,
         num_dev=args.num_dev,
         num_eval=args.num_eval,
         num_train_sets=args.num_train_sets,
         seed=args.train_set_seed,
-    )
+    )  # Materialize the train/demo subsets that this run will iterate over.
 
     # Initialize trainer and load model
-    framework = Framework(args, task)
+    framework = Framework(args, task)  # Load the LM, tokenizer, and tuning wrappers once for this experiment.
     metrics = {}
 
     if args.train_set_seed is not None or args.num_train_sets is not None:
@@ -824,12 +834,12 @@ def main():
                     train_samples,
                     dev_samples if dev_samples is not None else eval_samples,
                     eval_samples,
-                )
+                )  # Fine-tune on the sampled split or on the provided synthetic corpus.
 
                 if not args.no_eval:
                     metrics = framework.evaluate(
                         [], eval_samples
-                    )  # No in-context learning if there is training
+                    )  # After training, evaluate without demonstrations so metrics reflect the fine-tuned model itself.
                     if dev_samples is not None:
                         dev_metrics = framework.evaluate([], dev_samples)
                         for m in dev_metrics:
@@ -837,7 +847,7 @@ def main():
             else:
                 assert args.num_dev is None
                 # Zero-shot / in-context learning
-                metrics = framework.evaluate(train_samples, eval_samples)
+                metrics = framework.evaluate(train_samples, eval_samples)  # Zero-shot/ICL uses sampled demonstrations instead of parameter updates.
 
             if not args.no_eval:
                 logger.info("===== Train set %d =====", train_set_seed)

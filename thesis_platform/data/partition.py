@@ -13,6 +13,8 @@ def partition_samples(
     validation_ratio: float,
     seed: int,
 ) -> list[dict[str, list[Sample]]]:
+    """Split samples into per-client train/validation buckets for MVP experiments."""
+
     if num_clients <= 0:
         raise ValueError("num_clients must be positive.")
     rng = random.Random(seed)
@@ -33,6 +35,6 @@ def partition_samples(
         validation = bucket[:val_count]
         train = bucket[val_count:]
         for sample in bucket:
-            sample.client_id = f"client_{idx}"  # type: ignore[misc]
+            sample.client_id = f"client_{idx}"  # type: ignore[misc]  # Stamp the bucket owner onto the sample.
         partitions.append({"train": train, "validation": validation, "all": bucket})
     return partitions

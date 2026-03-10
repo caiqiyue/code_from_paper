@@ -11,6 +11,7 @@ from .base import Dataset
 import re
 
 def eval_string_based(response_text, correct_answer):
+    """Compute correctness for LiveBench answers using string matching."""
     ANSWER_PATTERN_MULTICHOICE = r"(?i)Answer\s*:\s*([A-D])"
     
     match = re.search(ANSWER_PATTERN_MULTICHOICE, response_text)
@@ -20,6 +21,7 @@ def eval_string_based(response_text, correct_answer):
 
 
 class LiveBenchMath(Dataset):
+    """Dataset wrapper for the LiveBenchMath benchmark or task split."""
     def __init__(self, root: str=None, split: str="train", train_ratio=0.8, val_split_ratio=0.2, *args, **kwargs):
         """
         LiveBench dataset with math from HF."""
@@ -52,6 +54,7 @@ class LiveBenchMath(Dataset):
         self._task_description = "You will answer a mathematics reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value."
             
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         question = row["turns"]
         answer = row["ground_truth"]
@@ -59,16 +62,20 @@ class LiveBenchMath(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return "You will answer a mathematics reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value."
 
     def get_default_task_instruction(self):
+        """Return the default instruction prompt for solving this task."""
         return "You will answer a mathematics reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value."
 
 
 class LiveBenchReasoning(Dataset):
+    """Dataset wrapper for the LiveBenchReasoning benchmark or task split."""
     def __init__(self, root: str=None, split: str="train", train_ratio=0.8, val_split_ratio=0.2, *args, **kwargs):
         """
         LiveBench dataset with math from HF."""
@@ -102,6 +109,7 @@ class LiveBenchReasoning(Dataset):
         self._task_description = "You will answer a reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value or a word or 'yes/no, yes/no, yes/no'."
 
     def __getitem__(self, index):
+        """Return the sample at the requested index."""
         row = self.data[index]
         question = row["turns"]
         answer = row["ground_truth"]
@@ -109,9 +117,11 @@ class LiveBenchReasoning(Dataset):
         return question_prompt, answer
 
     def __len__(self):
+        """Return the number of available samples in the current split."""
         return len(self.data)
 
     def get_task_description(self):
+        """Return the task description used to initialize the system prompt."""
         return "You will answer a reasoning question. Think step by step. The last line of your response should be of the following format: 'Answer: $VALUE' where VALUE is a numerical value or a word or 'yes/no, yes/no, yes/no'."
 
 
