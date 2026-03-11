@@ -1,0 +1,77 @@
+
+\begin{table*}[t!]
+	\centering
+	\caption{PrE-Text provides the privacy guarantees of on-device training while (1) being much cheaper in communication and computation, and (2) being much easier to practitioners to deploy in real systems.}\label{table:first}
+	\begin{threeparttable}
+		\footnotesize\setlength\tabcolsep{5.pt} % default value > 6pt
+		\begin{tabular}{ c  c  c  c  c  c }
+			\toprule[.1em]
+			 \begin{tabular}{c}\bf Method \end{tabular} &  \begin{tabular}{c}\bf Train  \\  \bf LLMs? \tnote{\color{blue}(a) } \end{tabular} &\begin{tabular}{c}\bf Is communication \\  \bf cheap? \tnote{\color{blue}(b) }  \end{tabular} & \begin{tabular}{c} \bf  Is computation \\ \bf cheap? \tnote{\color{blue}(c) }  \end{tabular}    & \begin{tabular}{c}\bf Easy to \\ \bf deploy? \tnote{\color{blue}(d) }\end{tabular}  & 
+			 \begin{tabular}{c} \bf Privacy-preserving? \end{tabular} \\
+			\midrule
+			\begin{tabular}{c} Private on-device training \\
+   \tiny DP-FedAvg  \citep{mcmahan2017learning} \\
+   \tiny DP-FTRL \citep{kairouz2021practical} \end{tabular}  & \xmark & \xmark & \xmark &  \xmark & \cmark\\ 
+   
+			\hline
+                \begin{tabular}{c} Centralized \\ non-private training \end{tabular} & \cmark & \cmark & \cmark & \cmark & \xmark \\
+                \hline
+			\cellcolor{bgcolor} \begin{tabular}{c}  PrE-Text \\ \centering  \tiny (proposed) \end{tabular} & \cellcolor{bgcolor}\cmark &\cellcolor{bgcolor} \cmark &\cellcolor{bgcolor} \cmark & \cellcolor{bgcolor}\cmark  & \cellcolor{bgcolor} \cmark \\			
+			\hline			
+		\end{tabular} % default value: 6pt
+	\begin{tablenotes}
+		{  \item [{\color{blue}(a)}] \textbf{Training LLMs.} 
+        On-device finetuning of large models (like LLMs) is not feasible because LLMs are too big. PrE-Text allows us to finetune LLMs because the resulting synthetic data is located on-server.  
+			\item [{\color{blue}(b)}] \textbf{Communication cost.} 
+   PrE-Text required 100x less communication per round (and 9x fewer rounds) in our experiments.
+			\item [{\color{blue}(c)}] \textbf{Client computation cost.} 
+   PrE-Text required 6x less client computation per round (and 9x fewer rounds) than on-device training in our experiments. This comes at the cost of more server-side computation resources, which is often much less constrained.
+			\item[{\color{blue}(d)}] \textbf{Practicality.} PrE-Text produces synthetic data on-server, which allows practitioners to see the training process end-to-end;  this improves debuggability \citep{augenstein2019generative}. Furthermore, the synthetic data can be reused an unlimited number of times without incurring additional privacy cost.
+   }
+	\end{tablenotes}  		
+	\end{threeparttable}
+\end{table*}
+
+\section{Introduction}
+\label{sec:intro}
+In many language applications, such as mobile keyboard autocompletion \citep{mcmahan2017learning}, or instruction-following large language models \citep{yu2024privacy}, training a model on private user data can significantly improve  model performance. 
+However, user data is often sensitive, necessitating the use of algorithmic techniques for protecting privacy.  
+Federated Learning (FL) \citep{pmlr-v54-mcmahan17a} is a prominent technique that trains models on user devices (we call this on-device training) and aggregates the resulting  model updates at a central server.  Recent works have shown that FL combined with differential privacy (DP) \citep{dwork2006differential}---a combination we refer to as \emph{DP-FL}---can protect privacy while also improving model performance in user applications \citep{mcmahan2017learning, kairouz2021practical, kairouz2021distributed, nguyen2022federated, xu2023learning}.
+
+On-device training or federated learning has several drawbacks. (1) Due to limited on-device storage and computation, client devices cannot be used to train large language models (LLMs) \citep{radford2019language, touvron2023llama}.  
+As LLMs become more critical in many use-cases, this becomes more limiting \cite{charles2023towards}. 
+(2) On-device training can have high communication and computation costs for clients \citep{cai2022fedadapter}. Indeed, there is a large body of literature studying how to improve the efficiency of on-device training \citep{wang2020tackling, li2020federated, karimireddy2020scaffold, hou2021fedchain, wang2021field,mishchenko2022proxskip,sadiev2022communication,grudzien2023can}.
+(3) It is difficult to deploy and debug \citep{augenstein2019generative}, requiring extensive infrastructure investment \citep{The_TensorFlow_Federated_Authors_TensorFlow_Federated_2018, flsim, pytorchios}. 
+
+
+
+\textbf{An alternative paradigm: Train or finetune on differentially private (DP) synthetic data.}
+We propose to have the central server first generate DP synthetic data from private client data, then centrally finetune a pretrained language model on that private synthetic data. 
+As in on-device training, clients send DP information to the server; this is used by the server to generate high-quality synthetic data. Unlike on-device training, clients do not need to run training steps for the downstream model. Finetuning on DP synthetic data located on-server (1) eliminates the model size constraints of on-device training, (2) is easier to debug as we can observe the training process without compromising DP, and (3) does not require new training infrastructure, unlike on-device training. Furthermore, DP synthetic data located on server can be reused an unlimited number of times to train many models without incurring additional privacy cost, due to the post-processing property of DP \citep{dwork2006differential}.
+
+Unfortunately, existing techniques for generating DP synthetic language data from federated clients are too low-quality to train or fine-tune a language model \cite{augenstein2019generative}.
+We fill this gap by leveraging Private Evolution (PE) \citep{lin2023differentially}, a recent algorithmic breakthrough in DP synthetic data. PE is a framework for generating realistic DP synthetic image data \citep{lin2023differentially}, which achieves high scores in realism metrics like FID \citep{heusel2017gans}. However, \citet{lin2023differentially} do not apply PE to text, nor do they show that training on DP synthetic data is a competitive alternative to direct DP training (DP-FL or DP-SGD \citep{abadi2016deep}) on private data. 
+Our work utilizes PE in the natural language setting (which is a nontrivial adaptation) as part of our overall algorithm, then demonstrates through extensive experiments that the resulting synthetic data can produce better models than DP-FL at a fraction of the cost. 
+
+We list our contributions below:
+
+\textbf{(1) PrE-Text (Private Evolution-Text) algorithm.} 
+We propose PrE-Text, a new algorithm for DP synthetic text generation.  We build on the following insights: (1) PE must generate variations of samples (e.g., similar images). We adapt this requirement to the language domain by carefully utilizing mask-filling models \citep{devlin2018bert, bart} instead of the diffusion models they used for images. (2) PE alone does not generate enough high-quality synthetic data to effectively finetune an LLM. 
+Hence, we add a post-processing phase, in which we use the outputs of PE to seed high-quality LLMs trained on public data to generate more similar text.\footnote{In concurrent work, \citet{xie2024differentially} extend PE to the text domain using similar techniques to ours, developing a new algorithm called Aug-PE. Some differences: (1) Their focus is on generating better DP synthetic text data, whereas ours is on understanding whether DP synthetic data can take the place of on-device learning. To this end, they study the centralized setting, while we study the federated setting. (2) PrE-Text uses the original PE as a subroutine in a larger algorithm, whereas Aug-PE is Private Evolution with core components rewritten.} 
+Done carefully, this can generate orders of magnitude more useful training data, greatly aiding generalization (all without incurring more privacy cost, due to the post-processing property of DP \citep{dwork2006differential}).
+
+\textbf{(2) Experimental results.} We produce high-quality DP synthetic language data using PrE-Text, and demonstrate its superiority over other methods in two major settings: 
+
+\textbf{a) Models served on-device.}  
+These models are small enough to fit on user devices. We show that in this setting, models trained on synthetic data produced by PrE-Text achieve similar or better performance to models trained on-device (at $\epsilon = 1.29$ and $\epsilon=7.58$, these privacy levels are standard \citep{mcmahan2017learning}), with {\raise.17ex\hbox{$\scriptstyle\sim$}}100$\times$ less communication per round, {\raise.17ex\hbox{$\scriptstyle\sim$}}6$\times$ lower client computation per round, and 9$\times$ fewer rounds. We show that in these important privacy regimes,  PrE-Text outperforms on-device training for training next-token-prediction models.
+
+\begin{figure*}[t!]
+    \centering
+    \includegraphics[width=\textwidth]{figures/pretext_algorithm.pdf}
+    \caption{A high-level description of PrE-Text.  PrE-Text consists of two main phases: (1) (iterative) DP synthetic seed collection, (2) (single-shot) synthetic seed expansion.  A detailed description of steps in the diagram is given in \cref{sec: alg description}.}
+    \label{fig:alg diagram}
+    \end{figure*}
+
+\textbf{b) Models served on-server.} 
+These are the models that are too large (in our setting, LLMs) to be served on user devices. We demonstrate that in this setting, {large models finetuned on synthetic data produced by PrE-Text perform better in next-token-prediction than non-finetuned pretrained LLMs}. To the best of our knowledge, we are the first to privately finetune an LLM in the federated setting without requiring the model to be held on user devices. With major LLM providers running out of useful \textit{public} data to train on \citep{runout, runout2, runout3, runout4}, PrE-Text offers a promising path forward. PrE-Text can use \textit{private} client data in a way that is both mindful of user hardware constraints and is also privacy-compliant. 
+

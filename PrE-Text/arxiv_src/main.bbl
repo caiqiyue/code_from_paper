@@ -1,0 +1,671 @@
+\begin{thebibliography}{128}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Abadi et~al.(2016)Abadi, Chu, Goodfellow, McMahan, Mironov, Talwar, and Zhang]{abadi2016deep}
+Abadi, M., Chu, A., Goodfellow, I., McMahan, H.~B., Mironov, I., Talwar, K., and Zhang, L.
+\newblock Deep learning with differential privacy.
+\newblock In \emph{Proceedings of the 2016 ACM SIGSAC conference on computer and communications security}, pp.\  308--318, 2016.
+
+\bibitem[Abourayya et~al.(2023)Abourayya, Kleesiek, Rao, Ayday, Rao, Webb, and Kamp]{Abourayya2023LittleIE}
+Abourayya, A., Kleesiek, J., Rao, K., Ayday, E., Rao, B., Webb, G., and Kamp, M.
+\newblock Little is enough: Improving privacy by sharing labels in federated semi-supervised learning.
+\newblock 2023.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:263829949}.
+
+\bibitem[Agarwal et~al.(2018)Agarwal, Suresh, Yu, Kumar, and McMahan]{agarwal2018cpsgd}
+Agarwal, N., Suresh, A.~T., Yu, F. X.~X., Kumar, S., and McMahan, B.
+\newblock cpsgd: Communication-efficient and differentially-private distributed sgd.
+\newblock \emph{Advances in Neural Information Processing Systems}, 31, 2018.
+
+\bibitem[Agarwal et~al.(2021)Agarwal, Kairouz, and Liu]{agarwal2021skellam}
+Agarwal, N., Kairouz, P., and Liu, Z.
+\newblock The skellam mechanism for differentially private federated learning.
+\newblock \emph{Advances in Neural Information Processing Systems}, 34:\penalty0 5052--5064, 2021.
+
+\bibitem[Anil et~al.(2021)Anil, Ghazi, Gupta, Kumar, and Manurangsi]{anil2021large}
+Anil, R., Ghazi, B., Gupta, V., Kumar, R., and Manurangsi, P.
+\newblock Large-scale differentially private bert.
+\newblock \emph{arXiv preprint arXiv:2108.01624}, 2021.
+
+\bibitem[Augenstein et~al.(2019)Augenstein, McMahan, Ramage, Ramaswamy, Kairouz, Chen, Mathews, et~al.]{augenstein2019generative}
+Augenstein, S., McMahan, H.~B., Ramage, D., Ramaswamy, S., Kairouz, P., Chen, M., Mathews, R., et~al.
+\newblock Generative models for effective ml on private, decentralized datasets.
+\newblock \emph{arXiv preprint arXiv:1911.06679}, 2019.
+
+\bibitem[Bagdasaryan et~al.(2021)Bagdasaryan, Kairouz, Mellem, Gasc{\'o}n, Bonawitz, Estrin, and Gruteser]{bagdasaryan2021towards}
+Bagdasaryan, E., Kairouz, P., Mellem, S., Gasc{\'o}n, A., Bonawitz, K., Estrin, D., and Gruteser, M.
+\newblock Towards sparse federated analytics: Location heatmaps under distributed differential privacy with secure aggregation.
+\newblock \emph{arXiv preprint arXiv:2111.02356}, 2021.
+
+\bibitem[Bistritz et~al.(2020)Bistritz, Mann, and Bambos]{NEURIPS2020_fef6f971}
+Bistritz, I., Mann, A., and Bambos, N.
+\newblock Distributed distillation for on-device learning.
+\newblock In Larochelle, H., Ranzato, M., Hadsell, R., Balcan, M., and Lin, H. (eds.), \emph{Advances in Neural Information Processing Systems}, volume~33, pp.\  22593--22604. Curran Associates, Inc., 2020.
+\newblock URL \url{https://proceedings.neurips.cc/paper_files/paper/2020/file/fef6f971605336724b5e6c0c12dc2534-Paper.pdf}.
+
+\bibitem[Boerner et~al.(2023)Boerner, Deems, Furlani, Knuth, and Towns]{boerner2023access}
+Boerner, T.~J., Deems, S., Furlani, T.~R., Knuth, S.~L., and Towns, J.
+\newblock Access: Advancing innovation: Nsf’s advanced cyberinfrastructure coordination ecosystem: Services \& support.
+\newblock In \emph{Practice and Experience in Advanced Research Computing}, pp.\  173--176. 2023.
+
+\bibitem[Bonawitz et~al.(2016)Bonawitz, Ivanov, Kreuter, Marcedone, McMahan, Patel, Ramage, Segal, and Seth]{secagg}
+Bonawitz, K.~A., Ivanov, V., Kreuter, B., Marcedone, A., McMahan, H.~B., Patel, S., Ramage, D., Segal, A., and Seth, K.
+\newblock Practical secure aggregation for federated learning on user-held data.
+\newblock In \emph{NIPS Workshop on Private Multi-Party Machine Learning}, 2016.
+\newblock URL \url{https://arxiv.org/abs/1611.04482}.
+
+\bibitem[Brown et~al.(2022)Brown, Lee, Mireshghallah, Shokri, and Tram{\`e}r]{brown2022does}
+Brown, H., Lee, K., Mireshghallah, F., Shokri, R., and Tram{\`e}r, F.
+\newblock What does it mean for a language model to preserve privacy?
+\newblock In \emph{Proceedings of the 2022 ACM Conference on Fairness, Accountability, and Transparency}, pp.\  2280--2292, 2022.
+
+\bibitem[Bu et~al.(2023)Bu, Wang, Zha, and Karypis]{bu2023differentially}
+Bu, Z., Wang, Y.-X., Zha, S., and Karypis, G.
+\newblock Differentially private optimization on large model at small cost.
+\newblock In \emph{International Conference on Machine Learning}, pp.\  3192--3218. PMLR, 2023.
+
+\bibitem[Bu et~al.(2024)Bu, Wang, Zha, and Karypis]{bu2024automatic}
+Bu, Z., Wang, Y.-X., Zha, S., and Karypis, G.
+\newblock Automatic clipping: Differentially private deep learning made easier and stronger.
+\newblock \emph{Advances in Neural Information Processing Systems}, 36, 2024.
+
+\bibitem[Cai et~al.(2022)Cai, Wu, Wang, Lin, and Xu]{cai2022fedadapter}
+Cai, D., Wu, Y., Wang, S., Lin, F.~X., and Xu, M.
+\newblock Fedadapter: Efficient federated learning for modern nlp.
+\newblock \emph{arXiv preprint arXiv:2205.10162}, 2022.
+
+\bibitem[Cao et~al.(2021)Cao, Bie, Vahdat, Fidler, and Kreis]{cao2021don}
+Cao, T., Bie, A., Vahdat, A., Fidler, S., and Kreis, K.
+\newblock Don’t generate me: Training differentially private generative models with sinkhorn divergence.
+\newblock \emph{Advances in Neural Information Processing Systems}, 34:\penalty0 12480--12492, 2021.
+
+\bibitem[Cazenavette et~al.(2022)Cazenavette, Wang, Torralba, Efros, and Zhu]{cazenavette2022dataset}
+Cazenavette, G., Wang, T., Torralba, A., Efros, A.~A., and Zhu, J.-Y.
+\newblock Dataset distillation by matching training trajectories.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.\  4750--4759, 2022.
+
+\bibitem[Charles et~al.(2022)Charles, Bonawitz, Chiknavaryan, McMahan, et~al.]{charles2022federated}
+Charles, Z., Bonawitz, K., Chiknavaryan, S., McMahan, B., et~al.
+\newblock Federated select: A primitive for communication-and memory-efficient federated learning.
+\newblock \emph{arXiv preprint arXiv:2208.09432}, 2022.
+
+\bibitem[Charles et~al.(2023)Charles, Mitchell, Pillutla, Reneer, and Garrett]{charles2023towards}
+Charles, Z., Mitchell, N., Pillutla, K., Reneer, M., and Garrett, Z.
+\newblock Towards federated foundation models: Scalable dataset pipelines for group-structured learning.
+\newblock \emph{arXiv preprint arXiv:2307.09619}, 2023.
+
+\bibitem[Chen \& Yang(2023)Chen and Yang]{chen2023unlearn}
+Chen, J. and Yang, D.
+\newblock Unlearn what you want to forget: Efficient unlearning for llms.
+\newblock \emph{arXiv preprint arXiv:2310.20150}, 2023.
+
+\bibitem[Chen et~al.(2022)Chen, Xu, Guo, Wang, Zhang, and Wang]{chen2022fedtune}
+Chen, J., Xu, W., Guo, S., Wang, J., Zhang, J., and Wang, H.
+\newblock Fedtune: A deep dive into efficient federated fine-tuning with pre-trained transformers.
+\newblock \emph{arXiv preprint arXiv:2211.08025}, 2022.
+
+\bibitem[Cho et~al.(2021)Cho, Wang, Chiruvolu, and Joshi]{Cho2021PersonalizedFL}
+Cho, Y.~J., Wang, J., Chiruvolu, T., and Joshi, G.
+\newblock Personalized federated learning for heterogeneous clients with clustered knowledge transfer.
+\newblock \emph{ArXiv}, abs/2109.08119, 2021.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:237532588}.
+
+\bibitem[Collins et~al.(2023)Collins, Wu, Oh, and Sim]{collins2023profit}
+Collins, L., Wu, S., Oh, S., and Sim, K.~C.
+\newblock Profit: Benchmarking personalization and robustness trade-off in federated prompt tuning.
+\newblock \emph{arXiv preprint arXiv:2310.04627}, 2023.
+
+\bibitem[Devlin et~al.(2018)Devlin, Chang, Lee, and Toutanova]{devlin2018bert}
+Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K.
+\newblock Bert: Pre-training of deep bidirectional transformers for language understanding.
+\newblock \emph{arXiv preprint arXiv:1810.04805}, 2018.
+
+\bibitem[Ding et~al.(2024)Ding, Wu, Meng, Luo, Wang, and Pan]{ding2024delving}
+Ding, Y., Wu, X., Meng, Y., Luo, Y., Wang, H., and Pan, W.
+\newblock Delving into differentially private transformer.
+\newblock \emph{arXiv preprint arXiv:2405.18194}, 2024.
+
+\bibitem[Dockhorn et~al.(2022)Dockhorn, Cao, Vahdat, and Kreis]{dockhorn2022differentially}
+Dockhorn, T., Cao, T., Vahdat, A., and Kreis, K.
+\newblock Differentially private diffusion models.
+\newblock \emph{arXiv preprint arXiv:2210.09929}, 2022.
+
+\bibitem[Du et~al.(2023)Du, Yue, Chow, Wang, Huang, and Sun]{du2023dp}
+Du, M., Yue, X., Chow, S.~S., Wang, T., Huang, C., and Sun, H.
+\newblock Dp-forward: Fine-tuning and inference on language models with differential privacy in forward pass.
+\newblock In \emph{Proceedings of the 2023 ACM SIGSAC Conference on Computer and Communications Security}, pp.\  2665--2679, 2023.
+
+\bibitem[Duan et~al.(2024)Duan, Dziedzic, Papernot, and Boenisch]{duan2024flocks}
+Duan, H., Dziedzic, A., Papernot, N., and Boenisch, F.
+\newblock Flocks of stochastic parrots: Differentially private prompt learning for large language models.
+\newblock \emph{Advances in Neural Information Processing Systems}, 36, 2024.
+
+\bibitem[Dwork(2006)]{dwork2006differential}
+Dwork, C.
+\newblock Differential privacy.
+\newblock In \emph{International colloquium on automata, languages, and programming}, pp.\  1--12. Springer, 2006.
+
+\bibitem[Dwork et~al.(2014)Dwork, Talwar, Thakurta, and Zhang]{dwork2014analyze}
+Dwork, C., Talwar, K., Thakurta, A., and Zhang, L.
+\newblock Analyze gauss: optimal bounds for privacy-preserving principal component analysis.
+\newblock In \emph{Proceedings of the forty-sixth annual ACM symposium on Theory of computing}, pp.\  11--20, 2014.
+
+\bibitem[Ganesh et~al.(2023)Ganesh, Haghifam, Nasr, Oh, Steinke, Thakkar, Thakurta, and Wang]{ganesh2023public}
+Ganesh, A., Haghifam, M., Nasr, M., Oh, S., Steinke, T., Thakkar, O., Thakurta, A.~G., and Wang, L.
+\newblock Why is public pretraining necessary for private model training?
+\newblock In \emph{International Conference on Machine Learning}, pp.\  10611--10627. PMLR, 2023.
+
+\bibitem[Girgis et~al.(2021)Girgis, Data, Diggavi, Kairouz, and Suresh]{girgis2021shuffled}
+Girgis, A.~M., Data, D., Diggavi, S., Kairouz, P., and Suresh, A.~T.
+\newblock Shuffled model of federated learning: Privacy, accuracy and communication trade-offs.
+\newblock \emph{IEEE journal on selected areas in information theory}, 2\penalty0 (1):\penalty0 464--478, 2021.
+
+\bibitem[Grudzie{\'n} et~al.(2023)Grudzie{\'n}, Malinovsky, and Richt{\'a}rik]{grudzien2023can}
+Grudzie{\'n}, M., Malinovsky, G., and Richt{\'a}rik, P.
+\newblock Can 5th generation local training methods support client sampling? yes!
+\newblock In \emph{International Conference on Artificial Intelligence and Statistics}, pp.\  1055--1092. PMLR, 2023.
+
+\bibitem[Gu et~al.(2022)Gu, Kamath, and Wu]{gu2022choosing}
+Gu, X., Kamath, G., and Wu, S.
+\newblock Choosing public datasets for private machine learning via gradient subspace distance.
+\newblock In \emph{NeurIPS 2022 Workshop on Distribution Shifts: Connecting Methods and Applications}, 2022.
+
+\bibitem[Gu et~al.(2023)Gu, Kamath, and Wu]{gu2023choosing}
+Gu, X., Kamath, G., and Wu, Z.~S.
+\newblock Choosing public datasets for private machine learning via gradient subspace distance.
+\newblock \emph{arXiv preprint arXiv:2303.01256}, 2023.
+
+\bibitem[Gunasekar et~al.(2023)Gunasekar, Zhang, Aneja, Mendes, Del~Giorno, Gopi, Javaheripi, Kauffmann, de~Rosa, Saarikivi, et~al.]{gunasekar2023textbooks}
+Gunasekar, S., Zhang, Y., Aneja, J., Mendes, C. C.~T., Del~Giorno, A., Gopi, S., Javaheripi, M., Kauffmann, P., de~Rosa, G., Saarikivi, O., et~al.
+\newblock Textbooks are all you need.
+\newblock \emph{arXiv preprint arXiv:2306.11644}, 2023.
+
+\bibitem[Guo et~al.(2023)Guo, Guo, Wang, Tang, and Xu]{guo2023promptfl}
+Guo, T., Guo, S., Wang, J., Tang, X., and Xu, W.
+\newblock Promptfl: Let federated participants cooperatively learn prompts instead of models-federated learning in age of foundation model.
+\newblock \emph{IEEE Transactions on Mobile Computing}, 2023.
+
+\bibitem[Gupta et~al.(2022)Gupta, Huang, Zhong, Gao, Li, and Chen]{gupta2022recovering}
+Gupta, S., Huang, Y., Zhong, Z., Gao, T., Li, K., and Chen, D.
+\newblock Recovering private text in federated learning of language models.
+\newblock \emph{Advances in neural information processing systems}, 35:\penalty0 8130--8143, 2022.
+
+\bibitem[Heusel et~al.(2017)Heusel, Ramsauer, Unterthiner, Nessler, and Hochreiter]{heusel2017gans}
+Heusel, M., Ramsauer, H., Unterthiner, T., Nessler, B., and Hochreiter, S.
+\newblock Gans trained by a two time-scale update rule converge to a local nash equilibrium.
+\newblock \emph{Advances in neural information processing systems}, 30, 2017.
+
+\bibitem[Honovich et~al.(2022)Honovich, Scialom, Levy, and Schick]{honovich2022unnatural}
+Honovich, O., Scialom, T., Levy, O., and Schick, T.
+\newblock Unnatural instructions: Tuning language models with (almost) no human labor.
+\newblock \emph{arXiv preprint arXiv:2212.09689}, 2022.
+
+\bibitem[Hou et~al.(2021{\natexlab{a}})Hou, Thekumparampil, Fanti, and Oh]{hou2021fedchain}
+Hou, C., Thekumparampil, K.~K., Fanti, G., and Oh, S.
+\newblock Fedchain: Chained algorithms for near-optimal communication cost in federated learning.
+\newblock \emph{arXiv preprint arXiv:2108.06869}, 2021{\natexlab{a}}.
+
+\bibitem[Hou et~al.(2021{\natexlab{b}})Hou, Thekumparampil, Fanti, and Oh]{Hou2021EfficientAF}
+Hou, C., Thekumparampil, K.~K., Fanti, G.~C., and Oh, S.
+\newblock Efficient algorithms for federated saddle point optimization.
+\newblock \emph{ArXiv}, abs/2102.06333, 2021{\natexlab{b}}.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:231918741}.
+
+\bibitem[Hou et~al.(2023)Hou, Zhan, Shrivastava, Wang, Livshits, Fanti, and Lazar]{hou2023privately}
+Hou, C., Zhan, H., Shrivastava, A., Wang, S., Livshits, S., Fanti, G., and Lazar, D.
+\newblock Privately customizing prefinetuning to better match user data in federated learning.
+\newblock \emph{arXiv preprint arXiv:2302.09042}, 2023.
+
+\bibitem[Jang et~al.(2022)Jang, Yoon, Yang, Cha, Lee, Logeswaran, and Seo]{jang2022knowledge}
+Jang, J., Yoon, D., Yang, S., Cha, S., Lee, M., Logeswaran, L., and Seo, M.
+\newblock Knowledge unlearning for mitigating privacy risks in language models.
+\newblock \emph{arXiv preprint arXiv:2210.01504}, 2022.
+
+\bibitem[Kairouz et~al.(2020)Kairouz, Ribero, Rush, and Thakurta]{Kairouz2020DimensionII}
+Kairouz, P., Ribero, M., Rush, K., and Thakurta, A.
+\newblock Dimension independence in unconstrained private erm via adaptive preconditioning.
+\newblock \emph{ArXiv}, abs/2008.06570, 2020.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:221140143}.
+
+\bibitem[Kairouz et~al.(2021{\natexlab{a}})Kairouz, Liu, and Steinke]{kairouz2021distributed}
+Kairouz, P., Liu, Z., and Steinke, T.
+\newblock The distributed discrete gaussian mechanism for federated learning with secure aggregation.
+\newblock In \emph{International Conference on Machine Learning}, pp.\  5201--5212. PMLR, 2021{\natexlab{a}}.
+
+\bibitem[Kairouz et~al.(2021{\natexlab{b}})Kairouz, McMahan, Song, Thakkar, Thakurta, and Xu]{kairouz2021practical}
+Kairouz, P., McMahan, B., Song, S., Thakkar, O., Thakurta, A., and Xu, Z.
+\newblock Practical and private (deep) learning without sampling or shuffling.
+\newblock In \emph{International Conference on Machine Learning}, pp.\  5213--5225. PMLR, 2021{\natexlab{b}}.
+
+\bibitem[Kairouz et~al.(2021{\natexlab{c}})Kairouz, McMahan, Avent, Bellet, Bennis, Bhagoji, Bonawitz, Charles, Cormode, Cummings, et~al.]{kairouz2021advances}
+Kairouz, P., McMahan, H.~B., Avent, B., Bellet, A., Bennis, M., Bhagoji, A.~N., Bonawitz, K., Charles, Z., Cormode, G., Cummings, R., et~al.
+\newblock Advances and open problems in federated learning.
+\newblock \emph{Foundations and Trends{\textregistered} in Machine Learning}, 14\penalty0 (1--2):\penalty0 1--210, 2021{\natexlab{c}}.
+
+\bibitem[Karimireddy et~al.(2020)Karimireddy, Kale, Mohri, Reddi, Stich, and Suresh]{karimireddy2020scaffold}
+Karimireddy, S.~P., Kale, S., Mohri, M., Reddi, S., Stich, S., and Suresh, A.~T.
+\newblock Scaffold: Stochastic controlled averaging for federated learning.
+\newblock In \emph{International conference on machine learning}, pp.\  5132--5143. PMLR, 2020.
+
+\bibitem[Kerrigan et~al.(2020)Kerrigan, Slack, and Tuyls]{kerrigan2020differentially}
+Kerrigan, G., Slack, D., and Tuyls, J.
+\newblock Differentially private language models benefit from public pre-training.
+\newblock \emph{arXiv preprint arXiv:2009.05886}, 2020.
+
+\bibitem[Kong \& Munoz~Medina(2024)Kong and Munoz~Medina]{kong2024unified}
+Kong, W. and Munoz~Medina, A.
+\newblock A unified fast gradient clipping framework for dp-sgd.
+\newblock \emph{Advances in Neural Information Processing Systems}, 36, 2024.
+
+\bibitem[Kumar et~al.(2022)Kumar, Gangadharaiah, and Roth]{kumar2022privacy}
+Kumar, V.~B., Gangadharaiah, R., and Roth, D.
+\newblock Privacy adhering machine un-learning in nlp.
+\newblock \emph{arXiv preprint arXiv:2212.09573}, 2022.
+
+\bibitem[Kurakin et~al.(2023)Kurakin, Ponomareva, Syed, MacDermed, and Terzis]{kurakin2023harnessing}
+Kurakin, A., Ponomareva, N., Syed, U., MacDermed, L., and Terzis, A.
+\newblock Harnessing large-language models to generate private synthetic text.
+\newblock \emph{arXiv preprint arXiv:2306.01684}, 2023.
+
+\bibitem[Kwon et~al.(2023)Kwon, Li, Zhuang, Sheng, Zheng, Yu, Gonzalez, Zhang, and Stoica]{kwon2023efficient}
+Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C.~H., Gonzalez, J.~E., Zhang, H., and Stoica, I.
+\newblock Efficient memory management for large language model serving with pagedattention.
+\newblock In \emph{Proceedings of the ACM SIGOPS 29th Symposium on Operating Systems Principles}, 2023.
+
+\bibitem[Lewis et~al.(2019)Lewis, Liu, Goyal, Ghazvininejad, Mohamed, Levy, Stoyanov, and Zettlemoyer]{bart}
+Lewis, M., Liu, Y., Goyal, N., Ghazvininejad, M., Mohamed, A., Levy, O., Stoyanov, V., and Zettlemoyer, L.
+\newblock {BART:} denoising sequence-to-sequence pre-training for natural language generation, translation, and comprehension.
+\newblock \emph{CoRR}, abs/1910.13461, 2019.
+\newblock URL \url{http://arxiv.org/abs/1910.13461}.
+
+\bibitem[Li et~al.(2020)Li, Sahu, Zaheer, Sanjabi, Talwalkar, and Smith]{li2020federated}
+Li, T., Sahu, A.~K., Zaheer, M., Sanjabi, M., Talwalkar, A., and Smith, V.
+\newblock Federated optimization in heterogeneous networks.
+\newblock \emph{Proceedings of Machine learning and systems}, 2:\penalty0 429--450, 2020.
+
+\bibitem[Li et~al.(2021)Li, Tramer, Liang, and Hashimoto]{li2021large}
+Li, X., Tramer, F., Liang, P., and Hashimoto, T.
+\newblock Large language models can be strong differentially private learners.
+\newblock \emph{arXiv preprint arXiv:2110.05679}, 2021.
+
+\bibitem[Li et~al.(2022)Li, Liu, Hashimoto, Inan, Kulkarni, Lee, and Guha~Thakurta]{li2022does}
+Li, X., Liu, D., Hashimoto, T.~B., Inan, H.~A., Kulkarni, J., Lee, Y.-T., and Guha~Thakurta, A.
+\newblock When does differentially private learning not suffer in high dimensions?
+\newblock \emph{Advances in Neural Information Processing Systems}, 35:\penalty0 28616--28630, 2022.
+
+\bibitem[Li et~al.(2023)Li, Tan, and Liu]{li2023privacy}
+Li, Y., Tan, Z., and Liu, Y.
+\newblock Privacy-preserving prompt tuning for large language model services.
+\newblock \emph{arXiv preprint arXiv:2305.06212}, 2023.
+
+\bibitem[Lin et~al.(2020)Lin, Kong, Stich, and Jaggi]{NEURIPS2020_18df51b9}
+Lin, T., Kong, L., Stich, S.~U., and Jaggi, M.
+\newblock Ensemble distillation for robust model fusion in federated learning.
+\newblock In Larochelle, H., Ranzato, M., Hadsell, R., Balcan, M., and Lin, H. (eds.), \emph{Advances in Neural Information Processing Systems}, volume~33, pp.\  2351--2363. Curran Associates, Inc., 2020.
+\newblock URL \url{https://proceedings.neurips.cc/paper_files/paper/2020/file/18df51b97ccd68128e994804f3eccc87-Paper.pdf}.
+
+\bibitem[Lin et~al.(2021)Lin, Sekar, and Fanti]{lin2021privacy}
+Lin, Z., Sekar, V., and Fanti, G.
+\newblock On the privacy properties of gan-generated samples.
+\newblock In \emph{International Conference on Artificial Intelligence and Statistics}, pp.\  1522--1530. PMLR, 2021.
+
+\bibitem[Lin et~al.(2023)Lin, Gopi, Kulkarni, Nori, and Yekhanin]{lin2023differentially}
+Lin, Z., Gopi, S., Kulkarni, J., Nori, H., and Yekhanin, S.
+\newblock Differentially private synthetic data via foundation model apis 1: Images.
+\newblock \emph{arXiv preprint arXiv:2305.15560}, 2023.
+
+\bibitem[Liu et~al.(2019)Liu, Ott, Goyal, Du, Joshi, Chen, Levy, Lewis, Zettlemoyer, and Stoyanov]{roberta}
+Liu, Y., Ott, M., Goyal, N., Du, J., Joshi, M., Chen, D., Levy, O., Lewis, M., Zettlemoyer, L., and Stoyanov, V.
+\newblock Roberta: {A} robustly optimized {BERT} pretraining approach.
+\newblock \emph{CoRR}, abs/1907.11692, 2019.
+\newblock URL \url{http://arxiv.org/abs/1907.11692}.
+
+\bibitem[Mattern et~al.(2022)Mattern, Jin, Weggenmann, Schoelkopf, and Sachan]{mattern2022differentially}
+Mattern, J., Jin, Z., Weggenmann, B., Schoelkopf, B., and Sachan, M.
+\newblock Differentially private language models for secure data sharing.
+\newblock \emph{arXiv preprint arXiv:2210.13918}, 2022.
+
+\bibitem[McMahan et~al.(2017{\natexlab{a}})McMahan, Moore, Ramage, Hampson, and Arcas]{pmlr-v54-mcmahan17a}
+McMahan, B., Moore, E., Ramage, D., Hampson, S., and Arcas, B. A.~y.
+\newblock {Communication-Efficient Learning of Deep Networks from Decentralized Data}.
+\newblock In Singh, A. and Zhu, J. (eds.), \emph{Proceedings of the 20th International Conference on Artificial Intelligence and Statistics}, volume~54 of \emph{Proceedings of Machine Learning Research}, pp.\  1273--1282. PMLR, 20--22 Apr 2017{\natexlab{a}}.
+\newblock URL \url{https://proceedings.mlr.press/v54/mcmahan17a.html}.
+
+\bibitem[McMahan et~al.(2017{\natexlab{b}})McMahan, Ramage, Talwar, and Zhang]{mcmahan2017learning}
+McMahan, H.~B., Ramage, D., Talwar, K., and Zhang, L.
+\newblock Learning differentially private recurrent language models.
+\newblock \emph{arXiv preprint arXiv:1710.06963}, 2017{\natexlab{b}}.
+
+\bibitem[Mireshghallah et~al.(2021)Mireshghallah, Inan, Hasegawa, R{\"{u}}hle, Berg{-}Kirkpatrick, and Sim]{mireshghallah2021privacy}
+Mireshghallah, F., Inan, H.~A., Hasegawa, M., R{\"{u}}hle, V., Berg{-}Kirkpatrick, T., and Sim, R.
+\newblock Privacy regularization: Joint privacy-utility optimization in language models.
+\newblock \emph{CoRR}, abs/2103.07567, 2021.
+\newblock URL \url{https://arxiv.org/abs/2103.07567}.
+
+\bibitem[Mishchenko et~al.(2022)Mishchenko, Malinovsky, Stich, and Richt{\'a}rik]{mishchenko2022proxskip}
+Mishchenko, K., Malinovsky, G., Stich, S., and Richt{\'a}rik, P.
+\newblock Proxskip: Yes! local gradient steps provably lead to communication acceleration! finally!
+\newblock In \emph{International Conference on Machine Learning}, pp.\  15750--15769. PMLR, 2022.
+
+\bibitem[Nasr et~al.(2023)Nasr, Mahloujifar, Tang, Mittal, and Houmansadr]{nasr2023effectively}
+Nasr, M., Mahloujifar, S., Tang, X., Mittal, P., and Houmansadr, A.
+\newblock Effectively using public data in privacy preserving machine learning.
+\newblock In \emph{International Conference on Machine Learning}, pp.\  25718--25732. PMLR, 2023.
+
+\bibitem[Needleman(2024)]{runout3}
+Needleman, S.
+\newblock Reddit to give openai access to its data in licensing deal.
+\newblock \url{https://www.wsj.com/tech/ai/reddit-signs-data-licensing -deal-with-openai-14993757}, 2024.
+
+\bibitem[Neunhoeffer et~al.(2020)Neunhoeffer, Wu, and Dwork]{Neunhoeffer2020PrivatePB}
+Neunhoeffer, M., Wu, Z.~S., and Dwork, C.
+\newblock Private post-gan boosting.
+\newblock \emph{ArXiv}, abs/2007.11934, 2020.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:220713471}.
+
+\bibitem[Nguyen et~al.(2022)Nguyen, Malik, Zhan, Yousefpour, Rabbat, Malek, and Huba]{nguyen2022federated}
+Nguyen, J., Malik, K., Zhan, H., Yousefpour, A., Rabbat, M., Malek, M., and Huba, D.
+\newblock Federated learning with buffered asynchronous aggregation.
+\newblock In \emph{International Conference on Artificial Intelligence and Statistics}, pp.\  3581--3607. PMLR, 2022.
+
+\bibitem[OpenAI(2024)]{OpenAI}
+OpenAI.
+\newblock Openai.
+\newblock \url{https://openai.com/policies/terms-of-use/}, 2024.
+\newblock Accessed: 2024-05-24.
+
+\bibitem[Papernot et~al.(2016)Papernot, Abadi, Erlingsson, Goodfellow, and Talwar]{Papernot2016SemisupervisedKT}
+Papernot, N., Abadi, M., Erlingsson, {\'U}., Goodfellow, I.~J., and Talwar, K.
+\newblock Semi-supervised knowledge transfer for deep learning from private training data.
+\newblock \emph{ArXiv}, abs/1610.05755, 2016.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:8696462}.
+
+\bibitem[Papernot et~al.(2018)Papernot, Song, Mironov, Raghunathan, Talwar, and Erlingsson]{Papernot2018ScalablePL}
+Papernot, N., Song, S., Mironov, I., Raghunathan, A., Talwar, K., and Erlingsson, {\'U}.
+\newblock Scalable private learning with pate.
+\newblock \emph{ArXiv}, abs/1802.08908, 2018.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:3544583}.
+
+\bibitem[Ponomareva et~al.(2023)Ponomareva, Hazimeh, Kurakin, Xu, Denison, McMahan, Vassilvitskii, Chien, and Thakurta]{Ponomareva2023HowTD}
+Ponomareva, N., Hazimeh, H., Kurakin, A., Xu, Z., Denison, C.~E., McMahan, H.~B., Vassilvitskii, S., Chien, S., and Thakurta, A.
+\newblock How to dp-fy ml: A practical guide to machine learning with differential privacy.
+\newblock \emph{ArXiv}, abs/2303.00654, 2023.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:257255451}.
+
+\bibitem[PyTorch(2024)]{pytorchios}
+PyTorch.
+\newblock {PyTorch Mobile}, 2024.
+\newblock URL \url{https://pytorch.org/mobile/home/}.
+
+\bibitem[Radford et~al.(2019)Radford, Wu, Child, Luan, Amodei, Sutskever, et~al.]{radford2019language}
+Radford, A., Wu, J., Child, R., Luan, D., Amodei, D., Sutskever, I., et~al.
+\newblock Language models are unsupervised multitask learners.
+\newblock \emph{OpenAI blog}, 1\penalty0 (8):\penalty0 9, 2019.
+
+\bibitem[Raffel et~al.(2019)Raffel, Shazeer, Roberts, Lee, Narang, Matena, Zhou, Li, and Liu]{c4}
+Raffel, C., Shazeer, N., Roberts, A., Lee, K., Narang, S., Matena, M., Zhou, Y., Li, W., and Liu, P.~J.
+\newblock Exploring the limits of transfer learning with a unified text-to-text transformer.
+\newblock \emph{arXiv e-prints}, 2019.
+
+\bibitem[Ramaswamy et~al.(2020)Ramaswamy, Thakkar, Mathews, Andrew, McMahan, and Beaufays]{ramaswamy2020training}
+Ramaswamy, S., Thakkar, O., Mathews, R., Andrew, G., McMahan, H.~B., and Beaufays, F.
+\newblock Training production language models without memorizing user data.
+\newblock \emph{arXiv preprint arXiv:2009.10031}, 2020.
+
+\bibitem[Reimers \& Gurevych(2019)Reimers and Gurevych]{reimers-2019-sentence-bert}
+Reimers, N. and Gurevych, I.
+\newblock Sentence-bert: Sentence embeddings using siamese bert-networks.
+\newblock In \emph{Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing}. Association for Computational Linguistics, 11 2019.
+\newblock URL \url{https://arxiv.org/abs/1908.10084}.
+
+\bibitem[Rozi{\`e}re et~al.(2023)Rozi{\`e}re, Gehring, Gloeckle, Sootla, Gat, Tan, Adi, Liu, Remez, Rapin, et~al.]{roziere2023code}
+Rozi{\`e}re, B., Gehring, J., Gloeckle, F., Sootla, S., Gat, I., Tan, X.~E., Adi, Y., Liu, J., Remez, T., Rapin, J., et~al.
+\newblock Code llama: Open foundation models for code.
+\newblock \emph{arXiv preprint arXiv:2308.12950}, 2023.
+
+\bibitem[Sadiev et~al.(2022)Sadiev, Kovalev, and Richt{\'a}rik]{sadiev2022communication}
+Sadiev, A., Kovalev, D., and Richt{\'a}rik, P.
+\newblock Communication acceleration of local gradient methods via an accelerated primal-dual algorithm with an inexact prox.
+\newblock \emph{Advances in Neural Information Processing Systems}, 35:\penalty0 21777--21791, 2022.
+
+\bibitem[Sanh et~al.(2019)Sanh, Debut, Chaumond, and Wolf]{sanh2019distilbert}
+Sanh, V., Debut, L., Chaumond, J., and Wolf, T.
+\newblock Distilbert, a distilled version of bert: smaller, faster, cheaper and lighter.
+\newblock \emph{arXiv preprint arXiv:1910.01108}, 2019.
+
+\bibitem[Seetharaman(2024)]{runout2}
+Seetharaman, D.
+\newblock For data-guzzling ai companies, the internet is too small.
+\newblock \url{https://www.wsj.com/tech/ai/ai-training-data-synthetic-openai-anthropic-9230f8d8}, 2024.
+
+\bibitem[Song et~al.(2023)Song, Liu, Chen, Festag, Trinitis, Schulz, and Knoll]{song2023federated}
+Song, R., Liu, D., Chen, D.~Z., Festag, A., Trinitis, C., Schulz, M., and Knoll, A.
+\newblock Federated learning via decentralized dataset distillation in resource-constrained edge environments.
+\newblock In \emph{2023 International Joint Conference on Neural Networks (IJCNN)}, pp.\  1--10. IEEE, 2023.
+
+\bibitem[speedtest.net(2023)]{speedtest.net}
+speedtest.net.
+\newblock United states median country speeds october 2023.
+\newblock \url{https://www.speedtest.net/global-index/united-states}, 2023.
+\newblock Accessed: 2023-11-27.
+
+\bibitem[Tang et~al.(2023)Tang, Shin, Inan, Manoel, Mireshghallah, Lin, Gopi, Kulkarni, and Sim]{tang2023privacy}
+Tang, X., Shin, R., Inan, H.~A., Manoel, A., Mireshghallah, F., Lin, Z., Gopi, S., Kulkarni, J., and Sim, R.
+\newblock Privacy-preserving in-context learning with differentially private few-shot generation.
+\newblock \emph{arXiv preprint arXiv:2309.11765}, 2023.
+
+\bibitem[Tang et~al.(2024)Tang, Panda, Nasr, Mahloujifar, and Mittal]{tang2024private}
+Tang, X., Panda, A., Nasr, M., Mahloujifar, S., and Mittal, P.
+\newblock Private fine-tuning of large language models with zeroth-order optimization.
+\newblock \emph{arXiv preprint arXiv:2401.04343}, 2024.
+
+\bibitem[Taori et~al.(2023)Taori, Gulrajani, Zhang, Dubois, Li, Guestrin, Liang, and Hashimoto]{alpaca}
+Taori, R., Gulrajani, I., Zhang, T., Dubois, Y., Li, X., Guestrin, C., Liang, P., and Hashimoto, T.~B.
+\newblock Stanford alpaca: An instruction-following llama model.
+\newblock \url{https://github.com/tatsu-lab/stanford_alpaca}, 2023.
+
+\bibitem[Tensorflow(2018)]{The_TensorFlow_Federated_Authors_TensorFlow_Federated_2018}
+Tensorflow.
+\newblock {TensorFlow Federated}, December 2018.
+\newblock URL \url{https://github.com/tensorflow/federated}.
+
+\bibitem[Tong et~al.(2024)Tong, Wang, and Coulter]{runout4}
+Tong, A., Wang, E., and Coulter, M.
+\newblock Exclusive: Reddit in ai content licensing deal with google.
+\newblock \url{https://www.reuters.com/technology/reddit-ai-content-licensing-deal-with-google-sources-say-2024-02-22/}, 2024.
+
+\bibitem[Torkzadehmahani et~al.(2019)Torkzadehmahani, Kairouz, and Paten]{Torkzadehmahani_2019_CVPR_Workshops}
+Torkzadehmahani, R., Kairouz, P., and Paten, B.
+\newblock Dp-cgan: Differentially private synthetic data and label generation.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops}, June 2019.
+
+\bibitem[Touvron et~al.(2023)Touvron, Lavril, Izacard, Martinet, Lachaux, Lacroix, Rozi{\`e}re, Goyal, Hambro, Azhar, et~al.]{touvron2023llama}
+Touvron, H., Lavril, T., Izacard, G., Martinet, X., Lachaux, M.-A., Lacroix, T., Rozi{\`e}re, B., Goyal, N., Hambro, E., Azhar, F., et~al.
+\newblock Llama: Open and efficient foundation language models.
+\newblock \emph{arXiv preprint arXiv:2302.13971}, 2023.
+
+\bibitem[Tram{\`e}r \& Boneh(2020)Tram{\`e}r and Boneh]{Tramr2020DifferentiallyPL}
+Tram{\`e}r, F. and Boneh, D.
+\newblock Differentially private learning needs better features (or much more data).
+\newblock \emph{ArXiv}, abs/2011.11660, 2020.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:227152280}.
+
+\bibitem[Tram{\`e}r et~al.(2022)Tram{\`e}r, Kamath, and Carlini]{tramer2022considerations}
+Tram{\`e}r, F., Kamath, G., and Carlini, N.
+\newblock Considerations for differentially private learning with large-scale public pretraining.
+\newblock \emph{arXiv preprint arXiv:2212.06470}, 2022.
+
+\bibitem[Utpala et~al.(2023)Utpala, Hooker, and Chen]{utpala-etal-2023-locally}
+Utpala, S., Hooker, S., and Chen, P.-Y.
+\newblock Locally differentially private document generation using zero shot prompting.
+\newblock In Bouamor, H., Pino, J., and Bali, K. (eds.), \emph{Findings of the Association for Computational Linguistics: EMNLP 2023}, pp.\  8442--8457, Singapore, December 2023. Association for Computational Linguistics.
+\newblock \doi{10.18653/v1/2023.findings-emnlp.566}.
+\newblock URL \url{https://aclanthology.org/2023.findings-emnlp.566}.
+
+\bibitem[Wang et~al.(2023{\natexlab{a}})Wang, Zhang, Cao, Li, McMahan, Oh, Xu, and Zaheer]{wang2023can}
+Wang, B., Zhang, Y.~J., Cao, Y., Li, B., McMahan, H.~B., Oh, S., Xu, Z., and Zaheer, M.
+\newblock Can public large language models help private cross-device federated learning?
+\newblock \emph{arXiv preprint arXiv:2305.12132}, 2023{\natexlab{a}}.
+
+\bibitem[Wang et~al.(2023{\natexlab{b}})Wang, Li, Xu, Li, Zhan, and Zeng]{Wang_2023_CVPR}
+Wang, H., Li, Y., Xu, W., Li, R., Zhan, Y., and Zeng, Z.
+\newblock Dafkd: Domain-aware federated knowledge distillation.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pp.\  20412--20421, June 2023{\natexlab{b}}.
+
+\bibitem[Wang et~al.(2020)Wang, Liu, Liang, Joshi, and Poor]{wang2020tackling}
+Wang, J., Liu, Q., Liang, H., Joshi, G., and Poor, H.~V.
+\newblock Tackling the objective inconsistency problem in heterogeneous federated optimization.
+\newblock \emph{Advances in neural information processing systems}, 33:\penalty0 7611--7623, 2020.
+
+\bibitem[Wang et~al.(2021)Wang, Charles, Xu, Joshi, McMahan, Al-Shedivat, Andrew, Avestimehr, Daly, Data, et~al.]{wang2021field}
+Wang, J., Charles, Z., Xu, Z., Joshi, G., McMahan, H.~B., Al-Shedivat, M., Andrew, G., Avestimehr, S., Daly, K., Data, D., et~al.
+\newblock A field guide to federated optimization.
+\newblock \emph{arXiv preprint arXiv:2107.06917}, 2021.
+
+\bibitem[Wang et~al.(2023{\natexlab{c}})Wang, Zou, Patel, Wu, and Srebro]{wang2023private}
+Wang, L., Zou, D., Patel, K.~K., Wu, J., and Srebro, N.
+\newblock Private overparameterized linear regression without suffering in high dimensions.
+\newblock 2023{\natexlab{c}}.
+
+\bibitem[Wang et~al.(2018)Wang, Zhu, Torralba, and Efros]{wang2018dataset}
+Wang, T., Zhu, J.-Y., Torralba, A., and Efros, A.~A.
+\newblock Dataset distillation.
+\newblock \emph{arXiv preprint arXiv:1811.10959}, 2018.
+
+\bibitem[Wang et~al.(2022)Wang, Kordi, Mishra, Liu, Smith, Khashabi, and Hajishirzi]{wang2022self}
+Wang, Y., Kordi, Y., Mishra, S., Liu, A., Smith, N.~A., Khashabi, D., and Hajishirzi, H.
+\newblock Self-instruct: Aligning language model with self generated instructions.
+\newblock \emph{arXiv preprint arXiv:2212.10560}, 2022.
+
+\bibitem[Weller et~al.(2022)Weller, Marone, Braverman, Lawrie, and Van~Durme]{weller2022pretrained}
+Weller, O., Marone, M., Braverman, V., Lawrie, D., and Van~Durme, B.
+\newblock Pretrained models for multilingual federated learning.
+\newblock \emph{arXiv preprint arXiv:2206.02291}, 2022.
+
+\bibitem[Wu et~al.(2021)Wu, Wu, Lyu, Huang, and Xie]{Wu2021CommunicationefficientFL}
+Wu, C., Wu, F., Lyu, L., Huang, Y., and Xie, X.
+\newblock Communication-efficient federated learning via knowledge distillation.
+\newblock \emph{Nature Communications}, 13, 2021.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:237353469}.
+
+\bibitem[Wu et~al.(2024)Wu, Xu, Zhang, Zhang, and Ramage]{wu2024prompt}
+Wu, S., Xu, Z., Zhang, Y., Zhang, Y., and Ramage, D.
+\newblock Prompt public large language models to synthesize data for private on-device applications.
+\newblock \emph{arXiv preprint arXiv:2404.04360}, 2024.
+
+\bibitem[Wu et~al.(2023)Wu, Panda, Wang, and Mittal]{wu2023privacy}
+Wu, T., Panda, A., Wang, J.~T., and Mittal, P.
+\newblock Privacy-preserving in-context learning for large language models.
+\newblock In \emph{The Twelfth International Conference on Learning Representations}, 2023.
+
+\bibitem[Xie et~al.(2024)Xie, Lin, Backurs, Gopi, Yu, Inan, Nori, Jiang, Zhang, Lee, et~al.]{xie2024differentially}
+Xie, C., Lin, Z., Backurs, A., Gopi, S., Yu, D., Inan, H.~A., Nori, H., Jiang, H., Zhang, H., Lee, Y.~T., et~al.
+\newblock Differentially private synthetic data via foundation model apis 2: Text.
+\newblock \emph{arXiv preprint arXiv:2403.01749}, 2024.
+
+\bibitem[Xu et~al.(2023{\natexlab{a}})Xu, Song, Tian, Agrawal, Granqvist, van Dalen, Zhang, Argueta, Han, Deng, et~al.]{xu2023training}
+Xu, M., Song, C., Tian, Y., Agrawal, N., Granqvist, F., van Dalen, R., Zhang, X., Argueta, A., Han, S., Deng, Y., et~al.
+\newblock Training large-vocabulary neural language models by private federated learning for resource-constrained devices.
+\newblock In \emph{ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, pp.\  1--5. IEEE, 2023{\natexlab{a}}.
+
+\bibitem[Xu(2022)]{runout}
+Xu, T.
+\newblock We could run out of data to train ai language programs.
+\newblock \url{https://www.technologyreview.com/2022/11/24/1063684/we-could-run-out-of-data-to-train-ai-language-programs/}, 2022.
+
+\bibitem[Xu et~al.(2021)Xu, Aggarwal, Feyisetan, and Teissier]{xu2021utilitarian}
+Xu, Z., Aggarwal, A., Feyisetan, O., and Teissier, N.
+\newblock On a utilitarian approach to privacy preserving text generation.
+\newblock \emph{arXiv preprint arXiv:2104.11838}, 2021.
+
+\bibitem[Xu et~al.(2023{\natexlab{b}})Xu, Collins, Wang, Panait, Oh, Augenstein, Liu, Schroff, and McMahan]{xu2023learning}
+Xu, Z., Collins, M., Wang, Y., Panait, L., Oh, S., Augenstein, S., Liu, T., Schroff, F., and McMahan, H.~B.
+\newblock Learning to generate image embeddings with user-level differential privacy.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.\  7969--7980, 2023{\natexlab{b}}.
+
+\bibitem[Xu et~al.(2023{\natexlab{c}})Xu, Zhang, Andrew, Choquette-Choo, Kairouz, McMahan, Rosenstock, and Zhang]{xu2023federated}
+Xu, Z., Zhang, Y., Andrew, G., Choquette-Choo, C.~A., Kairouz, P., McMahan, H.~B., Rosenstock, J., and Zhang, Y.
+\newblock Federated learning of gboard language models with differential privacy.
+\newblock \emph{arXiv preprint arXiv:2305.18465}, 2023{\natexlab{c}}.
+
+\bibitem[Yao et~al.(2024)Yao, Chien, Du, Niu, Wang, Cheng, and Yue]{yao2024machine}
+Yao, J., Chien, E., Du, M., Niu, X., Wang, T., Cheng, Z., and Yue, X.
+\newblock Machine unlearning of pre-trained large language models.
+\newblock \emph{arXiv preprint arXiv:2402.15159}, 2024.
+
+\bibitem[Yousefpour et~al.(2021)Yousefpour, Shilov, Sablayrolles, Testuggine, Prasad, Malek, Nguyen, Ghosh, Bharadwaj, Zhao, Cormode, and Mironov]{opacus}
+Yousefpour, A., Shilov, I., Sablayrolles, A., Testuggine, D., Prasad, K., Malek, M., Nguyen, J., Ghosh, S., Bharadwaj, A., Zhao, J., Cormode, G., and Mironov, I.
+\newblock Opacus: {U}ser-friendly differential privacy library in {PyTorch}.
+\newblock \emph{arXiv preprint arXiv:2109.12298}, 2021.
+
+\bibitem[Yu et~al.(2021{\natexlab{a}})Yu, Naik, Backurs, Gopi, Inan, Kamath, Kulkarni, Lee, Manoel, Wutschitz, et~al.]{yu2021differentially}
+Yu, D., Naik, S., Backurs, A., Gopi, S., Inan, H.~A., Kamath, G., Kulkarni, J., Lee, Y.~T., Manoel, A., Wutschitz, L., et~al.
+\newblock Differentially private fine-tuning of language models.
+\newblock \emph{arXiv preprint arXiv:2110.06500}, 2021{\natexlab{a}}.
+
+\bibitem[Yu et~al.(2021{\natexlab{b}})Yu, Zhang, Chen, Yin, and Liu]{yu2021large}
+Yu, D., Zhang, H., Chen, W., Yin, J., and Liu, T.-Y.
+\newblock Large scale private learning via low-rank reparametrization.
+\newblock In \emph{International Conference on Machine Learning}, pp.\  12208--12218. PMLR, 2021{\natexlab{b}}.
+
+\bibitem[Yu et~al.(2022)Yu, Kamath, Kulkarni, Liu, Yin, and Zhang]{yu2022individual}
+Yu, D., Kamath, G., Kulkarni, J., Liu, T.-Y., Yin, J., and Zhang, H.
+\newblock Individual privacy accounting for differentially private stochastic gradient descent.
+\newblock \emph{arXiv preprint arXiv:2206.02617}, 2022.
+
+\bibitem[Yu et~al.(2024)Yu, Kairouz, Oh, and Xu]{yu2024privacy}
+Yu, D., Kairouz, P., Oh, S., and Xu, Z.
+\newblock Privacy-preserving instructions for aligning large language models.
+\newblock \emph{arXiv preprint arXiv:2402.13659}, 2024.
+
+\bibitem[Yue et~al.(2022)Yue, Inan, Li, Kumar, McAnallen, Shajari, Sun, Levitan, and Sim]{yue2022synthetic}
+Yue, X., Inan, H.~A., Li, X., Kumar, G., McAnallen, J., Shajari, H., Sun, H., Levitan, D., and Sim, R.
+\newblock Synthetic text generation with differential privacy: A simple and practical recipe.
+\newblock \emph{arXiv preprint arXiv:2210.14348}, 2022.
+
+\bibitem[Zhang et~al.(2023{\natexlab{a}})Zhang, Vahidian, Kuo, Li, Zhang, Wang, and Chen]{zhang2023towards}
+Zhang, J., Vahidian, S., Kuo, M., Li, C., Zhang, R., Wang, G., and Chen, Y.
+\newblock Towards building the federated gpt: Federated instruction tuning.
+\newblock \emph{arXiv preprint arXiv:2305.05644}, 2023{\natexlab{a}}.
+
+\bibitem[Zhang et~al.(2023{\natexlab{b}})Zhang, Thekumparampil, Oh, and He]{zhang2023dpzero}
+Zhang, L., Thekumparampil, K.~K., Oh, S., and He, N.
+\newblock Dpzero: Dimension-independent and differentially private zeroth-order optimization.
+\newblock \emph{arXiv preprint arXiv:2310.09639}, 2023{\natexlab{b}}.
+
+\bibitem[Zhang et~al.(2023{\natexlab{c}})Zhang, Feng, Alam, Zhang, Narayanan, and Avestimehr]{zhang2023gpt}
+Zhang, T., Feng, T., Alam, S., Zhang, M., Narayanan, S.~S., and Avestimehr, S.
+\newblock Gpt-fl: Generative pre-trained model-assisted federated learning.
+\newblock \emph{arXiv preprint arXiv:2306.02210}, 2023{\natexlab{c}}.
+
+\bibitem[Zhao et~al.(2020)Zhao, Mopuri, and Bilen]{zhao2020dataset}
+Zhao, B., Mopuri, K.~R., and Bilen, H.
+\newblock Dataset condensation with gradient matching.
+\newblock \emph{arXiv preprint arXiv:2006.05929}, 2020.
+
+\bibitem[Zhao et~al.(2022{\natexlab{a}})Zhao, Du, Li, Li, and Liu]{zhao2022reduce}
+Zhao, H., Du, W., Li, F., Li, P., and Liu, G.
+\newblock Reduce communication costs and preserve privacy: Prompt tuning method in federated learning.
+\newblock \emph{arXiv preprint arXiv:2208.12268}, 2022{\natexlab{a}}.
+
+\bibitem[Zhao et~al.(2023)Zhao, Nguyen, and Shetty]{flsim}
+Zhao, J., Nguyen, J., and Shetty, S.
+\newblock Flsim.
+\newblock \url{https://github.com/facebookresearch/FLSim}, 2023.
+
+\bibitem[Zhao et~al.(2022{\natexlab{b}})Zhao, Li, and Wang]{zhao2022provably}
+Zhao, X., Li, L., and Wang, Y.-X.
+\newblock Provably confidential language modelling.
+\newblock \emph{arXiv preprint arXiv:2205.01863}, 2022{\natexlab{b}}.
+
+\bibitem[Zhou et~al.(2020)Zhou, Wu, and Banerjee]{Zhou2020BypassingTA}
+Zhou, Y., Wu, Z.~S., and Banerjee, A.
+\newblock Bypassing the ambient dimension: Private sgd with gradient subspace identification.
+\newblock \emph{ArXiv}, abs/2007.03813, 2020.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:220404588}.
+
+\end{thebibliography}

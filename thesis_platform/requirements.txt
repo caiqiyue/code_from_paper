@@ -1,6 +1,13 @@
 # Required by config loading when you want standard YAML parsing instead of the built-in fallback parser.
 PyYAML>=6.0
 
+# Required by the dataset/model download subsystem.
+datasets>=2.20
+huggingface_hub>=0.24
+numpy>=1.26
+pandas>=2.0
+tqdm>=4.66
+
 # Optional: install this when you want the KNN retriever to use a local sentence-transformer model
 # instead of the dependency-free hashing embedder fallback.
 # sentence-transformers>=2.2

@@ -18,10 +18,14 @@ from data_utils import TextDataset
 from utilities import cos_sim, compute_grads_lm
 
 
+SENTIMENT_DATASETS = {"sst2", "rotten_tomatoes", "imdb", "rtpolarity"}
+
 PROMPT_TEMPLATE = {
     "sst2": "Given the following movie review. Only output {pos_label} or {neg_label}.",
     "rotten_tomatoes": "Given the following movie review. Only output {pos_label} or {neg_label}.",
-    "TwitterEmotion": "Given the following tweet. Only output {pos_label} or {neg_label}."
+    "TwitterEmotion": "Given the following tweet. Only output {pos_label} or {neg_label}.",
+    "imdb": "Given the following movie review. Only output {pos_label} or {neg_label}.",
+    "rtpolarity": "Given the following movie review. Only output {pos_label} or {neg_label}.",
 }
 
 
@@ -43,13 +47,76 @@ FEWSHOT_DICT = {
         ("i feel depressed or even short tempered some days", "{neg_label}"),
         ("i said i feel incredibly thankful on the whole", "{pos_label}"),
         ("i left feeling defeated like nothing had been accomplished the day a complete waste of time amp energy", "{neg_label}"),
-    ]
+    ],
+    "imdb": [
+        ("The movie was fantastic and thrilling!", "{pos_label}"),
+        ("I hated the film; it was boring and slow.", "{neg_label}"),
+        ("What a masterpiece, truly inspiring!", "{pos_label}"),
+        ("The plot was dull and characters uninspiring.", "{neg_label}"),
+    ],
+    "rtpolarity": [
+        ("The movie was fantastic and thrilling!", "{pos_label}"),
+        ("I hated the film; it was boring and slow.", "{neg_label}"),
+        ("What a masterpiece, truly inspiring!", "{pos_label}"),
+        ("The plot was dull and characters uninspiring.", "{neg_label}"),
+    ],
 }
 
 
 MODEL_MAP = {
     "phi": "microsoft/phi-1_5",
 }
+
+
+def resolve_model_name(model_name):
+    """Resolve a short alias or return the provided Hugging Face model id."""
+    return MODEL_MAP.get(model_name, model_name)
+
+
+def configure_tokenizer_padding(tokenizer, model):
+    """Ensure the tokenizer and generation config share a usable pad token."""
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token_id is None:
+        if tokenizer.eos_token_id is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+        elif tokenizer.unk_token_id is not None:
+            tokenizer.pad_token = tokenizer.unk_token
+        else:
+            tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+            model.resize_token_embeddings(len(tokenizer))
+    model.generation_config.pad_token_id = tokenizer.pad_token_id
+
+
+def is_sentiment_dataset(dataset):
+    """Return whether the dataset uses the shared movie-review verbalizer."""
+    return dataset in SENTIMENT_DATASETS
+
+
+def get_prompt_suffix(dataset):
+    """Return the task-specific prompt suffix appended before the label token."""
+    if is_sentiment_dataset(dataset):
+        return " It was "
+    if dataset == "TwitterEmotion":
+        return " Does the tweet express joy or sadness?\n"
+    raise ValueError(f"Unsupported dataset: {dataset}")
+
+
+def strip_prompt_suffix(text, dataset):
+    """Remove the task-specific prompt suffix from one synthetic sample."""
+    if is_sentiment_dataset(dataset):
+        return text.split("It was")[0].strip()
+    if dataset == "TwitterEmotion":
+        return text.split("Does the tweet express joy or sadness")[0].strip()
+    raise ValueError(f"Unsupported dataset: {dataset}")
+
+
+def label_to_text(dataset, label):
+    """Map a numeric label id to the task verbalizer used by filtering."""
+    if is_sentiment_dataset(dataset):
+        return "bad" if int(label) == 0 else "great"
+    if dataset == "TwitterEmotion":
+        return "sadness" if int(label) == 0 else "joy"
+    raise ValueError(f"Unsupported dataset: {dataset}")
 
 
 def str2bool(v):
@@ -73,12 +140,13 @@ def get_args(argv=None):
     parser.add_argument('--model_name', type=str, default='phi')
     parser.add_argument(
         '--dataset',
-        choices=['sst2', 'rotten_tomatoes', 'TwitterEmotion'],
+        choices=['sst2', 'rotten_tomatoes', 'TwitterEmotion', 'imdb', 'rtpolarity'],
         required=True,
     )
     parser.add_argument(
         '--split', choices=['train', 'validation'], default='train'
     )
+    parser.add_argument('--data_root', type=str, default='../data')
     parser.add_argument(
         '--gen_bs', type=int, default=1
     )   # number of embeddings to generate per time
@@ -251,8 +319,7 @@ def filter_synthetic_data(args, file_path, model, tokenizer):
     mis_match_count = 0
     for sample in tqdm(samples):
         seq = get_first_element(sample["inputs"])
-        if args.dataset == "sst2":
-            seq = seq.split("It was")[0].strip()
+        seq = strip_prompt_suffix(seq, args.dataset)
         if args.clean:
             seq = clean_text(seq)
         syn_label = sample["label"]
@@ -644,7 +711,7 @@ def compute_grads(args, model, tokenizer, sequences, labels, aggregate=True, agg
     num_samples = len(sequences)
     text_labels = []
     prompt_lengths = []  # Collect prompt lengths for dataset with two prompts
-    if args.dataset in ["sst2", "rotten_tomatoes"]:
+    if is_sentiment_dataset(args.dataset):
         sequences = [seq + " It was " for seq in sequences]
         for seq in sequences:
             prompt_len = len(
@@ -652,7 +719,7 @@ def compute_grads(args, model, tokenizer, sequences, labels, aggregate=True, agg
             )  # Total token count for sst2 prompt + sequence
             prompt_lengths.append(prompt_len)
         for label in labels:
-            text_labels.append("bad" if label.flatten() == 0 else "great")
+            text_labels.append(label_to_text(args.dataset, label.flatten()))
     elif args.dataset == "TwitterEmotion":
         sequences = [
             seq + " Does the tweet express joy or sadness?\n" for seq in sequences
@@ -843,13 +910,16 @@ def grad_similarity_filtering(args, model, tokenizer, list_seq, list_label, avg_
 
 def get_output_file_name(args):
     """Build the default output stem for a filtering run from the current settings."""
+    safe_model_name = str(args.model_name)
+    for separator in ["/", "\\", ":"]:
+        safe_model_name = safe_model_name.replace(separator, "-")
     if args.clean:
         tag = "_clean"
     else:
         tag = ""
     tag += f"_{args.filter_method}"
     tag += f"_{args.filter_score}"
-    tag += f"_{args.model_name}"
+    tag += f"_{safe_model_name}"
     tag += f"_{args.dataset}"
     tag += f"_{args.pos_label}"
     tag += f"_{args.neg_label}"
@@ -896,10 +966,7 @@ def output_to_jsonl(args, list_samples, output_file, post_processing=False, num_
         for sample in list_samples[:num_out]:
             if post_processing:
                 input_text = get_first_element(sample["inputs"])
-                if args.dataset in ["sst2", "rotten_tomatoes"]:
-                    input_text = input_text.split("It was")[0].strip()
-                elif args.dataset == "TwitterEmotion":
-                    input_text = input_text.split("Does the tweet express joy or sadness")[0].strip()
+                input_text = strip_prompt_suffix(input_text, args.dataset)
                 # print(input_text)
                 sample["inputs"] = clean_text(input_text)
             file.write(json.dumps(sample) + '\n')
@@ -913,7 +980,7 @@ def output_to_jsonl(args, list_samples, output_file, post_processing=False, num_
     # print(f"mean_rec_loss_ids: {mean_rec_loss_ids / len(list_samples)}")
     
     
-def load_real_data(dataset_name, split, device, n_gen_samples, n_fewshot, random_seed, subset=None):
+def load_real_data(dataset_name, split, device, n_gen_samples, n_fewshot, random_seed, subset=None, data_root="../data"):
     """Load a labeled real-data subset for gradient-based filtering utilities."""
     dataset = TextDataset(
         device,
@@ -922,7 +989,8 @@ def load_real_data(dataset_name, split, device, n_gen_samples, n_fewshot, random
         n_gen_samples,
         1,
         n_fewshot,
-        seed=random_seed
+        seed=random_seed,
+        data_root=data_root,
     )
 
     pos_sequences, neg_sequences = [], []
@@ -957,10 +1025,7 @@ def load_syn_data(syn_data_path, dataset="sst2"):
 
     for example in syn_data:
         sentence = get_first_element(example["inputs"])
-        if dataset in ["sst2", "rotten_tomatoes"]:
-            sentence = sentence.split("It was")[0].strip()
-        elif dataset == "TwitterEmotion":
-            sentence = sentence.split("Does the tweet express joy or sadness")[0].strip()
+        sentence = strip_prompt_suffix(sentence, dataset)
         label = int(example["label"])
         if label == 0:
             syn_neg_sequences.append(sentence)
@@ -974,13 +1039,12 @@ def load_syn_data(syn_data_path, dataset="sst2"):
     
 def load_model(model_name):
     """Load the language model and tokenizer used during filtering."""
+    resolved_model_name = resolve_model_name(model_name)
     tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_MAP[model_name])
+        resolved_model_name)
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_MAP[model_name])
-    tokenizer.padding_side = "left"
-    tokenizer.pad_token_id = 0
-    model.generation_config.pad_token_id = tokenizer.pad_token_id
+        resolved_model_name)
+    configure_tokenizer_padding(tokenizer, model)
     model.eval()
 
     # Use CUDA if available
@@ -1171,7 +1235,7 @@ def compute_average_grads(args, model, tokenizer, sequences, labels):
     num_samples = len(sequences)
     text_labels = []
     prompt_lengths = []  # Collect prompt lengths for dataset with two prompts
-    if args.dataset in ["sst2", "rotten_tomatoes"]:
+    if is_sentiment_dataset(args.dataset):
         sequences = [seq + " It was " for seq in sequences]
         for seq in sequences:
             prompt_len = len(
@@ -1179,7 +1243,7 @@ def compute_average_grads(args, model, tokenizer, sequences, labels):
             )  # Total token count for sst2 prompt + sequence
             prompt_lengths.append(prompt_len)
         for label in labels:
-            text_labels.append("bad" if label.flatten() == 0 else "great")
+            text_labels.append(label_to_text(args.dataset, label.flatten()))
     elif args.dataset == "TwitterEmotion":
         sequences = [
             seq + " Does the tweet express joy or sadness?\n" for seq in sequences
@@ -1228,14 +1292,12 @@ def calculate_recon_loss_ids(list_sequence, list_label, avg_grad, model, tokeniz
     list_loss = []
     
     for seq, text_label in zip(list_sequence, list_label):
-        if dataset in ["sst2", "rotten_tomatoes"]:
-            orig_batch = tokenizer(
-                seq + " It was ", padding=True, truncation=True, return_tensors="pt"
-            ).to(model.device)
-        elif dataset == "TwitterEmotion":
-            orig_batch = tokenizer(
-                seq + " Does the tweet express joy or sadness?\n", padding=True, truncation=True, return_tensors="pt"
-            ).to(model.device)
+        orig_batch = tokenizer(
+            seq + get_prompt_suffix(dataset),
+            padding=True,
+            truncation=True,
+            return_tensors="pt",
+        ).to(model.device)
         label = tokenizer(
             text_label, padding=True, truncation=True, return_tensors="pt"
         ).to(model.device)

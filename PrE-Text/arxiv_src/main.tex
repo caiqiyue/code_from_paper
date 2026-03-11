@@ -1,0 +1,258 @@
+    %%%%%%%% ICML 2024 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2024} with \usepackage[nohyperref]{icml2024} above.
+\usepackage{hyperref}
+
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+% \usepackage{icml2024}
+
+% If accepted, instead use the following line for the camera-ready submission:
+\usepackage[accepted]{icml2024}
+
+% For theorems and such
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{threeparttable}
+
+\usepackage{makecell}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{colortbl}
+\usepackage{tcolorbox}
+\usepackage{pifont}
+\usepackage{tikz}
+\usepackage{xurl}
+% if you use cleveref..
+\usepackage[capitalize,noabbrev]{cleveref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% THEOREMS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+\newcommand{\gf}[1]{\textcolor{red}{GF: #1}}
+\newcommand{\cha}[1]{\textcolor{teal}{CH: #1}}
+\newcommand{\as}[1]{\textcolor{green}{AS: #1}}
+\newcommand{\dl}[1]{\textcolor{purple}{DL: #1}}
+
+\newcommand{\holder}[1]{\textcolor{orange}{#1}}
+% \newcommand{\holder}[1]{#1}
+\definecolor{bgcolor}{rgb}{0.85,0.85,1}
+
+\definecolor{mydarkgreen}{RGB}{39,130,67}
+\definecolor{mydarkred}{RGB}{192,25,25}
+\newcommand{\green}{\color{mydarkgreen}}
+\newcommand{\red}{\color{mydarkred}}
+\newcommand{\cmark}{\green\ding{51}}%
+\newcommand{\xmark}{\red\ding{55}}%
+\newcommand\pcref[1]{(\cref{#1})}
+
+\colorlet{blue}{cyan!60}
+\makeatletter
+\newcommand{\algcolor}[2]{%
+  \hskip-\ALG@thistlm\colorbox{#1}{\parbox{\dimexpr\linewidth-2\fboxsep}{\hskip\ALG@thistlm\relax #2}}%
+}
+\newcommand{\algemph}[1]{\algcolor{bgcolor}{#1}}
+\makeatother
+% Todonotes is useful during development; simply uncomment the next line
+%    and comment out the line below the next line to turn off comments
+%\usepackage[disable,textsize=tiny]{todonotes}
+\usepackage[textsize=tiny]{todonotes}
+
+
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{PrE-Text: Training Language Models on Private Federated Data in the Age of LLMs}
+
+\begin{document}
+
+\twocolumn[
+\icmltitle{PrE-Text: Training Language Models on \\ Private Federated Data in the Age of LLMs}
+
+% It is OKAY to include author information, even for blind
+% submissions: the style file will automatically remove it for you
+% unless you've provided the [accepted] option to the icml2024
+% package.
+
+% List of affiliations: The first argument should be a (short)
+% identifier you will use later to specify author affiliations
+% Academic affiliations should list Department, University, City, Region, Country
+% Industry affiliations should list Company, City, Region, Country
+
+% You can specify symbols, otherwise they are numbered in order.
+% Ideally, you should not use this facility. Affiliations will be numbered
+% in order of appearance and this is the preferred way.
+\icmlsetsymbol{equal}{*}
+
+\begin{icmlauthorlist}
+\icmlauthor{Charlie Hou}{cmu}
+\icmlauthor{Akshat Shrivastava}{meta}
+\icmlauthor{Hongyuan Zhan}{meta}
+\icmlauthor{Rylan Conway}{meta}
+\icmlauthor{Trang Le}{meta} \\
+\icmlauthor{Adithya Sagar}{meta}
+\icmlauthor{Giulia Fanti}{cmu}
+%\icmlauthor{}{sch}
+\icmlauthor{Daniel Lazar}{coldrays}
+%\icmlauthor{}{sch}
+%\icmlauthor{}{sch}
+\end{icmlauthorlist}
+
+\icmlaffiliation{cmu}{Department of Electrical and Computer Engineering, Carnegie Mellon University}
+\icmlaffiliation{meta}{Meta}
+\icmlaffiliation{coldrays}{Coldrays}
+
+\icmlcorrespondingauthor{Charlie Hou}{hou.charlie2@gmail.com}
+
+
+% You may provide any keywords that you
+% find helpful for describing your paper; these are used to populate
+% the "keywords" metadata in the PDF but will not be shown in the document
+\icmlkeywords{Machine Learning, ICML}
+
+\vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column
+% listing the affiliations and the copyright notice.
+% The command takes one argument, which is text to display at the start of the footnote.
+% The \icmlEqualContribution command is standard text for equal contribution.
+% Remove it (just {}) if you do not need this facility.
+
+%\printAffiliationsAndNotice{}  % leave blank if no need to mention equal contribution
+\printAffiliationsAndNotice{} % otherwise use the standard text.
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\input{intro}
+\input{prelim}
+\input{pretext}
+\input{experiments}
+\input{related}
+\input{conclusion}
+\input{broader_impacts}
+\input{acks}
+% In the unusual situation where you want a paper to appear in the
+% references without citing it in the main text, use \nocite
+
+\bibliography{main}
+\bibliographystyle{icml2024}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIX
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\appendix
+\onecolumn
+\section{Additional Related Work}
+
+\textbf{Federated Distillation.} To sidestep the problem of high communication overheads, federated distillation has been proposed as a promising approach recently \citep{NEURIPS2020_fef6f971, Abourayya2023LittleIE, Wang_2023_CVPR, Wu2021CommunicationefficientFL, NEURIPS2020_18df51b9, Cho2021PersonalizedFL}, which draw inspiration from the PATE line of work \citep{Papernot2016SemisupervisedKT, Papernot2018ScalablePL}. As far as we know, these federated distillation methods have not developed algorithms for the private federated language setting that we study. There have been works studying DP synthetic data in settings outside of text \citep{Torkzadehmahani_2019_CVPR_Workshops, Neunhoeffer2020PrivatePB}.
+
+
+\textbf{Clipping strategies.} Clipping is a critical component of DP training of deep learning models, as it limits the sensitivity of the output. \citet{li2021large,bu2024automatic, bu2023differentially, kong2024unified} study how to (1) improve the computational efficiency of clipping, and (2) make it more privacy-efficient.
+
+\textbf{Unlearning.} \citet{chen2023unlearn, jang2022knowledge, kumar2022privacy, yao2024machine} take a machine unlearning approach to remove sensitive data from a model. This approach avoids having to retrain a non-private model using private methods from scratch.
+
+\textbf{Private inference of language models.} \citet{tang2023privacy, wu2023privacy} show how to do in-context learning with differential privacy. \citet{duan2024flocks} show how to protect the privacy of data that is used in in-context learning. \citet{du2023dp} show how to add differential privacy in the forward pass of an LLM.  \citet{mattern2022differentially} show how to anonymize data release in language models using differential privacy.
+
+\textbf{Private dataset selection.} \citet{gu2023choosing, hou2023privately} show how to privately choose pretraining datasets. \citet{Zhou2020BypassingTA} use gradient subspaces calculated from public data to reduce the amount of noise needed for differential privacy guarantees.
+
+\textbf{DP finetuning.} \citet{li2023privacy} investigate differentially private prompt tuning. \citet{li2022does} show conditions under which LLMs do not suffer much accuracy drop-off from using DPSGD \citep{abadi2016deep}. \citet{yu2021large} show that by using a LoRA-like reparameterization, large language models can perform differentially private training without losing much performance. \citet{nasr2023effectively} modify DPSGD to more effectively use public data.  \citet{zhang2023dpzero,tang2024private} show how to do zeroth order optimization of language models with differential privacy. \citet{yu2024privacy} show how to do DP instruction tuning. \citet{Kairouz2020DimensionII} show that DP adagrad can achieve better regret guarantees than plain DP SGD. \citet{Tramr2020DifferentiallyPL} develop strong simple baselines for DP learning of models. \citet{wang2023private} studies how to analyze overparameterized private linear regression via a theoretical lens.  \citet{yu2022individual} show how to account for privacy on an individual example level in DPSGD.  \citet{anil2021large} show how scale allows product DP finetuning of BERT. \citet{xu2021utilitarian, mireshghallah2021privacy} consider DP language models satisfying empirical notions of privacy.  
+
+\textbf{On-device training.} \citet{Hou2021EfficientAF} study how to do saddle point optimization in the federated setting. \citet{weller2022pretrained} study the multilingual language model learning problem in federated learning. \citet{ramaswamy2020training} train production next-token-prediction models with differential privacy. \citet{xu2023training} study the private federated learning setting, modifying private on-device training to be more noise and communication efficient. \citet{gupta2022recovering} show an attack on how to recover text used to train federated text models (if differential privacy is not used). 
+
+\textbf{Public pretraining.} \citet{ganesh2023public} perform a theoretical analysis to show why public pretraining is so critical to the deployment of DP language models. \citet{kerrigan2020differentially} show that public pretraining helps with producing DP language models.
+
+
+\textbf{Best practices in DP published work.} \citet{brown2022does, zhao2022provably} studies the issue of LLM pretraining data often not explicitly designated for public use, undermining typical assumptions made about public data in DP language models.  \citet{Ponomareva2023HowTD} describe best practices when publishing DP work.
+
+
+\section{Prompt}
+We provide the prompt used for \texttt{expand} here.
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\columnwidth]{figures/prompt_ex.pdf}
+\caption{\label{fig:prompt}The synthetic data generation prompt for \texttt{Expand}.  The blue text after ``Original Text Sample 4'' is generated.  We parse the generated text for the text between Original Text Sample 4 and Original Text Sample 5 and use that as a synthetic sample.}
+\end{figure}
+
+\section{Dataset generation details}
+\label{app:dataset}
+We use the train split of the c4 English (c4-en) dataset \citep{c4}. We start by producing three federated private datasets from c4-en: \textsc{Jobs}, \textsc{Forums}, and \textsc{Microblog}.  We illustrate the process for \textsc{Jobs}; the process is similar for the other two.  First, we take the first 11,000 samples in the c4-en dataset that come from a jobs site.  The private train set consists of 10,000 randomly chosen samples, and the private evaluation set consists of the remaining 1000 samples. The federated dataset is then constructed by splitting the 10,000 training samples into 1250 clients of 8 samples each, split uniformly at random. The same is done for \textsc{Forums} (from an online forum site) and \textsc{Microblog} (from an online microblogging site). 
+
+We also evaluate our method on a question-and-answer dataset focused on coding and technical topics, which has text content partitioned by users. We construct 1250 users by making a federated dataset where each client has the comments associated with that user in the dataset. For each user, we cap the number of comments to 128. This forms the training dataset. The evaluation dataset is made up of the first 2000 samples of the next 100 users from the same dataset. We call this dataset \textsc{Code}. The results on the \textsc{Code} evaluation dataset differ slightly from the version published in ICML 2024, due to an earlier error in the train/test split, which has been corrected. The overall conclusions remain the same.
+
+For the initial population used in \cref{private evolution}, we take random samples from c4-en that are not in the private training sets nor even from the same website sources represented in the private datasets.
+
+\section{Experimental details}
+
+\subsection{Privacy Details}
+\label{app:privacy}
+For our privacy estimate in our evaluation, we use \textsc{opacus.accountants.analysis.rdp} to compute the privacy guarantee for PrE-Text. We input $T=11$ steps, $q=1.0$, and set the \textsc{noise\_multiplier} to be the ratio of $\sigma$ to the sensitivity (the max number of samples per client for PrE-Text), setting $\sigma$ to the value that gets us the desired $\epsilon$ value).
+
+\subsection{Baselines}
+\label{app:exp details}
+\textit{(1) $\epsilon=0$ baselines:} We evaluate c4-only and Expand-only. c4-only is a DistilGPT2 model finetuned on a subset of c4-en that was not in any of the private datasets. As \citet{xu2023federated} found, finetuning on c4-en improved privacy-utility tradeoff greatly in next-token prediction, so this is an important baseline. Expand-only is a DistilGPT2 model finetuned on the subset of c4-en used in the c4-only baseline expanded to 2 million samples using \texttt{expand}. We use the AdamW optimizer with a learning rate of 0.0002 and a batch size of 256 for c4-only, and a batch size of 65536 for Expand-only. We train for 20 epochs. The subset of c4-en is a subset of roughly 87k samples from c4-en that was not in any of the private datasets nor even from the same websites as any of the private datasets. We provide the precise dataset under data/initialization.json in the code repository.
+
+\textit{(2) $\epsilon=\infty$ baselines:} We evaluate Expand-private, which is a DistilGPT2 model finetuned on (1) the subset of c4-en used in c4-only baseline, and (2) the private dataset expanded to 2 million samples using \texttt{expand}. We found that this performed better than a model finetuned on only the private dataset itself.  We use the AdamW optimizer with a learning rate of 0.0002 and a batch size of 256 for c4-only, and a batch size of 65536 and train for 20 epochs.
+
+\textit{(3) On-device baselines:} We evaluate DP-FedAvg \citep{mcmahan2017learning} and DP-FTRL \citep{kairouz2021practical} at privacy levels of $\epsilon=1.29, \epsilon=7.58$. We first finetune DistilGPT2 on the subset of c4-en used in the c4-only baseline, and then finetune it further using DP-FedAvg or DP-FTRL (which are on-device training methods). We use the DP-FTRL-TreeRestart variant of DP-FTRL, which makes the most sense in our setting which considers full participation in each communication round. For both DP-FedAvg and DP-FTRL, we tune the client learning rate in $\{0.1, 0.01, 0.001\}$, the number of communication rounds in $\{10,20,100\}$, and clipping in $\{1.0, 0.1, 0.01, 0.001\}$. Similar to \citep{kairouz2021practical}, we found that more rounds always helped, (i.e. 100 rounds is better than 20 and 10). The batch size is 4, and server momentum is 0.9. We report the best evaluation metric, evaluated at the end of each round.
+
+\textit{(4) Text-to-text privatization baseline:} In this approach, clients hold an LLM on-device (which may not be practical) and release privacy-preserved paraphrases of their text directly to the server. The representative method we use here is DP-Prompt \citep{utpala-etal-2023-locally}. We use the same prompt and model (flan-t5-3b) as \citet{utpala-etal-2023-locally}. Note that these methods cannot take advantage of secure aggregation (text cannot be summed together) which necessitates much more noise to be added to the privatized text. We first finetune a DistilGPT2 model on the subset of c4-en used in the c4-only baseline, and then finetune it further on the privatized text received by the server. We clip according to the top and bottom logits just like \citet{utpala-etal-2023-locally}. For the finetuning step, we use the AdamW optimizer with a learning rate of 0.0002 and a batch size of 256 and choose the best evaluation metric over 20 epochs.
+
+\textit{(5) PrE-Text:} We use PrE-Text to generate a synthetic dataset of 2 million samples. We first finetune DistilGPT2 on the subset of c4-en used in the c4-only baseline, and then finetune it further on the synthetic dataset generated by PrE-Text. The $\Phi$ we use is miniLM-L6-v2 \citep{reimers-2019-sentence-bert}, which produces an embedding of size 384. In \texttt{Variation} we use RoBERTa-large as the mask filling model with top\_p parameter set to 1.0 and temperature set to 1.0, $W_{\text{steps}}=2$, and $\textsc{Mask}\% = 30\%$.  In \texttt{Expand} we use LLaMA-2-7B with top\_p set to 1.0 and temperature set to 1.0.  When implementing \texttt{Expand} we use the library vLLM to speed up inference \citep{kwon2023efficient}. For $\epsilon=1.29$: $N_{\text{syn}}=1024$, $H=5.9 \times 8.0 \times 1.541 \times \sqrt{2}$. For $\epsilon=7.58$: $N_{\text{syn}}=2048$, $H=8.0 \times 1.541 \times \sqrt{2}$. For \textsc{Jobs}, \textsc{Forums}, \textsc{Microblog}, there is a max of 8 samples per client, which limits the sensitivity to 8. For \textsc{Code}, we deliberately clip the number of samples per client to 16, which limits sensitivity to 16. In \textsc{Code}, both the noise and the threshold $H$ is doubled compared to the other datasets to adjust to the increased sensitivity.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\end{document}
+
+
+% This document was modified from the file originally made available by
+% Pat Langley and Andrea Danyluk for ICML-2K. This version was created
+% by Iain Murray in 2018, and modified by Alexandre Bouchard in
+% 2019 and 2021 and by Csaba Szepesvari, Gang Niu and Sivan Sabato in 2022.
+% Modified again in 2023 and 2024 by Sivan Sabato and Jonathan Scarlett.
+% Previous contributors include Dan Roy, Lise Getoor and Tobias
+% Scheffer, which was slightly modified from the 2010 version by
+% Thorsten Joachims & Johannes Fuernkranz, slightly modified from the
+% 2009 version by Kiri Wagstaff and Sam Roweis's 2008 version, which is
+% slightly modified from Prasad Tadepalli's 2007 version which is a
+% lightly changed version of the previous year's version by Andrew
+% Moore, which was in turn edited from those of Kristian Kersting and
+% Codrina Lauth. Alex Smola contributed to the algorithmic style files.

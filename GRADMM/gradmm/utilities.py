@@ -64,7 +64,10 @@ def get_args_flags(args):
     Returns:
         flags: Experiment flags
     """
-    flags = f"{args.dataset.upper()}-{args.split}-{args.model_name}"
+    safe_model_name = str(args.model_name)
+    for separator in ["/", "\\", ":"]:
+        safe_model_name = safe_model_name.replace(separator, "-")
+    flags = f"{args.dataset.upper()}-{args.split}-{safe_model_name}"
     flags += f"-nreal{args.n_gen_samples}"
     flags += f"-steps{args.n_steps}"
     flags += f"-nsyn{args.n_gen}"

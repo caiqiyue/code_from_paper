@@ -1,0 +1,5 @@
+\section*{Impact Statement}
+PrE-Text relies on models that were pretrained on public data. It does not provide privacy guarantees for the public data that was used to train these models.
+Although that training data was public, it may not have been intended for use in language models, which raises questions about the ethics of using the resulting models \citep{tramer2022considerations}. 
+Therefore, in real deployments for PrE-Text, it is important to ensure that the public data used to pretrain the base models has been properly audited. Broadly, it is also important to communicate to users how much privacy protection they are getting when private algorithms are run on their data, and collect informed consent. 
+% Different values of $\epsilon$ convey different degrees of protection and users should be informed before they give permission for ML models to use their private data.

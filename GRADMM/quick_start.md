@@ -392,10 +392,10 @@ list_exp_path = [
 
 - README 中的微调 notebook 路径写错了，应该是 `addax/Finetuning.ipynb`，不是 `gradmm/Finetuning.ipynb`
 - `requirements.txt` 没有 `pandas`，但结果汇总 notebook 用到了它
-- `gradmm/generate.py` 和 `gradmm/filtering.py` 当前实际映射的模型名只有 `phi -> microsoft/phi-1_5`
+- `gradmm/generate.py` 和 `gradmm/filtering.py` 仍内建 `phi -> microsoft/phi-1_5`，但现在也允许直接传 Hugging Face 模型名做 smoke 测试
 - 脚本都是 `.sh`，默认按 Bash/WSL/Git Bash 环境写的；如果你在原生 Windows PowerShell 下运行，需要改写脚本或直接运行 Python 命令
 - `addax/tasks.py` 里 `RTPolarityDataset` 和 `SynRTPolarityDataset` 使用的是 `../data/rtpolarityy/validation.jsonl`，这里看起来是个路径拼写错误；如果你要跑 `SynRTPolarity` 微调，建议先改成 `../data/rtpolarity/validation.jsonl`
-- `gradmm/filtering.py` 的 CLI 只显式支持 `sst2`、`rotten_tomatoes`、`TwitterEmotion`，所以 IMDB / RT-Polarity 的 filtering 流程需要你自己额外确认是否沿用 notebook 逻辑
+- `gradmm/filtering.py` 现在也支持 `imdb` 和 `rtpolarity`，可以直接走本地 smoke 数据的 filtering 流程
 
 ## 8. 一句话总结
 
@@ -403,3 +403,138 @@ list_exp_path = [
 
 - `gradmm/` 负责“从真实样本梯度反推 synthetic text”
 - `addax/` 负责“拿筛选后的 synthetic text 去微调并评估语言模型”
+
+## 9. Tiny 数据与 Python Workflow
+
+为了在本地快速跑通完整链路，仓库现在额外提供了：
+
+- `tools/create_smoke_datasets.py`
+  从 `data/` 里抽样生成 `data_smoke/`
+- `gradmm/filtering_workflow.py`
+  把 `Filtering.ipynb` 的 clean/remove、重算 `rec_loss_ids`、top-score 选样收敛成 CLI
+- `addax/finetuning_workflow.py`
+  把 `Finetuning.ipynb` 的路径枚举和结果汇总收敛成 CLI
+
+### 9.1 生成 tiny 本地数据
+
+```bash
+python tools/create_smoke_datasets.py --sample-size 40
+python tools/create_smoke_datasets.py --self-test
+```
+
+输出目录：
+
+```text
+data_smoke/
+├─ imdb/
+└─ rtpolarity/
+```
+
+### 9.2 推荐 smoke 模型
+
+完整 smoke run 推荐使用：
+
+```text
+sshleifer/tiny-gpt2
+```
+
+`gradmm` 侧现在支持直接传这个模型名，不必只用 `phi`。
+
+### 9.3 推荐 smoke 命令顺序
+
+1. 生成 tiny 数据：
+
+```bash
+python tools/create_smoke_datasets.py --sample-size 40
+```
+
+2. 跑一轮 tiny 生成，以 `imdb` 为例：
+
+```bash
+cd gradmm
+python generate.py \
+  --device cpu \
+  --model_name sshleifer/tiny-gpt2 \
+  --dataset imdb \
+  --data_root ../data_smoke \
+  --split validation \
+  --batch_size 4 \
+  --n_steps 2 \
+  --n_gen_samples 8 \
+  --subset_size 4 \
+  --n_gen 2 \
+  --gen_bs 2 \
+  --gen_max_tokens 8 \
+  --opt_alg admm \
+  --admm_rho 0.5 \
+  --admm_inner_steps 1 \
+  --topk 20 \
+  --work_base_dir ./synthetic_data/imdb_smoke
+```
+
+3. 跑 filtering workflow：
+
+```bash
+python filtering_workflow.py \
+  all \
+  --dataset imdb \
+  --model-name sshleifer/tiny-gpt2 \
+  --data-root ../data_smoke \
+  --file-dir ./synthetic_data \
+  --exp-pattern imdb_smoke \
+  --gen-bs 2 \
+  --top-n 4
+```
+
+4. 枚举可用于微调的 JSONL：
+
+```bash
+cd ../addax
+python finetuning_workflow.py \
+  list-paths \
+  --file-dir ../gradmm/synthetic_data \
+  --exp-pattern imdb_smoke
+```
+
+5. 用 tiny 模型做一次微调：
+
+```bash
+python run.py \
+  --trainer regular \
+  --use_cpu \
+  --report_to none \
+  --model_name sshleifer/tiny-gpt2 \
+  --task_name SynIMDB \
+  --data_root ../data_smoke \
+  --syn_data_path ../gradmm/synthetic_data/imdb_smoke/.../synthetic_data_clean_remove_cls_tiny-gpt2_imdb_positive_negative_instrFalse_fsTrue_top4_score_alpha0.0_per_label_balance_score.jsonl \
+  --output_dir ./synthetic_data_FT/imdb_smoke/output \
+  --num_train 4 \
+  --num_eval 8 \
+  --num_eval_to_keep 8 \
+  --per_device_train_batch_size 2 \
+  --gradient_accumulation_steps 1 \
+  --max_steps 2 \
+  --learning_rate 1e-5 \
+  --train_as_classification \
+  --eval_strategy steps \
+  --save_strategy steps \
+  --eval_steps 1 \
+  --save_steps 1 \
+  --overwrite_output_dir
+```
+
+6. 汇总微调结果：
+
+```bash
+python finetuning_workflow.py \
+  collect-results \
+  --exp-path ./synthetic_data_FT/imdb_smoke
+```
+
+### 9.4 本地自检
+
+```bash
+python tools/create_smoke_datasets.py --self-test
+cd gradmm && python filtering_workflow.py --self-test
+cd ../addax && python finetuning_workflow.py --self-test
+```

@@ -77,11 +77,16 @@ from transformers.utils import (
     is_datasets_available,
     is_in_notebook,
     is_peft_available,
-    is_safetensors_available,
     is_sagemaker_mp_enabled,
     is_torch_xla_available,
     logging,
 )
+try:
+    from transformers.utils import is_safetensors_available
+except ImportError:
+    def is_safetensors_available():
+        """Compatibility shim for newer Transformers releases."""
+        return importlib.util.find_spec("safetensors") is not None
 
 from utils import end_accumulate_time, start_accumulate_time
 
@@ -257,21 +262,30 @@ class OurTrainer(Trainer):
         ] = None,
     ):
         """Initialize the customized trainer and persist the run arguments alongside the output directory."""
-        super().__init__(
+        super_init_kwargs = dict(
             model=model,
             args=args,
             data_collator=data_collator,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
             model_init=model_init,
             compute_metrics=compute_metrics,
             callbacks=callbacks,
             optimizers=optimizers,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
+        if "tokenizer" in inspect.signature(Trainer.__init__).parameters:
+            super_init_kwargs["tokenizer"] = tokenizer
+        else:
+            super_init_kwargs["processing_class"] = tokenizer
+
+        super().__init__(**super_init_kwargs)
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print("type of optimizer: ", type(optimizers[0]))
+        self.use_apex = getattr(self, "use_apex", False)
+        self.is_fsdp_xla_enabled = getattr(self, "is_fsdp_xla_enabled", False)
+        self.deepspeed = getattr(self, "deepspeed", None)
+        self.current_gradient_accumulation_steps = args.gradient_accumulation_steps
         self.test_dataset = test_dataset
         self.training_framework = training_framework
         self.eval_samples = eval_samples
@@ -338,6 +352,9 @@ class OurTrainer(Trainer):
                 )
             with open(os.path.join(output_dir, "main_results.json"), "w") as f:
                 json.dump(self.args.main_results, f, indent=2)
+            if output_dir != self.args.output_dir:
+                with open(os.path.join(self.args.output_dir, "main_results.json"), "w") as f:
+                    json.dump(self.args.main_results, f, indent=2)
 
         if self.args.push_to_hub:
             self._push_from_checkpoint(output_dir)
@@ -346,7 +363,8 @@ class OurTrainer(Trainer):
         if self.args.should_save:
             # Solely rely on numerical checkpoint id for rotation.
             # mtime is not reliable especially on some fuse fs in cloud environments.
-            self._rotate_checkpoints(use_mtime=False, output_dir=run_dir)
+            if hasattr(self, "_rotate_checkpoints"):
+                self._rotate_checkpoints(use_mtime=False, output_dir=run_dir)
 
     def _maybe_log_save_evaluate(
         self, tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval
@@ -612,13 +630,16 @@ class OurTrainer(Trainer):
 
         return output.metrics
 
-    from transformers.trainer_pt_utils import (
-        _get_learning_rate,
-        log_metrics,
-        metrics_format,
-        save_metrics,
-        save_state,
-    )
+    try:
+        from transformers.trainer_pt_utils import (
+            _get_learning_rate,
+            log_metrics,
+            metrics_format,
+            save_metrics,
+            save_state,
+        )
+    except ImportError:
+        pass
 
     def _inner_training_loop(
         self,
@@ -632,6 +653,7 @@ class OurTrainer(Trainer):
         self._train_batch_size = batch_size
         # Data loader and number of training steps
         train_dataloader = self.get_train_dataloader()
+        include_tokens_per_second = getattr(args, "include_tokens_per_second", False)
 
         # MeZO added: Linear probing
         if self.args.linear_probing:
@@ -782,7 +804,7 @@ class OurTrainer(Trainer):
                 # May be slightly incorrect if the last batch in the training dataloader has a smaller size but it's
                 # the best we can do.
                 num_train_samples = args.max_steps * total_train_batch_size
-                if args.include_tokens_per_second:
+                if include_tokens_per_second:
                     num_train_tokens = (
                         self.num_tokens(train_dataloader, args.max_steps)
                         * args.gradient_accumulation_steps
@@ -795,7 +817,7 @@ class OurTrainer(Trainer):
                 num_train_samples = (
                     self.num_examples(train_dataloader) * args.num_train_epochs
                 )
-                if args.include_tokens_per_second:
+                if include_tokens_per_second:
                     num_train_tokens = (
                         self.num_tokens(train_dataloader) * args.num_train_epochs
                     )
@@ -808,7 +830,7 @@ class OurTrainer(Trainer):
             num_update_steps_per_epoch = max_steps
             num_examples = total_train_batch_size * args.max_steps
             num_train_samples = args.max_steps * total_train_batch_size
-            if args.include_tokens_per_second:
+            if include_tokens_per_second:
                 num_train_tokens = (
                     self.num_tokens(train_dataloader, args.max_steps)
                     * args.gradient_accumulation_steps
@@ -1326,9 +1348,12 @@ class OurTrainer(Trainer):
         self.log(metrics)
 
         run_dir = self._get_output_dir(trial)
-        checkpoints_sorted = self._sorted_checkpoints(
-            use_mtime=False, output_dir=run_dir
-        )
+        if hasattr(self, "_sorted_checkpoints"):
+            checkpoints_sorted = self._sorted_checkpoints(
+                use_mtime=False, output_dir=run_dir
+            )
+        else:
+            checkpoints_sorted = []
 
         # Delete the last checkpoint when save_total_limit=1 if it's different from the best checkpoint and process allowed to save.
         if (

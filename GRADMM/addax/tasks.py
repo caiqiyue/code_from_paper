@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import logging
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, List, Union
 
@@ -23,7 +24,15 @@ def read_jsonl(path):
         return [json.loads(x.decode("utf-8")) for x in fp.readlines()]
 
 
-def get_task(task_name):
+def resolve_data_root(data_root="../data"):
+    """Resolve a local dataset root relative to this module when needed."""
+    root = Path(data_root)
+    if root.is_absolute():
+        return root
+    return (Path(__file__).resolve().parent / root).resolve()
+
+
+def get_task(task_name, **kwargs):
     """Instantiate a real-data task adapter from its task name."""
     aa = task_name.split("__")
     if len(aa) == 2:
@@ -32,16 +41,16 @@ def get_task(task_name):
         task_group = aa[0]
         subtask = None
     class_ = getattr(sys.modules[__name__], f"{task_group}Dataset")
-    instance = class_(subtask)
+    instance = class_(subtask, **kwargs)
     
     return instance
 
 
-def get_syn_task(task_name, data_path):
+def get_syn_task(task_name, data_path, **kwargs):
     """Instantiate a synthetic-data task adapter and bind it to a JSONL file."""
     subtask = None
     class_ = getattr(sys.modules[__name__], f"{task_name}Dataset")
-    instance = class_(subtask=subtask, path=data_path)
+    instance = class_(subtask=subtask, path=data_path, **kwargs)
     
     return instance
 
@@ -298,13 +307,14 @@ class IMDBDataset(Dataset):
 
     def load_dataset(self, path, **kwargs):
         """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
+        data_root = resolve_data_root(kwargs.get("data_root", "../data"))
         train_d = load_dataset(
             "json",
-            data_files="../data/imdb/train_len256.jsonl",
+            data_files=str(data_root / "imdb" / "train_len256.jsonl"),
         )["train"]
         validation_d = load_dataset(
             "json",
-            data_files="../data/imdb/validation_len256.jsonl",
+            data_files=str(data_root / "imdb" / "validation_len256.jsonl"),
         )["train"]
 
         train_samples = [self.build_sample(example) for example in train_d]
@@ -338,10 +348,11 @@ class SynIMDBDataset(Dataset):
 
     def load_dataset(self, path, **kwargs):
         """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
+        data_root = resolve_data_root(kwargs.get("data_root", "../data"))
         train_d = load_dataset("json", data_files=path)["train"]
         validation_d = load_dataset(
             "json",
-            data_files="../data/imdb/validation_len256.jsonl",
+            data_files=str(data_root / "imdb" / "validation_len256.jsonl"),
         )["train"]
 
         train_samples = [
@@ -392,13 +403,14 @@ class RTPolarityDataset(Dataset):
 
     def load_dataset(self, path, **kwargs):
         """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
+        data_root = resolve_data_root(kwargs.get("data_root", "../data"))
         train_d = load_dataset(
             "json",
-            data_files="../data/rtpolarity/train.jsonl",
+            data_files=str(data_root / "rtpolarity" / "train.jsonl"),
         )["train"]
         validation_d = load_dataset(
             "json",
-            data_files="../data/rtpolarity/validation.jsonl",
+            data_files=str(data_root / "rtpolarity" / "validation.jsonl"),
         )["train"]
 
         train_samples = [self.build_sample(example) for example in train_d]
@@ -432,10 +444,11 @@ class SynRTPolarityDataset(Dataset):
 
     def load_dataset(self, path, **kwargs):
         """Load raw examples, wrap them as Sample objects, and cache the expected splits."""
+        data_root = resolve_data_root(kwargs.get("data_root", "../data"))
         train_d = load_dataset("json", data_files=path)["train"]
         validation_d = load_dataset(
             "json",
-            data_files="../data/rtpolarity/validation.jsonl",
+            data_files=str(data_root / "rtpolarity" / "validation.jsonl"),
         )["train"]
 
         train_samples = [

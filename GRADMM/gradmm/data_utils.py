@@ -1,16 +1,33 @@
 import random
 from typing import Any, List
 from collections import defaultdict
+from pathlib import Path
 
 import torch
 from datasets import load_dataset
 from sklearn.model_selection import train_test_split
 
 
+def resolve_data_root(data_root="../data"):
+    """Resolve a local dataset root relative to this module when needed."""
+    root = Path(data_root)
+    if root.is_absolute():
+        return root
+    return (Path(__file__).resolve().parent / root).resolve()
+
+
 class TextDataset:
     """Cache a stratified slice of real texts and labels for GRADMM generation."""
     def __init__(
-        self, device, dataset, split, n_inputs, batch_size, n_fewshot=1, seed=42
+        self,
+        device,
+        dataset,
+        split,
+        n_inputs,
+        batch_size,
+        n_fewshot=1,
+        seed=42,
+        data_root="../data",
     ):
         """Load a stratified subset of the requested split and cache generation plus few-shot examples."""
         seq_keys = {
@@ -21,6 +38,7 @@ class TextDataset:
             'rtpolarity': 'inputs',
         }
         seq_key = seq_keys[dataset]
+        resolved_data_root = resolve_data_root(data_root)
 
         if dataset in ['sst2']:
             full = load_dataset('glue', dataset)[split]
@@ -31,12 +49,12 @@ class TextDataset:
         elif dataset == 'imdb':
             full = load_dataset(
                 'json',
-                data_files=f'../data/imdb/{split}_len256.jsonl',
+                data_files=str(resolved_data_root / 'imdb' / f'{split}_len256.jsonl'),
             )['train']
         elif dataset == 'rtpolarity':
             full = load_dataset(
                 'json',
-                data_files=f'../data/rtpolarity/{split}.jsonl',
+                data_files=str(resolved_data_root / 'rtpolarity' / f'{split}.jsonl'),
             )['train']
         else:
             full = load_dataset(dataset)[split]

@@ -11,3 +11,24 @@
 **/outputs/
 **/conf/
 **/assests/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+**/.venv/
+
+# Binary documents
+*.pdf
+
+# Experiment artifacts and local model caches
+**/wandb/
+**/local_models/
+**/synthetic_data/
+**/data_smoke/
+GRADMM/addax/ft/
+GRADMM/addax/result/
+GRADMM/gradmm/s/
+GRADMM/m/

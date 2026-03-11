@@ -1,0 +1,36 @@
+
+\section{Preliminaries}
+In this section, we provide formal definitions for our setting.
+
+\begin{definition}[Neighboring datasets]
+    Two federated datasets $X, X'$ are said to be neighboring  (denoted $X\sim X'$) if they differ at most with respect to only one user's data (i.e. $X$ has an extra user compared to $X'$ or vice versa). Note that we consider a \emph{user-level} notion of neighboring datasets \citep{mcmahan2017learning}.
+\end{definition}
+
+\begin{definition}[Differential Privacy]
+A randomized algorithm $\mathcal{A}$ is $(\epsilon, \delta)$-differentially private (DP) if for any pair of neighboring datasets $X$, $X'$ and for all subsets $E$ of outputs, 
+\begin{align}
+\text{Pr}[\mathcal{A}(X) \in E] \leq e^{\epsilon}~\text{Pr}[\mathcal{A}(X') \in E] + \delta.
+\end{align}
+\end{definition}
+In this work, we  use the Gaussian Mechanism \citep{dwork2006differential} for DP, which adds Gaussian noise of a specific scale to released statistics. 
+The required scale of noise depends on the \emph{sensitivity} of the statistical query we wish to release. When defining the Gaussian noise, we use $I_n$ to represent the identity matrix of size $n \times n$.
+
+\begin{definition}[$\ell_2$ sensitivity \citep{dwork2014analyze}]
+Let $g: X \to \mathbb{R}^p$ be a vector-valued function operating on datasets.  Let $X, X'$ be neighboring datasets.  The $\ell_2$-sensitivity of $g$
+is defined as 
+$\Delta g := \max_{X\sim X'}\|g(X) - g(X')\|_2$.
+\end{definition}
+
+
+\subsection{Problem formulation}
+\textbf{Private clients setup.} We consider a setting where a central server wishes to learn a model $\mathcal M$ from $N$ user devices (or, ``clients''). Client $i$ has the language dataset $\mathcal{D}_i$ which consists of $|S_i|$ language samples.  $M$ of these clients, $\mathcal{C}_{\text{test}} \subset [N]$ are considered test clients, and we cannot access their data during synthetic data generation and the training process. The remaining $N-M$ clients, $\mathcal{C}_{\text{train}} \subset [N]$, are considered training clients, and their data can be accessed during model training and/or synthetic data generation. We assume that the client language datasets are drawn from a distribution of possible client datasets $\hat{\mathcal{D}}$, so each $\mathcal{D}_i$ is drawn independently from $\hat{\mathcal{D}}$, $\mathcal{D}_i \sim \hat{\mathcal{D}}$.
+
+We divide the space of models into two: on-device models, which can fit on a client device, and on-server models, which cannot. We assume that large language models (LLMs) and other large foundation models are on-server models. 
+
+\textbf{Server setup.}  The server has access to pretrained LLMs (for example, the LLaMA models in our setting \citep{touvron2023llama}) which were trained only on public data. 
+
+\textbf{Task.} We focus on the language modeling task, where a language model predicts token $s_k$ from the previous tokens $s_0, \cdots, s_{k-1}$ for each text sample. 
+The server's final goal is to learn a language model that performs well on next-token-prediction on the private test dataset $\mathcal{C}_{\text{test}}$.
+% For privacy, we treat the private train dataset as the dataset formed by combining all the client datasets $\mathcal{C}_{\text{train}}$.  
+
+\textbf{Privacy and threat model.} We consider an honest-but-curious threat model \citep{nguyen2022federated}. Using secure aggregation \citep{secagg}, the server does not see individual client uploads, but rather the aggregated upload across clients.  By adding DP noise, clients prevent the server from inferring any single client's data from the aggregated upload (which contains an aggregated amount of noise). The server then aims to learn an $(\epsilon,\delta)$-DP language model (where the notion of DP is user-level distributed DP\footnote{Note that technically, using the Gaussian Mechanism together with secure aggregation requires discretization as secure aggregation uses modular arithmetic \citep{kairouz2021distributed, bagdasaryan2021towards, agarwal2021skellam}. This is an important consideration when practically deploying end-to-end DP applications relying on secure aggregation and the Gaussian mechanism.}). 

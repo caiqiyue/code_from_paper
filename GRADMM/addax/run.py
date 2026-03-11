@@ -48,6 +48,7 @@ class OurArguments(TrainingArguments):
     )
 
     syn_data_path: str = "synthetic_data/SST2"  # path to load synthetic data
+    data_root: str = "../data"  # local dataset root for IMDB / RTPolarity style tasks
 
     # Number of examples
     num_train: int = (
@@ -125,6 +126,10 @@ class OurArguments(TrainingArguments):
     # Wandb
     report_to = "wandb"  # report to wandb by default
     run_name = None  # wandb run name
+    overwrite_output_dir: bool = False  # compat flag for older training flow
+    include_tokens_per_second: bool = False  # compat flag for custom Trainer loop
+    past_index: int = -1  # compat flag used by legacy Trainer cache handling
+    use_legacy_prediction_loop: bool = False  # compat flag for evaluation path
 
     # Prefix tuning
     prefix_tuning: bool = False  # whether to use prefix tuning
@@ -197,6 +202,26 @@ def set_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
+def configure_tokenizer_padding(tokenizer, model_name, model=None):
+    """Ensure the tokenizer exposes a usable pad token across model families."""
+    if "opt" in model_name:
+        tokenizer.bos_token_id = 0
+
+    if tokenizer.pad_token_id is None:
+        if tokenizer.eos_token_id is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+        elif tokenizer.unk_token_id is not None:
+            tokenizer.pad_token = tokenizer.unk_token
+        elif ("llama" in model_name) or ("phi" in model_name):
+            tokenizer.pad_token_id = 0
+        else:
+            tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+            if model is not None:
+                model.resize_token_embeddings(len(tokenizer))
+
+    return tokenizer
+
+
 class Framework:
     """Fine-tuning framework.
 
@@ -261,14 +286,9 @@ class Framework:
             tokenizer = AutoTokenizer.from_pretrained(
                 self.args.model_name, use_fast=False
             )
-
-            # HF tokenizer bug fix
-            if "opt" in self.args.model_name:
-                tokenizer.bos_token_id = 0
-
-            if ("llama" in self.args.model_name) or ("phi" in self.args.model_name):
-                # LLaMA padding token
-                tokenizer.pad_token_id = 0  # technically <unk>
+            tokenizer = configure_tokenizer_padding(
+                tokenizer, self.args.model_name, model=model
+            )
 
             # Prefix tuning/LoRA
             if self.args.prefix_tuning:
@@ -696,7 +716,7 @@ class Framework:
 
         if (
             os.path.isdir(self.args.output_dir)
-            and not self.args.overwrite_output_dir
+            and not getattr(self.args, "overwrite_output_dir", False)
         ):
             last_checkpoint = get_last_checkpoint(self.args.output_dir)
         if last_checkpoint is not None and self.args.resume_from_checkpoint is None:
@@ -766,12 +786,19 @@ def main():
 
     set_seed(args.seed)
     if "Syn" in args.task_name:
-        task = get_syn_task(args.task_name, data_path=args.syn_data_path)  # Synthetic adapters replace the training split but keep real validation data.
+        task = get_syn_task(
+            args.task_name,
+            data_path=args.syn_data_path,
+            data_root=args.data_root,
+        )  # Synthetic adapters replace the training split but keep real validation data.
         # Use all syn data for training
         print(f"Update num_train from {args.num_train} to {task.num_train}")
         args.num_train = task.num_train
     else:
-        task = get_task(args.task_name)  # Real-data adapters load both train and validation splits from the source dataset.
+        task = get_task(
+            args.task_name,
+            data_root=args.data_root,
+        )  # Real-data adapters load both train and validation splits from the source dataset.
 
     # Also add a logging file handler
     # Move it after changing some hyper-parameters above

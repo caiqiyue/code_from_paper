@@ -39,6 +39,7 @@ def get_args(argv=None):
         required=True,
     )
     parser.add_argument('--split', required=True)
+    parser.add_argument('--data_root', type=str, default='../data')
     parser.add_argument(
         '--data_loader', choices=['batch', 'cluster'], default='batch'
     )

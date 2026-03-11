@@ -1,0 +1,309 @@
+\section{Experiments}
+\label{sec:exp results}
+
+\textbf{Models.}  We use RoBERTa-large \citep{roberta} for mask-filling.  We use all-MiniLM-L6-v2 for text embeddings.  We use DistilGPT2 \citep{sanh2019distilbert} to evaluate our methods. 
+% We use flan-t5-3b \citep{https://doi.org/10.48550/arxiv.2210.11416} as part of a baseline for comparison with our method. \gf{Is this needed? You already mention flan-t5-3b in the Dp-Prompt baseline} 
+Finally, we use LLaMA-2-7B \citep{touvron2023llama} for synthetic seed expansion.
+
+\textbf{Datasets.} We produce three federated private datasets from the c4-English \citep{c4} (c4-en): \textsc{Jobs}, \textsc{Forums}, and \textsc{Microblog}, which are subsets of c4-en. In these datasets, the federated datasets are uniformly randomly partitioned among clients. We also produce another federated private dataset \textsc{Code}, a question-and-answer dataset focused on coding and technical topics. For all training datasets, there are 1250 clients. The evaluation sets are created from a held-out portion of the data. For the initial population used in PrE-Text, we use a subset of c4-en that is not part of any of the private datasets. More details on the datasets are provided in \cref{app:dataset}. 
+
+Note that many LLMs do not document what datasets were used in their pretraining, which makes it difficult to prevent contamination. Even text released after the release of the model may be contaminated, as it may have been AI-generated. We used the most recent large-scale dataset we could find (though it was released before the release of LLaMA-2) that is (a) compliant with terms of service (many sources of recent text data have closed their APIs for ML training) and (b) readily accessible. Systematically detecting dataset contamination is an important open problem in LLM research \citep{gunasekar2023textbooks}. 
+
+\textbf{Task.} We focus on the language modeling task, and report evaluation loss (cross-entropy) and accuracy. We consider two experimental settings: (small) models stored on-device, and (large) models stored on-server.
+
+\textbf{Baselines.} We compare PrE-Text to several baselines.
+
+\textit{(1) $\epsilon=0$ baselines:} Our first two baselines, \textbf{c4-only} and \textbf{Expand-only}, give lower bounds on performance by not using the private data at all, and relying only on public data. 
+c4-only is a DistilGPT2 model finetuned on a subset of c4-en that came from website sources not represented in any of the private data. As \citet{xu2023federated} found, finetuning on c4-en improved privacy-utility tradeoff greatly in next-token prediction, so this is an important baseline. Expand-only is a DistilGPT2 model finetuned on the subset of c4-en used in the c4-only baseline, expanded to 2 million samples using \texttt{expand}. 
+
+\textit{(2) $\epsilon=\infty$ baselines:} Our next baseline provides an upper bound on model performance, obtained by ignoring privacy constraints. To this end, we evaluate \textbf{Expand-private}. 
+This is a DistilGPT2 model finetuned on (1) the subset of c4-en used in c4-only baseline, and (2) the private dataset expanded to 2 million samples using \texttt{expand}. We found that this performs better than a model finetuned on only the private dataset itself.
+
+\textit{(3) On-device baselines:} We next evaluate two representative on-device training baselines that use DP optimization to provide a privacy guarantee: \textbf{DP-FedAvg} \citep{mcmahan2017learning} and \textbf{DP-FTRL} \citep{kairouz2021practical}, which are two of the most widely-used algorithms for private on-device training in practice. Specifically, we first finetune DistilGPT2 on the subset of c4-en used in the c4-only baseline, and then finetune it further using DP-FedAvg or DP-FTRL (which are on-device training methods). We use the DP-FTRL-TreeRestart variant of DP-FTRL, as we consider full participation in each communication round.
+
+\textit{(4) Text-to-text privatization baseline:} We finally compare PrE-Text against \textbf{DP-Prompt}, a different approach for generating DP synthetic data with paraphrasing. In this approach, clients hold an LLM on-device and release privacy-preserving paraphrases of their text directly to the server. The representative method we use here is DP-Prompt \citep{utpala-etal-2023-locally}. We use the same prompt and model (flan-t5-3b) as \citet{utpala-etal-2023-locally}. Note that these methods cannot take advantage of secure aggregation (text cannot be summed) which necessitates adding much more noise to the privatized text to guarantee user-level privacy. We first finetune a DistilGPT2 model on a subset of c4-en used in the c4-only baseline, and then finetune it further on the privatized text received by the server.
+\subsection{Models stored on-device}
+\label{sec:ondevice details}
+\label{sec:ondevice}
+We consider a setting where users do not send data directly to a server-side LLM and instead keep a small model on-device for inference.  We use DistilGPT2 as our representative example of a small model, with 82M parameters. 
+
+\textbf{Experimental setup.}  For \textbf{PrE-Text}, we generate a synthetic dataset of 2 million samples. We first finetune DistilGPT2 on the subset of c4-en used in the c4-only baseline, and then finetune it further on the synthetic dataset generated by PrE-Text. We compare against all the baselines mentioned at the beginning of the section. For more details on how we instantiated each method including hyperparameter grids, see \cref{app:exp details}.
+
+\begin{table*}[t]
+    \centering
+    \caption{We compare the next token prediction accuracies (higher is better) achieved by PrE-Text against DP-Prompt/DP-FedAvg/DP-FTRL, under $(1.29, 3 \times 10^{-6})$-DP and $(7.58, 3 \times 10^{-6})$-DP. We also compare these methods against baselines with $\epsilon=0, \epsilon=\infty$. We see that PrE-Text outperforms the alternatives at $\epsilon=1.29$ and $\epsilon=7.58$. The error bars are stderr.}
+    \begin{tabular}{c | c || c | c | c | c}
+      \toprule
+      Method & Privacy & \textsc{Jobs} ($\uparrow$)  & \textsc{Forums}($\uparrow$)  & \textsc{Microblog} ($\uparrow$)  & \textsc{Code} ($\uparrow$)\\
+      \midrule
+      \begin{tabular}{c}
+     c4-only \\ Expand-only
+      \end{tabular} &
+      $\epsilon = 0$ & \begin{tabular}{c}
+          0.695 $\pm$ 0.000 \\
+          0.702 $\pm$ 0.000
+      \end{tabular}
+      & \begin{tabular}{c}
+      0.650 $\pm$ 0.000\\
+      0.661 $\pm$ 0.000 
+      \end{tabular} &
+      \begin{tabular}{c}
+      0.658 $\pm$ 0.000 \\
+      0.669 $\pm$ 0.000
+      \end{tabular} &
+      \begin{tabular}{c}
+      0.621 $\pm$ 0.000 \\
+      0.633 $\pm$ 0.000
+      \end{tabular} \\
+      \midrule
+      \begin{tabular}{c}
+     DP-Prompt \\ DP-FedAvg \\ DP-FTRL \\ PrE-Text
+      \end{tabular} &
+      $\epsilon = 1.29$ & \begin{tabular}{c}
+              0.673 $\pm$ 0.000 \\
+          0.701 $\pm$ 0.000 \\
+            0.703 $\pm$ 0.000 \\
+          \textbf{0.718 $\pm$ 0.000}
+      \end{tabular}
+      & \begin{tabular}{c}
+            0.636 $\pm$ 0.000\\
+      0.663 $\pm$ 0.000\\
+            0.665 $\pm$ 0.000\\
+      \textbf{0.672 $\pm$ 0.000} 
+      \end{tabular} &
+      \begin{tabular}{c}
+            0.642 $\pm$ 0.000\\
+      0.665 $\pm$ 0.000 \\
+            0.667 $\pm$ 0.000\\
+      \textbf{0.680 $\pm$ 0.000}
+      \end{tabular} &
+      \begin{tabular}{c}
+            0.607 $\pm$ 0.000\\
+      0.636 $\pm$ 0.000 \\
+    0.645 $\pm$ 0.000\\
+      \textbf{0.650 $\pm$ 0.001}
+      \end{tabular} \\
+     \midrule
+     
+      \begin{tabular}{c}
+      DP-Prompt \\ DP-FedAvg \\ DP-FTRL \\PrE-Text
+      \end{tabular} &
+      $\epsilon = 7.58$ & \begin{tabular}{c}
+            0.672 $\pm$ 0.000\\
+          0.703 $\pm$ 0.000 \\
+          0.704 $\pm$ 0.000\\
+         \textbf{0.721 $\pm$ 0.000}
+      \end{tabular}
+      & \begin{tabular}{c}
+     0.637 $\pm$ 0.000 \\
+      0.666 $\pm$ 0.000\\
+      0.667 $\pm$ 0.000 \\
+      \textbf{0.673 $\pm$ 0.000} 
+      \end{tabular} &
+      \begin{tabular}{c}
+      0.642 $\pm$ 0.000\\
+      0.666 $\pm$ 0.000 \\
+      0.668 $\pm$ 0.000\\
+      \textbf{0.680 $\pm$ 0.000}
+      \end{tabular} &
+      \begin{tabular}{c}
+            0.607 $\pm$ 0.000\\
+      0.637 $\pm$ 0.000 \\
+      0.646 $\pm$ 0.000\\
+      \textbf{0.656 $\pm$ 0.000}
+      \end{tabular} \\
+      \midrule
+
+      Expand-private &
+      $\epsilon = \infty$ & 
+     0.730 $\pm$ 0.000 & 0.684 $\pm$ 0.000& 0.689 $\pm$ 0.000& 0.680 $\pm$ 0.000\\
+      
+    \bottomrule
+    \end{tabular}
+    \label{tab:fl}
+  \end{table*}
+
+\begin{table*}[t]
+    \centering
+    \caption{We compare the next token prediction (cross-entropy) losses (lower is better) achieved by PrE-Text against DP-Prompt/DP-FedAvg/DP-FTRL, under $(1.29, 3 \times 10^{-6})$-DP and $(7.58, 3 \times 10^{-6})$-DP. We also compare these methods against baselines with $\epsilon=0, \epsilon=\infty$. We see that PrE-Text outperforms the alternatives at $\epsilon=1.29$ and $\epsilon=7.58$. The error bars are stderr.}
+    \begin{tabular}{c | c || c | c | c | c}
+      \toprule
+      Method & Privacy & \textsc{Jobs} ($\downarrow$)  & \textsc{Forums}($\downarrow$)  & \textsc{Microblog} ($\downarrow$)  & \textsc{Code} ($\downarrow$)\\
+      \midrule
+      \begin{tabular}{c}
+     c4-only \\ Expand-only
+      \end{tabular} &
+      $\epsilon = 0$ & \begin{tabular}{c}
+          1.781 $\pm$ 0.004 \\
+          1.611 $\pm$ 0.000
+      \end{tabular}
+      & \begin{tabular}{c}
+      2.154 $\pm$ 0.007\\
+      1.883 $\pm$ 0.000 
+      \end{tabular} &
+      \begin{tabular}{c}
+      2.103 $\pm$ 0.004 \\
+      1.858 $\pm$ 0.000
+      \end{tabular} &
+      \begin{tabular}{c}
+      2.525 $\pm$ 0.000 \\
+      2.195 $\pm$ 0.000
+      \end{tabular} \\
+      \midrule
+      \begin{tabular}{c}
+     DP-Prompt \\ DP-FedAvg \\ DP-FTRL \\ PrE-Text
+      \end{tabular} &
+      $\epsilon = 1.29$ & \begin{tabular}{c}
+              1.799 $\pm$ 0.003 \\
+          1.644 $\pm$ 0.000 \\
+            1.594 $\pm$ 0.000 \\
+          \textbf{1.482 $\pm$ 0.001}
+      \end{tabular}
+      & \begin{tabular}{c}
+            2.049 $\pm$ 0.001 \\
+      1.888 $\pm$ 0.000 \\
+            1.850 $\pm$ 0.000 \\
+      \textbf{1.779 $\pm$ 0.001}
+      \end{tabular} &
+      \begin{tabular}{c}
+            2.055 $\pm$ 0.000 \\
+      1.916 $\pm$ 0.000 \\
+            1.874 $\pm$ 0.000 \\
+      \textbf{1.770 $\pm$ 0.000}
+      \end{tabular} &
+      \begin{tabular}{c}
+            2.285 $\pm$ 0.004\\
+      2.149 $\pm$ 0.001 \\
+    2.032 $\pm$ 0.000\\
+      \textbf{1.998 $\pm$ 0.009}
+      \end{tabular} \\
+     \midrule
+     
+      \begin{tabular}{c}
+      DP-Prompt \\ DP-FedAvg \\ DP-FTRL \\PrE-Text
+      \end{tabular} &
+      $\epsilon = 7.58$ & \begin{tabular}{c}
+            1.801 $\pm$ 0.002\\
+          1.598 $\pm$ 0.000 \\
+          1.589 $\pm$ 0.000\\
+         \textbf{1.456 $\pm$ 0.003} 
+      \end{tabular}
+      & \begin{tabular}{c}
+     2.047 $\pm$ 0.000 \\
+      1.854 $\pm$ 0.000 \\
+      1.845 $\pm$ 0.000 \\
+      \textbf{1.773 $\pm$ 0.001}
+      \end{tabular} &
+      \begin{tabular}{c}
+      2.055 $\pm$ 0.001\\
+      1.879 $\pm$ 0.000 \\
+      1.867 $\pm$ 0.000 \\
+      \textbf{1.771 $\pm$ 0.000}
+      \end{tabular} &
+      \begin{tabular}{c}
+            2.287 $\pm$ 0.000\\
+      2.141 $\pm$ 0.000 \\
+      2.027 $\pm$ 0.000\\
+      \textbf{1.927 $\pm$ 0.002}
+      \end{tabular} \\
+      \midrule
+
+      Expand-private &
+      $\epsilon = \infty$ & 
+     1.374 $\pm$ 0.002 & 1.682 $\pm$ 0.001 & 1.668 $\pm$ 0.001 & 1.677 $\pm$ 0.001\\
+      
+    \bottomrule
+    \end{tabular}
+    \label{tab:fl loss}
+  \end{table*}
+
+\begin{table*}[t]
+    \centering
+    \caption{Next token prediction accuracy on private data for LLaMA-2-7B finetuned on PrE-Text synthetic data (under $(7.58, 3 \times 10^{-6})$-DP and $(1.29, 3 \times 10^{-6})$-DP). The finetuned model outperforms non-finetuned LLaMA-2-7B  performance across four datasets. The error bars are stderr.}
+    \begin{tabular}{c | c || c | c | c | c}
+      \toprule
+      Method & Privacy &  \textsc{Jobs} ($\uparrow$)  & \textsc{Forums}($\uparrow$)  & \textsc{Microblog} ($\uparrow$) & \textsc{Code} ($\uparrow$) \\
+      \midrule
+      Non-finetuned & $\epsilon=0$ & 0.458 $\pm$ 0.000 & 0.466 $\pm$ 0.000 & 0.473 $\pm$ 0.000 & 0.460 $\pm$ 0.000 \\
+      PrE-Text  & $\epsilon=1.29$ & 0.522 $\pm$ 0.000 & 0.479 $\pm$ 0.001  & 
+       0.484 $\pm$ 0.000 &  0.475 $\pm$ 0.000  \\
+      PrE-Text  & $\epsilon=7.58$ & 0.523 $\pm$ 0.000  & 
+      0.480 $\pm$ 0.000 & 0.483 $\pm$ 0.000 & 0.476 $\pm$ 0.000   \\
+      Expand-private & $\epsilon=\infty$ & 0.526 $\pm$ 0.000 & 0.484 $\pm$ 0.000 & 0.488 $\pm$ 0.001 & 0.479 $\pm$ 0.000 \\
+    \bottomrule
+    \end{tabular}
+    \label{tab:zeroshot accuracy}
+  \end{table*}
+
+\begin{table*}[t]
+    \centering
+    \caption{
+    Next token prediction cross-entropy loss on private data for LLaMA-2-7B finetuned on PrE-Text synthetic data (under $(7.58, 3 \times 10^{-6})$-DP and $(1.29, 3 \times 10^{-6})$-DP). The finetuned model outperforms non-finetuned LLaMA-2-7B  performance across four datasets. The error bars are stderr.}
+    \begin{tabular}{c | c || c | c | c | c}
+      \toprule
+      Method & Privacy &  \textsc{Jobs} ($\downarrow$)  & \textsc{Forums}($\downarrow$)  & \textsc{Microblog} ($\downarrow$) & \textsc{Code} ($\downarrow$) \\
+      \midrule
+      Non-finetuned & $\epsilon=0$ & 3.252$\pm$ 0.000 & 3.250 $\pm$ 0.000 & 3.220 $\pm$ 0.000 & 3.218 $\pm$ 0.000 \\
+      PrE-Text  & $\epsilon=1.29$ & 2.811 $\pm$ 0.000 & 3.177 $\pm$ 0.004  & 
+       3.133 $\pm$ 0.002 &  3.145 $\pm$ 0.000  \\
+      PrE-Text  & $\epsilon=7.58$ & 2.795 $\pm$ 0.008  & 
+      3.164 $\pm$ 0.005 & 3.139 $\pm$ 0.008 & 3.135 $\pm$ 0.000   \\
+      Expand-private & $\epsilon=\infty$ & 2.746 $\pm$ 0.002 & 3.085 $\pm$ 0.001 & 3.088 $\pm$ 0.001 & 3.054 $\pm$ 0.000 \\
+    \bottomrule
+    \end{tabular}
+    \label{tab:zeroshot}
+  \end{table*}
+
+
+
+
+
+
+\textbf{Results.}
+We present our results in \cref{tab:fl} and \cref{tab:fl loss}.
+We find that PrE-Text outperforms all other baselines at $\epsilon = 1.29$ and $\epsilon = 7.58$. As a sanity check, it also performs better than the $\epsilon=0$ baseline and worse than the $\epsilon=\infty$ baseline. The results show that in practical privacy regimes, PrE-Text outperforms private on-device training. As synthetic data generation methods improve (for example, better prompts and models for \texttt{expand}), synthetic data generation may continue to greatly improve as a strategy for learning from private federated datasets.
+
+\textbf{Efficiency differences.}  
+We compare the efficiency of DP-FL vs PrE-Text in our experimental setup, demonstrating that PrE-Text is much more efficient in terms of computation and communication in our setting.
+
+\textit{(1) Communication cost.}  DP-FL requires each client to download and upload the model (DistilGPT2) to/from the server. DistilGPT2 has a size of 82M parameters, which means clients are downloading and uploading 82M floats each round. On the other hand, PrE-Text requires clients to download at most 2048 embedding vectors of size 384 representing the synthetic samples each round. This means each client downloads around 800K floats. On upload, clients upload at most 2048 floats (the size of the histogram). So client download cost is 100$\times$ cheaper with PrE-Text per round, and upload cost is 41000$\times$ cheaper with PrE-Text per round. In addition, PrE-Text uses 9$\times$ fewer rounds than the on-device baselines. Conservatively, this is at least a 100$\times$ improvement in communication cost per round when using PrE-Text (possibly more, given that upload speeds can be 15$\times$ slower than download \citep{speedtest.net}). The embedding model we use, miniLM-L6-v2 \citep{reimers-2019-sentence-bert}, is itself only 10M floats, and only needs to be downloaded once per user, and can be done offline.
+
+\textit{(2) Client computation cost.}  PrE-Text is also much more computationally efficient for clients.  We assume that user devices only have access to CPU computation, as most smartphones do not have GPUs (or have fairly limited GPUs).  When tested on a VM with five Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz, training with DistilGPT2 requires 3 seconds per sample to train while the client computation for PrE-Text (nearest neighbors calculation and client embedding generation) requires less than 0.5 seconds per sample. This computation gain comes from the fact that clients perform inference (not training), which requires fewer operations and can be sped up \citep{kwon2023efficient, reimers-2019-sentence-bert}. This gives at least a 6$\times$ improvement in computation cost per round for clients with PrE-Text. In addition, PrE-Text uses 9$\times$ fewer rounds than the on-device baselines. This comes at the cost of more server-side compute in our experiments. However, using server resources is often more acceptable than using client resources.
+\begin{table*}[]
+\centering
+\begin{tabular}{ c|c c|c|c}
+\toprule
+\multirow{2}{*}{\textbf{Method}} & \multicolumn{2}{l|}{\begin{tabular}[c]{@{}l@{}}\textbf{Per-Round Communication} \\ (Number of floats transmitted)\end{tabular}} & \multirow{2}{*}{\begin{tabular}[c]{@{}c@{}}\textbf{Per-sample Runtime}\\ (s)\end{tabular}} & \multirow{2}{*}{\begin{tabular}[c]{@{}c@{}}\textbf{Number of rounds}\\ \end{tabular}} \\ \cline{2-3}
+                                 & \multicolumn{1}{l|}{\textit{Upload}}                               & \textit{Download}                              &                                                                                                   \\ \midrule
+DP-FL                            & \multicolumn{1}{l|}{82M}                                           & 82M                                            & 3 & 100                                                                                 \\
+PrE-Text                         & \multicolumn{1}{l|}{2048}                                          & 800K                                           & 0.5  & 11                                                                                            \\ \midrule
+Reduction                        & \multicolumn{1}{l|}{41,000$\times$}                                       & 100$\times$                                            & 6$\times$    & 9$\times$                                                                                          \\ \bottomrule
+\end{tabular}
+\label{tab:efficiency}
+\caption{Communication and runtime cost of PrE-Text vs DP-FL. We find that PrE-Text achieves at least a 100$\times$ reduction in per-round communication, a $6\times$ reduction in per-round runtime, and a 9$\times$ reduction in the number of rounds in our experiments. These costs are the same for all datasets and values of $\epsilon$ in our evaluation, for private clients with 8 samples each. The number of synthetic samples sent to each client for PrE-Text is 2048.
+}
+\end{table*}
+\subsection{Models stored on-server}
+% The next setting we consider is the case where users are willing to send queries to a server (as opposed to keeping queries on-device). For instance, when users use public LLMs (e.g. ChatGPT) they send their queries directly to model providers (e.g. OpenAI) servers to process.  In this case the users permit the server to see their queries in exchange for higher quality inference (by using a larger server-side model). It is not possible to perform on-device training with LLMs such as ChatGPT, as the model is too large to even hold on-device.  The current status-quo is to use the server-side LLM with no private finetuning (for example, ChatGPT).  Note that on-device training is not an option here because LLMs are too large for user devices. Our proposed alternative is to first obtain a privacy-preserving synthetic dataset from the private federated train set and then finetune the server-side LLM on this synthetic dataset directly.
+
+% \as{The next setting we consider is the case where users are willing to send queries to a server (as opposed to keeping queries on-device). The current status quo is to send queries directly to model providers to process on their servers, requiring users to permit the server to see their queries in exchange for higher quality inference (e.g., by using a larger server-side model). Note that on-device training  and inference are infeasible in this setting due to the computation requirements of serving state-of-the-art LLMs. Our proposed alternative is to first obtain a privacy-preserving synthetic dataset from the private federated training set and then finetune the server-side LLM on this synthetic dataset directly.}
+% \gf{This logic seems a little off to me. We're saying this setting is defined by users being willing to send queries to the server, but our evaluation behaves as if the defining feature is the model being larger/too large to fit on device. We only evaluate on larger models. I think we should perhaps frame this setting as the model being too large to fit on device, and then say this means that clients will need to send queries to the server as an afterthought. Suggested alternative below:}
+
+We next consider the setting where models are stored and trained on-server (as opposed to on-device). This setting arises when the model is too large to fit on-device, for instance. 
+On-device training  and inference are infeasible in this setting. We instead obtain a DP synthetic dataset from the private federated training set and then finetune the server-side LLM on this synthetic dataset.
+
+\textbf{Experimental details.}  We use the same settings for PrE-text as in \cref{sec:ondevice}, except we only expand to 50000 samples (due to computational constraints of finetuning LLMs).  We use LLaMA-2-7B as our evaluation model instead of DistilGPT2.  We compare against the relevant and competitive baselines. For the non-finetuned (on private data) baseline, we simply report the evaluation loss on the private datasets for LLaMA-2-7B.  To evaluate our proposed alternative, we finetune LLaMA-2-7B on the synthetic dataset produced by PrE-Text for one epoch with LoRA finetuning (with rank 4, $\alpha=8$, applied to all the projection matrices in LLaMA-2-7B) with the AdamW optimizer at a learning rate of 0.0002 and a batch size of 512. For the Expand-private ($\epsilon=\infty$) baseline we finetune on 50000 samples expanded from the private train set.
+The on-device baselines are not appropriate for this setting. We also do not compare against DP-Prompt in this setting because it performed very poorly in \cref{sec:ondevice}, even worse than the $\epsilon=0$ baseline. 
+
+\textbf{Results.} In \cref{tab:zeroshot accuracy} and \cref{tab:zeroshot} we observe that LLaMA-2-7B finetuned on PrE-Text DP synthetic data outperforms zero-shot LLaMA-2-7B. To the best of our knowledge, we are the first to demonstrate a way to privately finetune a large language model (that cannot fit on-device) in the federated setting. With major LLM providers running out of useful \textit{public} data \citep{runout, runout2, runout3, runout4} for training, our proof-of-concept shows a promising new path forward: using \textit{private} client data in a privacy-compliant and resource-conscious way.
+
+\subsection{Performance Scaling by Dataset Size}
+In this subsection, we investigate how the performance of PrE-Text scales as we change the number of samples generated in \texttt{Expand}. We finetune DistilGPT2 on DP synthetic datasets of sizes ranging from 50000 to 2 million, at $\epsilon=7.58$ across the four private datasets  \textsc{Jobs},  \textsc{Forums}, \textsc{Microblog}, \textsc{Code}. All the experimental details are the same as in the on-device PrE-Text experiment, except we scale the batch size according to the fraction of synthetic data we use over the full amount (2 million). For example, at a synthetic data size of 50000, we use [0.0025 $\times$ the original batch size] as the batch size. As shown in \cref{fig: scaling}, we find that like in \citep{honovich2022unnatural}, the quality of the downstream model mostly improves log-linearly with the amount of synthetic data. However, in the case of \textsc{Code}, the performance of the downstream model starts getting diminishing returns at around 1M samples, and even decreases in performance at 2M samples. The best number of synthetic samples for downstream may depend on the dataset. 
+
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=0.85\columnwidth]{icml2024/figures/num_samples_ablation.pdf}
+%     \caption{Next-token prediction accuracy for PrE-Text as we vary the number of synthetic examples generated by the \texttt{Expand} part of the algorithm. We find that increasing the number of synthetic examples across several orders of magnitude improves the accuracy of the downstream model (DistilGPT2) roughly log-linearly, though the growth peaks on \textsc{Code} after 1M samples.
+%     }
+%     \label{fig: scaling}
+% \end{figure}

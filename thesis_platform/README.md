@@ -80,7 +80,9 @@ thesis_platform/
 │  └─ methods/
 ├─ core/
 ├─ data/
+├─ dataset_downloaders/
 ├─ evaluation/
+├─ model_downloaders/
 ├─ models/
 ├─ prompts/
 │  ├─ aggregation/
@@ -281,7 +283,51 @@ thesis_platform/
 
 当前 MVP 的 heuristic backend 没有直接强依赖这些模板，但模板目录已经为后续切换真实 LLM 版本预留好位置。
 
-### 4.11 `thesis_platform/tests`
+### 4.11 `thesis_platform/dataset_downloaders` 与 `thesis_platform/model_downloaders`
+
+这两个包是资源准备层，不接入现有实验主链，只负责把论文涉及的数据集和开源模型按统一入口下载到平台目录。
+
+数据集下载子系统：
+
+- 入口：`python -m thesis_platform.scripts.download_datasets`
+- 默认输出目录：`thesis_platform/datasets/`
+- 支持 `--list`、`--names ...`、`--force`
+- 目录结构统一为 `datasets/<name>/metadata.json`，以及按需生成的 `raw/` 与 `formatted/`
+- `download_datasets` 会先准备 raw，再调用独立 formatter 生成实验消费格式
+- 对本来就符合实验格式的数据集，`formatted_path` 会直接复用 `raw_path`
+- `imdb` 与 `rt_polarity` 的 formatted 结果以 `../GRADMM/data/...` 中 vendored JSONL 为权威来源
+- DataInf 三个生成型数据集没有单独 raw 目录，直接把共享脚本产物收口到各自 `formatted/`
+- 总控会显示进度条，单个数据集失败后跳过，最终写出 `datasets/download_report.json`
+
+模型下载子系统：
+
+- 入口：`python -m thesis_platform.scripts.download_models`
+- 默认输出目录：`thesis_platform/open_model/`
+- 支持 `--list`、`--names ...`、`--force`、`--include-optional`
+- 支持重复参数 `--repo-override <model_name>=<huggingface_repo_id>`
+- 默认只下载核心模型；显式加 `--include-optional` 或通过 `--names` 指定时才尝试 gated / 超大模型
+- 所有 Llama 模块默认都使用社区镜像，不回退到官方 `meta-llama/*`
+- Llama 镜像下载前会检查仓库是否为 Transformers 兼容格式；纯 GGUF / Ollama / llamafile 仓库会被拒绝
+- `llama_3_1_405b_instruct` 默认指向 FP8 / compressed-tensors 社区镜像，保留为 optional，主要面向推理侧
+- 总控会显示进度条，单个模型失败后跳过，最终写出 `open_model/download_report.json`
+
+当前明确纳入下载模块、但不进默认全量模型下载的 optional 模型包括：
+
+- `llama_2_13b_chat_hf`
+- `opt_1_3b`
+- `llama_3_2_3b_instruct`
+- `llama_3_2_11b_vision_instruct`
+- `deepseek_r1_distill_llama_70b`
+- `llama_3_1_405b_instruct`
+
+当前只在文档中保留说明、**不创建下载模块** 的模型项：
+
+- `GPT-4`
+- `GPT-4o`
+- `GPT-3.5`
+- 只写成模型族名的 `Llama 3`、`Llama 3.1`、`Qwen 2`
+
+### 4.12 `thesis_platform/tests`
 
 | 模块 | 作用 |
 | --- | --- |
@@ -335,8 +381,82 @@ pip install sentence-transformers
 建议说明：
 
 - `PyYAML`：标准 YAML 解析器。即使不安装，平台也有一个受限的内置 YAML fallback parser，但建议安装。
+- `datasets`、`huggingface_hub`、`tqdm`、`numpy`、`pandas`：下载子系统需要的最小依赖。
 - `sentence-transformers`：只有在你本地提供了 embedding 模型目录时才有意义。
-- 当前 MVP 不强制要求 `torch`、`transformers` 本地推理链路，因为主实验路径默认可用 `heuristic` backend 跑通。
+- 当前 MVP 不强制要求 `torch`、`transformers` 本地推理链路；下载模型本身也不依赖 `transformers`。
+
+### 5.4 下载论文数据集与开源模型
+
+下载论文涉及的数据集：
+
+```bash
+python -m thesis_platform.scripts.download_datasets
+```
+
+只下载指定数据集：
+
+```bash
+python -m thesis_platform.scripts.download_datasets --names glue_sst2 gsm8k
+```
+
+强制重下：
+
+```bash
+python -m thesis_platform.scripts.download_datasets --force
+```
+
+数据集落盘说明：
+
+```text
+datasets/
+  <dataset_name>/
+    metadata.json
+    raw/        # 如果存在稳定原始下载源
+    formatted/  # 实验实际消费的格式化结果
+```
+
+其中：
+- `glue_*`、`rotten_tomatoes`、`three_styles_prompted_250_512x512` 会直接复用 raw 作为 formatted
+- `twitter_emotion_binary` 会把 `dair-ai/emotion` 过滤成 `label in [0, 1]`
+- `gsm8k` 会额外生成 DSPy 风格 `train.jsonl` / `val.jsonl` / `test.jsonl`
+- `livebench_*` 会先按任务过滤，再固定 seed=0 生成本地 JSONL 切分
+- `imdb`、`rt_polarity` 的 formatted 结果来自 GRADMM 仓库内 vendored JSONL
+- `datainf_*` 会把共享生成脚本产物移动到各自 `formatted/train.hf` 与 `formatted/test.hf`
+
+下载默认核心模型：
+
+```bash
+python -m thesis_platform.scripts.download_models
+```
+
+下载可选模型：
+
+```bash
+python -m thesis_platform.scripts.download_models --include-optional
+```
+
+只下载指定模型：
+
+```bash
+python -m thesis_platform.scripts.download_models --names roberta_large llama_2_13b_chat_hf
+```
+
+覆盖某个 Llama 默认镜像：
+
+```bash
+python -m thesis_platform.scripts.download_models \
+  --names llama_3_1_8b_instruct \
+  --repo-override llama_3_1_8b_instruct=custom-user/Llama-3.1-8B-Instruct
+```
+
+补充说明：
+
+- 所有下载路径都由包内相对路径推导，不要求你在仓库根目录执行命令。
+- 数据集总控默认会覆盖论文中整理出的所有数据集模块，包括 DataInf 的本地生成数据集包装模块。
+- 模型总控默认跳过 optional 模型，避免把 gated 或超大模型作为首次准备的硬依赖。
+- `download_models --list` 会显示 `default_repo_id`、`optional` 与 `community_mirror_only`。
+- 所有 Llama 默认来源都改成社区镜像；如果某个镜像失效，优先用 `--repo-override` 调整。
+- 任一数据集或模型下载失败后，总控会继续处理剩余项，并把失败信息写进 `download_report.json`。
 
 ## 6. 数据准备要求
 

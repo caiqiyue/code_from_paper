@@ -42,6 +42,25 @@ from utilities import (
 unused_tokens = None
 
 
+def resolve_model_name(model_name):
+    """Resolve a short alias or return the provided Hugging Face model id."""
+    return MODEL_MAP.get(model_name, model_name)
+
+
+def configure_tokenizer_padding(tokenizer, model):
+    """Ensure the tokenizer and generation config share a usable pad token."""
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token_id is None:
+        if tokenizer.eos_token_id is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+        elif tokenizer.unk_token_id is not None:
+            tokenizer.pad_token = tokenizer.unk_token
+        else:
+            tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+            model.resize_token_embeddings(len(tokenizer))
+    model.generation_config.pad_token_id = tokenizer.pad_token_id
+
+
 def get_loss(
     args,
     model,
@@ -938,7 +957,9 @@ MODEL_MAP = {
 }
 
 LAST_LAYERS = [
-    "lm_head"
+    "lm_head",
+    "wte",
+    "embed_out",
 ]
 
 
@@ -962,6 +983,7 @@ def get_gen_samples(args):
         1,
         n_fewshot=args.n_fewshot,
         seed=args.rng_seed,
+        data_root=args.data_root,
     )
     
     pos_sequences, neg_sequences = [], []
@@ -1314,10 +1336,15 @@ def main():
     device = torch.device(args.device)
     model, tokenizer = None, None
 
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_MAP[args.model_name],
-        device_map="auto",
-    )
+    resolved_model_name = resolve_model_name(args.model_name)
+    if device.type == "cpu":
+        model = AutoModelForCausalLM.from_pretrained(resolved_model_name)
+        model.to(device)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            resolved_model_name,
+            device_map="auto",
+        )
     # Set gradient for only last layers
     if args.last_layer_gradient:
         named_parameters_to_optim = []
@@ -1331,11 +1358,9 @@ def main():
         print(f"Set gradients for {len(named_parameters_to_optim)} layers")
     
     tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_MAP[args.model_name], use_fast=True
+        resolved_model_name, use_fast=True
     )
-    tokenizer.padding_side = "left"
-    tokenizer.pad_token_id = 0
-    model.generation_config.pad_token_id = tokenizer.pad_token_id
+    configure_tokenizer_padding(tokenizer, model)
 
     print("\n\ngenerating..\n", flush=True)
 
