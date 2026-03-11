@@ -223,7 +223,63 @@ python -m thesis_platform.scripts.download_models `
   --repo-override llama_3_1_8b_instruct=custom-user/Llama-3.1-8B-Instruct
 ```
 
-### 6.2 Python API：批量下载
+### 6.2 后台下载脚本（Linux 服务器）
+
+如果你是在 Linux 服务器上跑下载，希望断开 SSH 连接后下载仍然继续，可以用：
+
+`thesis_platform/scripts/download_models_include_optional_bg.sh`
+
+这个脚本内部实际执行的是：
+
+```bash
+python -m thesis_platform.scripts.download_models --include-optional
+```
+
+但它会通过 `nohup` 把下载任务挂到后台持续运行。
+
+首次使用：
+
+```bash
+cd /mnt/public/caiqiyue_file/code_from_paper
+chmod +x thesis_platform/scripts/download_models_include_optional_bg.sh
+conda activate caiqiyue
+./thesis_platform/scripts/download_models_include_optional_bg.sh start
+```
+
+如果你不想依赖当前激活环境，也可以显式指定 Python：
+
+```bash
+PYTHON_BIN=/home/k8smaster/anaconda3/envs/caiqiyue/bin/python \
+./thesis_platform/scripts/download_models_include_optional_bg.sh start
+```
+
+常用命令：
+
+```bash
+./thesis_platform/scripts/download_models_include_optional_bg.sh status
+./thesis_platform/scripts/download_models_include_optional_bg.sh logs
+./thesis_platform/scripts/download_models_include_optional_bg.sh stop
+```
+
+这个脚本会把状态文件写到：
+
+- `thesis_platform/open_model/download_models_include_optional.log`
+- `thesis_platform/open_model/download_models_include_optional.pid`
+
+说明：
+
+- `start`：后台启动下载任务
+- `status`：查看任务是否仍在运行
+- `logs`：查看最近日志
+- `stop`：停止后台任务
+
+适用场景：
+
+- 远程 SSH 登录服务器后启动下载
+- 关闭终端或断开连接后，下载继续运行
+- 之后重新登录服务器再查看日志和状态
+
+### 6.3 Python API：批量下载
 
 ```python
 from thesis_platform.model_downloaders import download_models
@@ -239,7 +295,7 @@ report = download_models(
 print(report)
 ```
 
-### 6.3 Python API：创建单个下载器
+### 6.4 Python API：创建单个下载器
 
 ```python
 from thesis_platform.model_downloaders import create_model_downloader
@@ -249,7 +305,7 @@ result = downloader.download(force=False)
 print(result.to_dict())
 ```
 
-### 6.4 直接使用某个具体模块
+### 6.5 直接使用某个具体模块
 
 ```python
 from thesis_platform.model_downloaders.llama_3_1_8b_instruct import Llama31_8BInstructDownloader
