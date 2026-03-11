@@ -223,19 +223,26 @@ python -m thesis_platform.scripts.download_models `
   --repo-override llama_3_1_8b_instruct=custom-user/Llama-3.1-8B-Instruct
 ```
 
-### 6.2 后台下载脚本（Linux 服务器）
+### 6.2 后台下载脚本（Linux 服务器，自动托管 Clash）
 
 如果你是在 Linux 服务器上跑下载，希望断开 SSH 连接后下载仍然继续，可以用：
 
 `thesis_platform/scripts/download_models_include_optional_bg.sh`
 
-这个脚本内部实际执行的是：
+这个脚本会按下面的顺序工作：
+
+- 先检查 `clash_for_linux` 是否已经在本机 `127.0.0.1:7890` 提供代理
+- 如果没有，就自动启动 `clash_for_linux/clash`
+- 自动读取 `clash_for_linux/run.txt` 里的 `http_proxy` / `https_proxy`
+- 再在后台执行模型下载
+
+脚本内部实际下载命令是：
 
 ```bash
 python -m thesis_platform.scripts.download_models --include-optional
 ```
 
-但它会通过 `nohup` 把下载任务挂到后台持续运行。
+并且会通过 `nohup` 把 Clash 和模型下载一起托管到后台运行。
 
 首次使用：
 
@@ -258,26 +265,35 @@ PYTHON_BIN=/home/k8smaster/anaconda3/envs/caiqiyue/bin/python \
 ```bash
 ./thesis_platform/scripts/download_models_include_optional_bg.sh status
 ./thesis_platform/scripts/download_models_include_optional_bg.sh logs
+./thesis_platform/scripts/download_models_include_optional_bg.sh clash-logs
 ./thesis_platform/scripts/download_models_include_optional_bg.sh stop
 ```
 
-这个脚本会把状态文件写到：
+这个脚本会把状态文件和日志写到：
 
 - `thesis_platform/open_model/download_models_include_optional.log`
 - `thesis_platform/open_model/download_models_include_optional.pid`
+- `thesis_platform/open_model/clash_for_linux.log`
+- `thesis_platform/open_model/clash_for_linux.pid`
 
 说明：
 
 - `start`：后台启动下载任务
-- `status`：查看任务是否仍在运行
-- `logs`：查看最近日志
-- `stop`：停止后台任务
+- `status`：同时查看模型下载和 Clash 是否仍在运行
+- `logs`：查看模型下载日志
+- `clash-logs`：查看 Clash 日志
+- `stop`：停止模型下载，并停止由这个脚本托管的 Clash 进程
 
 适用场景：
 
 - 远程 SSH 登录服务器后启动下载
-- 关闭终端或断开连接后，下载继续运行
-- 之后重新登录服务器再查看日志和状态
+- 关闭终端或断开连接后，Clash 和下载继续运行
+- 之后重新登录服务器再查看下载日志、Clash 日志和状态
+
+可选参数：
+
+- `PYTHON_BIN=/path/to/python`：显式指定用于下载的 Python
+- `START_CLASH=0`：如果你已经在系统里手动启动了 Clash，可以跳过脚本内的 Clash 启动逻辑
 
 ### 6.3 Python API：批量下载
 
