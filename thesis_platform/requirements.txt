@@ -1,13 +1,17 @@
-# Required by config loading when you want standard YAML parsing instead of the built-in fallback parser.
-PyYAML>=6.0
+# Complete third-party dependency set used by thesis_platform itself.
+#
+# Notes:
+# - `numpy` is retained because thesis_platform invokes
+#   `DataInf/src/generate_sentence-math_datasets.py`, which imports NumPy.
+# - `sentence-transformers` is included because thesis_platform/models/embedding.py
+#   can use it directly when a local embedding model path is configured.
+# - Full DataInf training/influence-analysis dependencies are intentionally not
+#   merged here; use `DataInf/requirements.txt` separately for that workflow.
 
-# Required by the dataset/model download subsystem.
+PyYAML>=6.0
 datasets>=2.20
 huggingface_hub>=0.24
 numpy>=1.26
 pandas>=2.0
+sentence-transformers>=2.2
 tqdm>=4.66
-
-# Optional: install this when you want the KNN retriever to use a local sentence-transformer model
-# instead of the dependency-free hashing embedder fallback.
-# sentence-transformers>=2.2
