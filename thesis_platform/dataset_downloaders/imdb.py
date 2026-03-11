@@ -1,21 +1,33 @@
 from __future__ import annotations
 
-from .hf import HuggingFaceDatasetDownloader
+from pathlib import Path
+
+from .base import BaseDatasetDownloader
 from .registry import register_dataset_downloader
 
 
 @register_dataset_downloader
-class IMDBDownloader(HuggingFaceDatasetDownloader):
-    """Download the official IMDB dataset for GRADMM."""
+class IMDBDownloader(BaseDatasetDownloader):
+    """Stage the vendored IMDB subset used by GRADMM."""
 
     name = "imdb"
-    description = "Download the official Hugging Face IMDB dataset referenced by GRADMM."
+    description = "Stage the vendored IMDB len256 subset used by GRADMM."
     formatter_name = "imdb"
 
-    def build_raw_dataset(self):
-        from datasets import load_dataset
+    def raw_path(self) -> Path | None:
+        """GRADMM uses the vendored formatted subset directly."""
 
-        return load_dataset("imdb"), {
-            "source_dataset": "imdb",
-            "provenance_note": "The raw download stores the official Hugging Face IMDB dataset before formatting to GRADMM's vendored len256 subset.",
+        return None
+
+    def perform_download_raw(self, force: bool):
+        return {
+            "message": "IMDB uses the vendored GRADMM len256 subset and does not download a separate raw artifact.",
+            "metadata": {
+                "source_type": "vendored_local_files",
+                "paper_alignment": {
+                    "paper": "GRADMM",
+                    "experiment": "IMDB len256 subset",
+                },
+                "provenance_note": "GRADMM ships the authoritative IMDB len256 JSONL files locally, so the downloader stages only those formatted artifacts.",
+            },
         }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import os
 import sys
 import tempfile
@@ -35,7 +36,8 @@ class _SuccessfulDatasetDownloader(BaseDatasetDownloader):
         raw = self.raw_path()
         assert raw is not None
         raw.mkdir(parents=True, exist_ok=True)
-        return {"message": "ok", "metadata": {"source_dataset": "test", "raw_format": "directory"}}
+        (raw / "train.jsonl").write_text('{"value": 1}\n{"value": 2}\n', encoding="utf-8")
+        return {"message": "ok", "metadata": {"source_dataset": "test", "raw_format": "jsonl"}}
 
 
 class _FailingDatasetDownloader(_SuccessfulDatasetDownloader):
@@ -127,6 +129,8 @@ class DownloaderTests(unittest.TestCase):
             self.assertTrue((root / "download_report.json").exists())
             self.assertIn("raw_path", summary["results"][0])
             self.assertIn("formatted_path", summary["results"][0])
+            self.assertIn("sample_counts", summary["results"][0])
+            self.assertEqual(summary["results"][0]["sample_counts"]["raw"]["splits"]["train"], 2)
 
     def test_model_controller_continues_after_failure(self) -> None:
         """Verify the model controller writes a report even when one downloader fails."""
@@ -201,6 +205,18 @@ class DownloaderTests(unittest.TestCase):
         with mock.patch.dict(sys.modules, {"huggingface_hub": fake_hf}):
             with self.assertRaises(ValueError):
                 downloader.validate_repo()
+
+    def test_write_jsonl_serializes_datetime_values(self) -> None:
+        """Verify JSONL helpers serialize datetime fields for LiveBench-style rows."""
+
+        from thesis_platform.core.io_utils import write_jsonl
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "rows.jsonl"
+            write_jsonl(path, [{"created": datetime(2026, 3, 11, 13, 3, 49, tzinfo=timezone.utc)}])
+            payload = path.read_text(encoding="utf-8")
+
+        self.assertIn("2026-03-11T13:03:49+00:00", payload)
 
 
 if __name__ == "__main__":

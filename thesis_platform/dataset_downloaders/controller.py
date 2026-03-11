@@ -64,6 +64,10 @@ def download_datasets(names: list[str] | None = None, force: bool = False) -> di
         try:
             results.append(downloader.download(force=force))
         except Exception as exc:
+            try:
+                sample_counts = downloader.collect_sample_counts()
+            except Exception:
+                sample_counts = None
             results.append(
                 DatasetDownloadResult(
                     name=downloader.name,
@@ -84,6 +88,7 @@ def download_datasets(names: list[str] | None = None, force: bool = False) -> di
                     formatter_name=downloader.formatter_name,
                     error=str(exc),
                     message="Dataset download failed and was skipped.",
+                    sample_counts=sample_counts,
                 )
             )
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from thesis_platform.core.io_utils import write_json
 
-from .common import optional_package_relative, to_package_relative, utc_timestamp
+from .common import inspect_sample_counts, optional_package_relative, to_package_relative, utc_timestamp
 
 
 @dataclass
@@ -23,6 +24,7 @@ class DatasetDownloadResult:
     formatter_name: str
     message: str = ""
     error: str | None = None
+    sample_counts: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable representation."""
@@ -118,6 +120,31 @@ class BaseDatasetDownloader:
             "required_paths": [to_package_relative(path) for path in self.required_paths()],
         }
 
+    def collect_sample_counts(self) -> dict[str, Any] | None:
+        """Inspect raw and formatted artifacts and summarize their sample counts."""
+
+        sample_counts: dict[str, Any] = {}
+        raw_counts = inspect_sample_counts(self.raw_path())
+        formatted_counts = inspect_sample_counts(self.formatted_path())
+        if raw_counts is not None:
+            sample_counts["raw"] = raw_counts
+        if formatted_counts is not None:
+            sample_counts["formatted"] = formatted_counts
+        return sample_counts or None
+
+    def load_cached_sample_counts(self) -> dict[str, Any] | None:
+        """Reuse sample counts from metadata when available."""
+
+        metadata_path = self.metadata_path()
+        if not metadata_path.exists():
+            return None
+        try:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+        sample_counts = payload.get("artifact_sample_counts")
+        return sample_counts if isinstance(sample_counts, dict) else None
+
     def download(self, force: bool = False) -> DatasetDownloadResult:
         """Run the download workflow or skip when the dataset is already ready."""
 
@@ -132,15 +159,19 @@ class BaseDatasetDownloader:
                 description=self.description,
                 formatter_name=self.formatter_name,
                 message="Dataset artifacts already exist.",
+                sample_counts=self.load_cached_sample_counts() or self.collect_sample_counts(),
             )
 
         raw_payload = self.perform_download_raw(force=force)
         formatted_payload = self.formatter().format(self, force=force, raw_metadata=raw_payload.get("metadata", {}))
+        sample_counts = self.collect_sample_counts()
         metadata = {
             **self.base_metadata(),
             **raw_payload.get("metadata", {}),
             **formatted_payload.get("metadata", {}),
         }
+        if sample_counts is not None:
+            metadata["artifact_sample_counts"] = sample_counts
         write_json(self.metadata_path(), metadata)
         return DatasetDownloadResult(
             name=self.name,
@@ -152,4 +183,5 @@ class BaseDatasetDownloader:
             description=self.description,
             formatter_name=self.formatter_name,
             message=str(formatted_payload.get("message") or raw_payload.get("message") or "Dataset download completed."),
+            sample_counts=sample_counts,
         )

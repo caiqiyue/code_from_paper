@@ -28,6 +28,7 @@ class VendoredRTPolarityFormatter(BaseDatasetFormatter):
         target.mkdir(parents=True, exist_ok=True)
         source_root = repo_root() / "GRADMM" / "data" / "rtpolarity"
         copied_files: list[str] = []
+        split_sizes: dict[str, int] = {}
         for file_name in ("train.jsonl", "validation.jsonl"):
             source = source_root / file_name
             if not source.exists():
@@ -35,6 +36,8 @@ class VendoredRTPolarityFormatter(BaseDatasetFormatter):
             destination = target / file_name
             copy_file(source, destination)
             copied_files.append(to_package_relative(destination))
+            with source.open("r", encoding="utf-8") as handle:
+                split_sizes[file_name.replace(".jsonl", "")] = sum(1 for line in handle if line.strip())
         return {
             "message": "Copied vendored GRADMM RT-Polarity JSONL files into the formatted dataset directory.",
             "metadata": {
@@ -42,6 +45,7 @@ class VendoredRTPolarityFormatter(BaseDatasetFormatter):
                 "source_type": "vendored_local_files",
                 "source_root": str(Path("..") / "GRADMM" / "data" / "rtpolarity"),
                 "copied_files": copied_files,
+                "split_sizes": split_sizes,
                 "provenance_note": "GRADMM's vendored RT-Polarity JSONL files are treated as the authoritative experiment-ready format.",
             },
         }

@@ -265,34 +265,37 @@ thesis_platform/dataset_formatters/
 | `datainf_grammars.py` | `datainf_grammars` | 本地 `DataInf` 脚本生成 | `datainf` | 生成 `formatted/train.hf`、`formatted/test.hf` |
 | `datainf_math_with_reason.py` | `datainf_math_with_reason` | 本地 `DataInf` 脚本生成 | `datainf` | 生成 `formatted/train.hf`、`formatted/test.hf` |
 | `datainf_math_without_reason.py` | `datainf_math_without_reason` | 本地 `DataInf` 脚本生成 | `datainf` | 生成 `formatted/train.hf`、`formatted/test.hf` |
-| `glue_mrpc.py` | `glue_mrpc` | Hugging Face `glue`, subset `mrpc` | `identity` | 原始 Hugging Face 数据直接作为实验可用结果，主要落在 `raw/` |
-| `glue_qnli.py` | `glue_qnli` | Hugging Face `glue`, subset `qnli` | `identity` | 原始 Hugging Face 数据直接作为实验可用结果，主要落在 `raw/` |
-| `glue_qqp.py` | `glue_qqp` | Hugging Face `glue`, subset `qqp` | `identity` | 原始 Hugging Face 数据直接作为实验可用结果，主要落在 `raw/` |
-| `glue_sst2.py` | `glue_sst2` | Hugging Face `glue`, subset `sst2` | `identity` | 原始 Hugging Face 数据直接作为实验可用结果，主要落在 `raw/` |
-| `glue_wnli.py` | `glue_wnli` | Hugging Face `glue`, subset `wnli` | `identity` | 原始 Hugging Face 数据直接作为实验可用结果，主要落在 `raw/` |
+| `glue_mrpc.py` | `glue_mrpc` | Hugging Face `glue`, subset `mrpc` 的 `train/validation` | `glue_datainf` | `raw/` 保存官方 `train/validation`；`formatted/` 保存按 DataInf 实验规则裁剪后的 GLUE 子集 |
+| `glue_qnli.py` | `glue_qnli` | Hugging Face `glue`, subset `qnli` 的 `train/validation` | `glue_datainf` | `raw/` 保存官方 `train/validation`；`formatted/` 保存按 DataInf 实验规则裁剪后的 GLUE 子集 |
+| `glue_qqp.py` | `glue_qqp` | Hugging Face `glue`, subset `qqp` 的 `train/validation` | `glue_datainf` | `raw/` 保存官方 `train/validation`；`formatted/` 保存按 DataInf 实验规则裁剪后的 GLUE 子集 |
+| `glue_sst2.py` | `glue_sst2` | Hugging Face `glue`, subset `sst2` 的 `train/validation` | `glue_datainf` | `raw/` 保留 GRADMM 需要的官方 `train/validation`；`formatted/` 额外保存 DataInf 需要的裁剪版 GLUE 子集 |
+| `glue_wnli.py` | `glue_wnli` | Hugging Face `glue`, subset `wnli` 的 `train/validation` | `glue_datainf` | `raw/` 保存官方 `train/validation`；`formatted/` 保存按 DataInf 实验规则裁剪后的 GLUE 子集 |
 | `gsm8k.py` | `gsm8k` | Hugging Face `gsm8k`, subset `main` | `gsm8k` | 保存原始 HF 数据到 `raw/`，并额外生成 DSPy 风格 `formatted/train.jsonl`、`val.jsonl`、`test.jsonl` |
-| `imdb.py` | `imdb` | Hugging Face `imdb` | `imdb` | `raw/` 保存官方 IMDB；`formatted/` 复制本地 `GRADMM/data/imdb` 中的 `train_len256.jsonl` 和 `validation_len256.jsonl` |
-| `livebench_math_amps_hard.py` | `livebench_math_amps_hard` | Hugging Face `livebench/math` 的 `test` split | `livebench` | 从 `raw/` 读取后按 `task=AMPS_Hard` 过滤，再生成 `formatted/train.jsonl`、`valid.jsonl`、`test.jsonl` |
-| `livebench_reasoning_spatial.py` | `livebench_reasoning_spatial` | Hugging Face `livebench/reasoning` 的 `test` split | `livebench` | 从 `raw/` 读取后按 `task=spatial` 过滤，再生成 `formatted/train.jsonl`、`valid.jsonl`、`test.jsonl` |
-| `livebench_reasoning_web_of_lies_v2.py` | `livebench_reasoning_web_of_lies_v2` | Hugging Face `livebench/reasoning` 的 `test` split | `livebench` | 从 `raw/` 读取后按 `task=web_of_lies_v2` 过滤，再生成 `formatted/train.jsonl`、`valid.jsonl`、`test.jsonl` |
-| `livebench_reasoning_zebra_puzzle.py` | `livebench_reasoning_zebra_puzzle` | Hugging Face `livebench/reasoning` 的 `test` split | `livebench` | 从 `raw/` 读取后按 `task=zebra_puzzle` 过滤，再生成 `formatted/train.jsonl`、`valid.jsonl`、`test.jsonl` |
-| `rotten_tomatoes.py` | `rotten_tomatoes` | Hugging Face `rotten_tomatoes` | `identity` | 原始 Hugging Face 数据直接作为实验可用结果，主要落在 `raw/` |
+| `imdb.py` | `imdb` | 本地 `GRADMM/data/imdb/*.jsonl` | `imdb` | 不再下载官方 HF IMDB；直接把论文使用的 vendored `train_len256.jsonl` 和 `validation_len256.jsonl` 复制到 `formatted/` |
+| `livebench_math_amps_hard.py` | `livebench_math_amps_hard` | Hugging Face `livebench/math` 的 `test` split 中 `task=AMPS_Hard` 的子集 | `livebench` | `raw/` 已经只保留论文任务子集；`formatted/` 再按确定性 64/16/20 切成 `train.jsonl`、`valid.jsonl`、`test.jsonl` |
+| `livebench_reasoning_spatial.py` | `livebench_reasoning_spatial` | Hugging Face `livebench/reasoning` 的 `test` split 中 `task=spatial` 的子集 | `livebench` | `raw/` 已经只保留论文任务子集；`formatted/` 再按确定性 64/16/20 切成 `train.jsonl`、`valid.jsonl`、`test.jsonl` |
+| `livebench_reasoning_web_of_lies_v2.py` | `livebench_reasoning_web_of_lies_v2` | Hugging Face `livebench/reasoning` 的 `test` split 中 `task=web_of_lies_v2` 的子集 | `livebench` | `raw/` 已经只保留论文任务子集；`formatted/` 再按确定性 64/16/20 切成 `train.jsonl`、`valid.jsonl`、`test.jsonl` |
+| `livebench_reasoning_zebra_puzzle.py` | `livebench_reasoning_zebra_puzzle` | Hugging Face `livebench/reasoning` 的 `test` split 中 `task=zebra_puzzle` 的子集 | `livebench` | `raw/` 已经只保留论文任务子集；`formatted/` 再按确定性 64/16/20 切成 `train.jsonl`、`valid.jsonl`、`test.jsonl` |
+| `rotten_tomatoes.py` | `rotten_tomatoes` | Hugging Face `rotten_tomatoes` 的 `train/validation` | `identity` | 只下载 GRADMM 实验会用到的 `train/validation`，`formatted_path()` 仍与 `raw/` 相同 |
 | `rt_polarity.py` | `rt_polarity` | 本地 `GRADMM/data/rtpolarity` | `rt_polarity` | 不单独下载 `raw/`，直接复制为 `formatted/train.jsonl` 和 `formatted/validation.jsonl` |
 | `three_styles_prompted_250_512x512.py` | `three_styles_prompted_250_512x512` | Hugging Face `kewu93/three_styles_prompted_250_512x512` | `identity` | 原始 Hugging Face 数据直接作为实验可用结果，主要落在 `raw/` |
-| `twitter_emotion_binary.py` | `twitter_emotion_binary` | Hugging Face `dair-ai/emotion`, subset `split` | `twitter_emotion_binary` | 原始数据先保存到 `raw/`，再筛选 `label in [0, 1]` 后保存到 `formatted/` |
+| `twitter_emotion_binary.py` | `twitter_emotion_binary` | Hugging Face `dair-ai/emotion`, subset `split` 的 `train/validation` | `twitter_emotion_binary` | `raw/` 只保留 GRADMM 会用到的 `train/validation`；`formatted/` 再筛选 `label in [0, 1]` 得到 sadness/joy 二分类子集 |
 
 ## 8. 常见数据集的实际落盘位置
 
 ### 8.1 `glue_sst2`
 
-下载后主要在：
+下载后会同时有：
 
 ```text
 thesis_platform/datasets/glue_sst2/raw/
+thesis_platform/datasets/glue_sst2/formatted/
 thesis_platform/datasets/glue_sst2/metadata.json
 ```
 
-因为它使用 `identity` formatter，`formatted_path()` 实际上就等于 `raw_path()`。
+其中：
+- `raw/` 保存官方 `train/validation`，便于对齐 GRADMM。
+- `formatted/` 保存按 DataInf 论文流程裁剪后的 GLUE 子集。
 
 ### 8.2 `gsm8k`
 
@@ -335,11 +338,12 @@ DataInf 系列没有独立 `raw/`。
 下载后会有：
 
 ```text
-thesis_platform/datasets/imdb/raw/
 thesis_platform/datasets/imdb/formatted/train_len256.jsonl
 thesis_platform/datasets/imdb/formatted/validation_len256.jsonl
 thesis_platform/datasets/imdb/metadata.json
 ```
+
+`imdb` 不再生成单独的 `raw/`，因为论文实验直接使用仓库自带的 `GRADMM/data/imdb/*.jsonl`。
 
 ## 9. 不同数据集的特殊依赖
 
@@ -354,7 +358,6 @@ thesis_platform/datasets/imdb/metadata.json
 
 - `glue_*`
 - `gsm8k`
-- `imdb`
 - `livebench_*`
 - `rotten_tomatoes`
 - `three_styles_prompted_250_512x512`
@@ -449,13 +452,12 @@ python -m thesis_platform.scripts.download_datasets --names imdb rt_polarity twi
 
 典型例子：
 
-- `glue_sst2`
-- `glue_mrpc`
-- `glue_qnli`
-- `glue_qqp`
-- `glue_wnli`
 - `rotten_tomatoes`
 - `three_styles_prompted_250_512x512`
+
+`glue_*` 现在不再使用纯 `identity` 路径：
+- `raw/` 保存官方 `train/validation`
+- `formatted/` 保存 DataInf 实验真正使用的裁剪版子集
 
 ### 11.2 为什么 DataInf 系列没有 `raw/`？
 

@@ -30,6 +30,7 @@ class TwitterEmotionBinaryFormatter(BaseDatasetFormatter):
             "metadata": {
                 "formatted_format": "huggingface_save_to_disk",
                 "filter_description": "Keep only rows where label is 0 or 1 (sadness or joy).",
+                "split_sizes": {split_name: len(split) for split_name, split in filtered.items()},
                 "provenance_note": "Formatted output is the binary subset consumed by GRADMM.",
             },
         }

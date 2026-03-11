@@ -28,6 +28,7 @@ class VendoredIMDBFormatter(BaseDatasetFormatter):
         target.mkdir(parents=True, exist_ok=True)
         source_root = repo_root() / "GRADMM" / "data" / "imdb"
         copied_files: list[str] = []
+        split_sizes: dict[str, int] = {}
         for file_name in ("train_len256.jsonl", "validation_len256.jsonl"):
             source = source_root / file_name
             if not source.exists():
@@ -35,6 +36,8 @@ class VendoredIMDBFormatter(BaseDatasetFormatter):
             destination = target / file_name
             copy_file(source, destination)
             copied_files.append(to_package_relative(destination))
+            with source.open("r", encoding="utf-8") as handle:
+                split_sizes[file_name.replace("_len256.jsonl", "")] = sum(1 for line in handle if line.strip())
         return {
             "message": "Copied vendored GRADMM IMDB len256 JSONL files into the formatted dataset directory.",
             "metadata": {
@@ -42,6 +45,7 @@ class VendoredIMDBFormatter(BaseDatasetFormatter):
                 "source_type": "vendored_local_files",
                 "source_root": str(Path("..") / "GRADMM" / "data" / "imdb"),
                 "copied_files": copied_files,
+                "split_sizes": split_sizes,
                 "provenance_note": "GRADMM's vendored IMDB len256 subset is treated as the authoritative experiment-ready format.",
             },
         }

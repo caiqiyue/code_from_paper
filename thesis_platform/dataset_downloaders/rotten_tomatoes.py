@@ -12,6 +12,11 @@ class RottenTomatoesDownloader(HuggingFaceDatasetDownloader):
     description = "Download the Rotten Tomatoes sentiment dataset used in GRADMM."
 
     def build_raw_dataset(self):
-        from datasets import load_dataset
+        from datasets import DatasetDict, load_dataset
 
-        return load_dataset("rotten_tomatoes"), {"source_dataset": "rotten_tomatoes"}
+        train_dataset, validation_dataset = load_dataset("rotten_tomatoes", split=["train", "validation"])
+        return DatasetDict({"train": train_dataset, "validation": validation_dataset}), {
+            "source_dataset": "rotten_tomatoes",
+            "source_splits": ["train", "validation"],
+            "provenance_note": "Raw artifacts keep only the train and validation splits used by GRADMM.",
+        }

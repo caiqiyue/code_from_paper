@@ -16,7 +16,10 @@ class LiveBenchMathAMPSHardDownloader(HuggingFaceDatasetDownloader):
     def build_raw_dataset(self):
         from datasets import load_dataset
 
-        return load_dataset("livebench/math")["test"], {
+        dataset = load_dataset("livebench/math", split="test").filter(lambda row: row["task"] == self.livebench_task)
+        return dataset, {
             "source_dataset": "livebench/math",
             "raw_split": "test",
+            "filtered_task": self.livebench_task,
+            "provenance_note": "Raw artifacts already keep only the LiveBench task used in the FedTextGrad experiment.",
         }

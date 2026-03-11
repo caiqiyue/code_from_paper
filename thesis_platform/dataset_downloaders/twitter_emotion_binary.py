@@ -13,9 +13,12 @@ class TwitterEmotionBinaryDownloader(HuggingFaceDatasetDownloader):
     formatter_name = "twitter_emotion_binary"
 
     def build_raw_dataset(self):
-        from datasets import load_dataset
+        from datasets import DatasetDict, load_dataset
 
-        return load_dataset("dair-ai/emotion", "split"), {
+        train_dataset, validation_dataset = load_dataset("dair-ai/emotion", "split", split=["train", "validation"])
+        return DatasetDict({"train": train_dataset, "validation": validation_dataset}), {
             "source_dataset": "dair-ai/emotion",
             "subset": "split",
+            "source_splits": ["train", "validation"],
+            "provenance_note": "Raw artifacts keep only the train and validation splits used by GRADMM before binary filtering.",
         }

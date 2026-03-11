@@ -16,7 +16,10 @@ class LiveBenchReasoningSpatialDownloader(HuggingFaceDatasetDownloader):
     def build_raw_dataset(self):
         from datasets import load_dataset
 
-        return load_dataset("livebench/reasoning")["test"], {
+        dataset = load_dataset("livebench/reasoning", split="test").filter(lambda row: row["task"] == self.livebench_task)
+        return dataset, {
             "source_dataset": "livebench/reasoning",
             "raw_split": "test",
+            "filtered_task": self.livebench_task,
+            "provenance_note": "Raw artifacts already keep only the LiveBench task used in the FedTextGrad experiment.",
         }

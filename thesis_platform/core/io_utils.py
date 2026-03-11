@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 import json
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -22,8 +23,12 @@ def to_jsonable(value: Any) -> Any:
         return {key: to_jsonable(item) for key, item in value.items()}
     if isinstance(value, list):
         return [to_jsonable(item) for item in value]
+    if isinstance(value, tuple):
+        return [to_jsonable(item) for item in value]
     if isinstance(value, Path):
         return str(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
     return value
 
 

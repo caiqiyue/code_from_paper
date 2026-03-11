@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 import shutil
+from typing import Any
 
 from thesis_platform.core.io_utils import ensure_dir
 
@@ -75,3 +77,114 @@ def move_path(source: Path, target: Path) -> None:
 
     ensure_dir(target.parent)
     shutil.move(str(source), str(target))
+
+
+def _summarize_split_counts(split_counts: dict[str, int]) -> dict[str, Any] | None:
+    """Return one normalized split-count payload."""
+
+    normalized = {name: int(count) for name, count in split_counts.items()}
+    if not normalized:
+        return None
+    return {
+        "splits": normalized,
+        "total": int(sum(normalized.values())),
+    }
+
+
+def _infer_single_dataset_split_name(path: Path) -> str:
+    """Return a stable split label for one dataset artifact."""
+
+    if path.suffix == ".hf":
+        return path.stem
+    if path.name in {"raw", "formatted"}:
+        return "dataset"
+    return path.stem or path.name
+
+
+def _inspect_huggingface_artifact(path: Path) -> dict[str, Any] | None:
+    """Inspect one Hugging Face `save_to_disk` artifact when possible."""
+
+    try:
+        from datasets import DatasetDict, load_from_disk
+    except ImportError:
+        return None
+
+    try:
+        dataset = load_from_disk(str(path))
+    except Exception:
+        return None
+
+    if isinstance(dataset, DatasetDict):
+        return _summarize_split_counts({split_name: len(split) for split_name, split in dataset.items()})
+    return _summarize_split_counts({_infer_single_dataset_split_name(path): len(dataset)})
+
+
+def _count_jsonl_rows(path: Path) -> int:
+    """Count JSONL records without loading the entire file into memory."""
+
+    with path.open("r", encoding="utf-8") as handle:
+        return sum(1 for line in handle if line.strip())
+
+
+def _count_csv_rows(path: Path) -> int:
+    """Count CSV data rows while excluding the header row."""
+
+    with path.open("r", encoding="utf-8") as handle:
+        row_count = sum(1 for _ in handle)
+    return max(0, row_count - 1)
+
+
+def _count_known_json_rows(path: Path) -> int | None:
+    """Count samples for supported JSON layouts such as BBH raw files."""
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+    if isinstance(payload, dict) and isinstance(payload.get("examples"), list):
+        return len(payload["examples"])
+    if isinstance(payload, list):
+        return len(payload)
+    return None
+
+
+def inspect_sample_counts(path: Path | None) -> dict[str, Any] | None:
+    """Infer sample counts from a dataset artifact path."""
+
+    if path is None or not path.exists():
+        return None
+
+    huggingface_counts = _inspect_huggingface_artifact(path)
+    if huggingface_counts is not None:
+        return huggingface_counts
+
+    if path.is_file():
+        if path.suffix == ".jsonl":
+            return _summarize_split_counts({path.stem: _count_jsonl_rows(path)})
+        if path.suffix == ".csv":
+            return _summarize_split_counts({path.stem: _count_csv_rows(path)})
+        if path.suffix == ".json":
+            count = _count_known_json_rows(path)
+            if count is not None:
+                return _summarize_split_counts({path.stem: count})
+        return None
+
+    split_counts: dict[str, int] = {}
+    for child in sorted(path.iterdir()):
+        child_counts = _inspect_huggingface_artifact(child)
+        if child_counts is not None:
+            split_counts.update(child_counts["splits"])
+            continue
+        if child.is_file() and child.suffix == ".jsonl":
+            split_counts[child.stem] = _count_jsonl_rows(child)
+            continue
+        if child.is_file() and child.suffix == ".csv":
+            split_counts[child.stem] = _count_csv_rows(child)
+            continue
+        if child.is_file() and child.suffix == ".json":
+            count = _count_known_json_rows(child)
+            if count is not None:
+                split_counts[child.stem] = count
+
+    return _summarize_split_counts(split_counts)

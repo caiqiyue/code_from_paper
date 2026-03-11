@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .glue_utils import build_glue_train_validation_dataset
 from .hf import HuggingFaceDatasetDownloader
 from .registry import register_dataset_downloader
 
@@ -10,8 +11,7 @@ class GlueQNLIDownloader(HuggingFaceDatasetDownloader):
 
     name = "glue_qnli"
     description = "Download the GLUE QNLI splits used by DataInf."
+    formatter_name = "glue_datainf"
 
     def build_raw_dataset(self):
-        from datasets import load_dataset
-
-        return load_dataset("glue", "qnli"), {"source_dataset": "glue", "subset": "qnli"}
+        return build_glue_train_validation_dataset("qnli")

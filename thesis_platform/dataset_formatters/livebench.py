@@ -31,8 +31,7 @@ class LiveBenchFormatter(BaseDatasetFormatter):
         target.mkdir(parents=True, exist_ok=True)
 
         dataset = load_from_disk(str(raw_path))
-        filtered = dataset.filter(lambda row: row["task"] == downloader.livebench_task)
-        shuffled = filtered.shuffle(seed=0)
+        shuffled = dataset.shuffle(seed=0)
         total = len(shuffled)
         train_end = int(total * 0.64)
         valid_end = train_end + int(total * 0.16)
@@ -48,6 +47,7 @@ class LiveBenchFormatter(BaseDatasetFormatter):
             "metadata": {
                 "formatted_format": "jsonl",
                 "filtered_task": downloader.livebench_task,
+                "raw_task_rows": total,
                 "split_seed": 0,
                 "split_ratio": {"train": 0.64, "valid": 0.16, "test": 0.20},
                 "split_sizes": {
@@ -55,6 +55,6 @@ class LiveBenchFormatter(BaseDatasetFormatter):
                     "valid": len(valid_rows),
                     "test": len(test_rows),
                 },
-                "provenance_note": "Formatted output filters first, then applies deterministic LiveBench train/valid/test slicing.",
+                "provenance_note": "Raw artifacts are already task-filtered; formatted output applies deterministic 64/16/20 slicing to match the FedTextGrad wrapper behavior.",
             },
         }
