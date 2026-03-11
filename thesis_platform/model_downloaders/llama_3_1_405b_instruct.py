@@ -13,3 +13,5 @@ class Llama31_405BInstructDownloader(HuggingFaceModelDownloader):
     description = "Download the optional community-mirrored Llama 3.1 405B FP8 dynamic checkpoint mentioned in FedTextGrad."
     optional = True
     community_mirror_only = True
+    parameter_count_billions = 405.0
+    model_size_label = "405B"

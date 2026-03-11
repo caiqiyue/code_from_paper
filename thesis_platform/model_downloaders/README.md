@@ -1,27 +1,31 @@
 # `thesis_platform.model_downloaders` 使用说明
 
-## 1. 这个包是干什么的
+## 1. 这个包是做什么的
 
-`thesis_platform/model_downloaders` 是论文复现实验里“模型下载”子系统的实现目录。
+`thesis_platform/model_downloaders` 是论文复现实验里的模型下载子系统。
 
-它的职责是：
+它负责：
 
-- 定义每个模型对应的下载器模块。
-- 把这些下载器注册成统一可调用的名字。
-- 提供批量下载、跳过已存在模型、失败后继续后续模型、写下载报告等通用能力。
-- 目前所有具体下载器都基于 Hugging Face Hub 的 `snapshot_download(...)` 下载模型快照。
+- 注册每个模型对应的下载器类。
+- 统一解析“默认下载哪些模型”。
+- 从 Hugging Face 拉取模型快照。
+- 跳过已存在模型，或按 `force=True` 重新下载。
+- 某个模型失败时继续处理后续模型。
+- 生成单模型 `metadata.json` 和批量 `download_report.json`。
 
-这个包本身不负责模型推理，只负责把模型文件下载到项目约定的位置。
+它不负责模型推理，只负责把模型文件下载到项目约定目录。
 
 ---
 
-## 2. 下载到哪里
+## 2. 模型会下载到哪里
 
 所有模型都会下载到：
 
-`D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/open_model/`
+`thesis_platform/open_model/`
 
-这是由 `common.py` 里的 `models_root()` 固定决定的，和你当前终端所在目录无关。
+在你的仓库里，实际路径是：
+
+`D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\open_model`
 
 每个模型默认放在：
 
@@ -33,65 +37,65 @@
 - `thesis_platform/open_model/roberta_large/`
 - `thesis_platform/open_model/llama_3_1_8b_instruct/`
 
-批量下载完成后，还会生成总报告：
+批量下载完成后，还会生成：
 
-`thesis_platform/open_model/download_report.json`
+- `thesis_platform/open_model/download_report.json`
 
 每个模型目录下还会生成：
 
-`thesis_platform/open_model/<model_name>/metadata.json`
-
-一个典型目录结构如下：
-
-```text
-thesis_platform/
-  open_model/
-    download_report.json
-    opt_125m/
-      metadata.json
-      config.json
-      tokenizer.json
-      pytorch_model.bin
-      ...
-```
+- `thesis_platform/open_model/<model_name>/metadata.json`
 
 ---
 
-## 3. 包内每个模块是干什么的
+## 3. 包内每个模块是做什么的
 
 ### 3.1 核心模块
 
-| 模块 | 作用 | 关键对象 / 备注 |
+| 模块 | 作用 | 关键对象 |
 | --- | --- | --- |
-| `__init__.py` | 包入口。导入所有具体模型模块以触发注册，并向外暴露统一 API。 | 对外常用导出：`download_models`、`list_model_downloaders`、`create_model_downloader` |
+| `__init__.py` | 包入口，导入所有模型模块并暴露统一 API。 | `download_models`、`list_model_downloaders`、`create_model_downloader` |
 | `base.py` | 定义下载器基类和标准结果对象。 | `BaseModelDownloader`、`ModelDownloadResult` |
-| `common.py` | 提供下载目录、路径转换、UTC 时间戳、删除目录等工具函数。 | `models_root()` 返回 `thesis_platform/open_model/` |
-| `registry.py` | 负责注册下载器类，并按名字实例化下载器。 | `register_model_downloader`、`create_model_downloader` |
-| `hf.py` | Hugging Face 通用下载器实现。 | `HuggingFaceModelDownloader`，内部调用 `model_info` 和 `snapshot_download` |
-| `controller.py` | 批量列出、解析、下载多个模型，并写总报告。 | `list_model_downloaders()`、`resolve_model_downloaders()`、`download_models()` |
+| `common.py` | 提供路径、时间、目录删除、磁盘占用统计等通用工具。 | `models_root()`、`compute_path_size_bytes()`、`format_bytes()` |
+| `registry.py` | 注册下载器并按名字选择下载器。 | `register_model_downloader`、`get_registered_model_names()`、`create_model_downloader()` |
+| `hf.py` | Hugging Face 通用下载器实现。 | `HuggingFaceModelDownloader` |
+| `controller.py` | 批量列出、筛选、下载模型并生成总报告。 | `list_model_downloaders()`、`resolve_model_downloaders()`、`download_models()` |
 
 ### 3.2 具体模型模块
 
-下面这些模块各自只做一件事：定义一个具体模型的下载器类，并通过装饰器注册到系统里。
+这些模块各自只做一件事：声明一个具体模型的下载器，并注册到系统里。
 
-| 模块 | 注册名 `name` | 默认 Hugging Face 仓库 `repo_id` | 是否默认下载 | 说明 |
-| --- | --- | --- | --- | --- |
-| `deepseek_r1_distill_llama_70b.py` | `deepseek_r1_distill_llama_70b` | `deepseek-ai/DeepSeek-R1-Distill-Llama-70B` | 否，`optional=True` | FedTextGrad 提到的 DeepSeek R1 Distill Llama 70B |
-| `llama_2_13b_chat_hf.py` | `llama_2_13b_chat_hf` | `NousResearch/Llama-2-13b-chat-hf` | 否，`optional=True` | DataInf 用的 Llama 2 13B Chat 社区镜像 |
-| `llama_3_1_405b_instruct.py` | `llama_3_1_405b_instruct` | `RedHatAI/Meta-Llama-3.1-405B-Instruct-FP8-dynamic` | 否，`optional=True` | FedTextGrad 提到的可选 405B 模型 |
-| `llama_3_1_8b_instruct.py` | `llama_3_1_8b_instruct` | `unsloth/Meta-Llama-3.1-8B-Instruct` | 是 | 默认下载的 Llama 3.1 8B Instruct |
-| `llama_3_2_11b_vision_instruct.py` | `llama_3_2_11b_vision_instruct` | `unsloth/Llama-3.2-11B-Vision-Instruct` | 否，`optional=True` | FedTextGrad 文档里使用的 11B Vision Instruct |
-| `llama_3_2_3b_instruct.py` | `llama_3_2_3b_instruct` | `unsloth/Llama-3.2-3B-Instruct` | 否，`optional=True` | Prompt-transfer 目标模型 |
-| `opt_125m.py` | `opt_125m` | `facebook/opt-125m` | 是 | GRADMM 使用的 OPT-125M |
-| `opt_1_3b.py` | `opt_1_3b` | `facebook/opt-1.3b` | 否，`optional=True` | GRADMM 附录实验使用的 OPT-1.3B |
-| `opt_350m.py` | `opt_350m` | `facebook/opt-350m` | 是 | GRADMM 使用的 OPT-350M |
-| `phi_1_5.py` | `phi_1_5` | `microsoft/phi-1_5` | 是 | GRADMM 使用的 Phi-1.5 |
-| `roberta_large.py` | `roberta_large` | `roberta-large` | 是 | DataInf 使用的 RoBERTa-large |
-| `stable_diffusion_v1_5.py` | `stable_diffusion_v1_5` | `runwayml/stable-diffusion-v1-5` | 是 | DataInf 使用的 Stable Diffusion v1.5 |
+| 模块 | `name` | 默认 `repo_id` | 参数规模 | `optional` | `large_model` |
+| --- | --- | --- | --- | --- | --- |
+| `deepseek_r1_distill_llama_70b.py` | `deepseek_r1_distill_llama_70b` | `deepseek-ai/DeepSeek-R1-Distill-Llama-70B` | `70B` | 是 | 是 |
+| `llama_2_13b_chat_hf.py` | `llama_2_13b_chat_hf` | `NousResearch/Llama-2-13b-chat-hf` | `13B` | 是 | 否 |
+| `llama_3_1_405b_instruct.py` | `llama_3_1_405b_instruct` | `RedHatAI/Meta-Llama-3.1-405B-Instruct-FP8-dynamic` | `405B` | 是 | 是 |
+| `llama_3_1_8b_instruct.py` | `llama_3_1_8b_instruct` | `unsloth/Meta-Llama-3.1-8B-Instruct` | `8B` | 否 | 否 |
+| `llama_3_2_11b_vision_instruct.py` | `llama_3_2_11b_vision_instruct` | `unsloth/Llama-3.2-11B-Vision-Instruct` | `11B` | 是 | 否 |
+| `llama_3_2_3b_instruct.py` | `llama_3_2_3b_instruct` | `unsloth/Llama-3.2-3B-Instruct` | `3B` | 是 | 否 |
+| `opt_125m.py` | `opt_125m` | `facebook/opt-125m` | `125M` | 否 | 否 |
+| `opt_1_3b.py` | `opt_1_3b` | `facebook/opt-1.3b` | `1.3B` | 是 | 否 |
+| `opt_350m.py` | `opt_350m` | `facebook/opt-350m` | `350M` | 否 | 否 |
+| `phi_1_5.py` | `phi_1_5` | `microsoft/phi-1_5` | `1.5B` | 否 | 否 |
+| `roberta_large.py` | `roberta_large` | `roberta-large` | `355M` | 否 | 否 |
+| `stable_diffusion_v1_5.py` | `stable_diffusion_v1_5` | `runwayml/stable-diffusion-v1-5` | `~1.0B` | 否 | 否 |
 
-### 3.3 哪些模型默认会下载
+说明：
 
-如果不传任何参数，系统默认只下载非 `optional` 的模型：
+- `large_model=True` 的判定阈值是大于 `15B`。
+- 目前 `>15B` 的模型默认不会进入批量全量下载。
+
+---
+
+## 4. 默认会下载哪些模型
+
+### 4.1 默认批量下载
+
+不传任何参数时，只会下载：
+
+- 非 `optional`
+- 且参数规模不超过 `15B`
+
+当前默认集合是：
 
 - `llama_3_1_8b_instruct`
 - `opt_125m`
@@ -100,36 +104,61 @@ thesis_platform/
 - `roberta_large`
 - `stable_diffusion_v1_5`
 
-如果使用 `--include-optional`，则会把可选模型也纳入默认集合。
+### 4.2 `--include-optional`
+
+`--include-optional` 只会把可选模型里不超过 `15B` 的模型加入默认集合，例如：
+
+- `llama_2_13b_chat_hf`
+- `llama_3_2_11b_vision_instruct`
+- `llama_3_2_3b_instruct`
+- `opt_1_3b`
+
+它不会把 `70B`、`405B` 这种大模型自动加入。
+
+### 4.3 `--include-large`
+
+`--include-large` 会把大于 `15B` 的模型也加入默认集合，例如：
+
+- `deepseek_r1_distill_llama_70b`
+- `llama_3_1_405b_instruct`
+
+### 4.4 `--names`
+
+`--names` 是显式点名下载。
+
+只要你明确写了模型名，就可以单独下载该模型，包括大于 `15B` 的模型。
+
+例如：
+
+```powershell
+python -m thesis_platform.scripts.download_models --names llama_3_1_405b_instruct
+```
 
 ---
 
-## 4. 下载流程是怎样的
+## 5. 下载流程是什么样的
 
 整体流程如下：
 
 1. `__init__.py` 导入所有具体模型模块。
-2. 每个具体模型模块通过 `@register_model_downloader` 注册自己的下载器类。
-3. `controller.py` 根据模型名创建下载器实例。
+2. 每个模型模块通过 `@register_model_downloader` 注册自己。
+3. `controller.py` 根据 `names`、`include_optional`、`include_large` 解析本次要下载的模型集合。
 4. 每个下载器调用 `BaseModelDownloader.download(...)` 执行统一流程。
 5. 具体下载动作由 `HuggingFaceModelDownloader.perform_download(...)` 完成。
-6. 下载成功后写 `metadata.json`，批量任务结束后写 `download_report.json`。
+6. 成功后写入 `metadata.json`，批量任务结束后写入 `download_report.json`。
 
 默认行为还包括：
 
-- 如果目标目录和 `metadata.json` 已存在，且没有传 `force=True`，则跳过下载。
-- 如果传了 `force=True`，会重新下载。
-- 如果某个模型下载失败，总控不会中止整个批次，而是继续下载后面的模型，并把错误写入 `download_report.json`。
+- 如果模型目录和 `metadata.json` 已存在，且没有 `force=True`，则跳过。
+- 如果传了 `force=True`，会删除旧目录后重新下载。
+- 如果某个模型下载失败，不会中断整个批次，而是记录失败并继续下一个模型。
+- 下载成功或跳过时，会统计该模型目录的磁盘占用。
 
 ---
 
-## 5. 怎么用这些模块下载模型
+## 6. 怎么用这些模块下载模型
 
-### 5.1 推荐方式：使用命令行入口
-
-最推荐使用项目已经提供好的入口脚本：
-
-`python -m thesis_platform.scripts.download_models`
+### 6.1 推荐方式：命令行入口
 
 先安装依赖：
 
@@ -138,30 +167,46 @@ cd D:\学习记录\导师项目\研究\caiqiyue_file
 pip install -r thesis_platform\requirements.txt
 ```
 
-常用命令如下。
-
 列出所有已注册模型：
 
 ```powershell
 python -m thesis_platform.scripts.download_models --list
 ```
 
-下载默认模型集：
+下载默认模型集合：
 
 ```powershell
 python -m thesis_platform.scripts.download_models
 ```
 
-下载默认模型集并包含可选模型：
+下载默认模型集合，并包含可选的非大模型：
 
 ```powershell
 python -m thesis_platform.scripts.download_models --include-optional
+```
+
+下载默认模型集合，并把大于 `15B` 的模型也纳入：
+
+```powershell
+python -m thesis_platform.scripts.download_models --include-large
+```
+
+同时包含可选模型和大模型：
+
+```powershell
+python -m thesis_platform.scripts.download_models --include-optional --include-large
 ```
 
 只下载指定模型：
 
 ```powershell
 python -m thesis_platform.scripts.download_models --names opt_125m roberta_large
+```
+
+显式下载大模型：
+
+```powershell
+python -m thesis_platform.scripts.download_models --names deepseek_r1_distill_llama_70b
 ```
 
 强制重下：
@@ -178,9 +223,7 @@ python -m thesis_platform.scripts.download_models `
   --repo-override llama_3_1_8b_instruct=custom-user/Llama-3.1-8B-Instruct
 ```
 
-### 5.2 Python API：批量下载
-
-如果你想在代码里调用，推荐使用包导出的总控函数。
+### 6.2 Python API：批量下载
 
 ```python
 from thesis_platform.model_downloaders import download_models
@@ -189,21 +232,14 @@ report = download_models(
     names=["opt_125m", "roberta_large"],
     force=False,
     include_optional=False,
+    include_large=False,
     repo_overrides=None,
 )
 
 print(report)
 ```
 
-`report` 是一个字典，包含：
-
-- 本次请求下载了哪些模型
-- 下载了多少个、跳过了多少个、失败了多少个
-- 每个模型的状态、目标路径、元数据路径、错误信息等
-
-### 5.3 Python API：创建单个下载器
-
-如果你只想下载一个模型，也可以通过注册表按名字创建：
+### 6.3 Python API：创建单个下载器
 
 ```python
 from thesis_platform.model_downloaders import create_model_downloader
@@ -213,9 +249,7 @@ result = downloader.download(force=False)
 print(result.to_dict())
 ```
 
-### 5.4 直接使用某个具体模块
-
-每个具体模块本质上都是一个下载器类，你也可以直接导入并调用：
+### 6.4 直接使用某个具体模块
 
 ```python
 from thesis_platform.model_downloaders.llama_3_1_8b_instruct import Llama31_8BInstructDownloader
@@ -225,15 +259,15 @@ result = downloader.download()
 print(result.to_dict())
 ```
 
-这种方式是可行的，但通常不如 `create_model_downloader(...)` 或 `download_models(...)` 统一。
+通常还是优先用 `download_models(...)` 或命令行入口，统一性更好。
 
 ---
 
-## 6. 下载结果里会写什么
+## 7. 下载结果里会写什么
 
-### 6.1 单个模型的 `metadata.json`
+### 7.1 单模型 `metadata.json`
 
-每个模型下载成功后，都会写一个 `metadata.json`，里面通常会包含：
+每个模型成功下载后，会写一个 `metadata.json`，里面通常包括：
 
 - `name`
 - `description`
@@ -241,6 +275,9 @@ print(result.to_dict())
 - `default_repo_id`
 - `resolved_repo_id`
 - `optional`
+- `parameter_count_billions`
+- `model_size_label`
+- `large_model`
 - `repo_overridden`
 - `source_policy`
 - `downloaded_at`
@@ -248,70 +285,112 @@ print(result.to_dict())
 - `required_paths`
 - `source_type`
 - `repo_validation`
+- `disk_usage_bytes`
+- `disk_usage_human`
 
-其中：
-
-- `default_repo_id` 是模块里写死的默认仓库。
-- `resolved_repo_id` 是最终实际使用的仓库，可能被 `repo_override` 覆盖。
-- `repo_validation` 是调用 Hugging Face `model_info(...)` 校验得到的信息。
-
-### 6.2 批量任务的 `download_report.json`
+### 7.2 批量 `download_report.json`
 
 总报告会记录：
 
 - `requested_names`
 - `include_optional`
+- `include_large`
 - `counts.downloaded`
 - `counts.skipped`
 - `counts.failed`
 - `results`
 
-如果某个模型失败，错误不会吞掉，而是会写到该模型对应的 `error` 字段里。
+每个模型的结果项里会包含：
+
+- `name`
+- `status`
+- `target_path`
+- `metadata_path`
+- `repo_id`
+- `parameter_count_billions`
+- `model_size_label`
+- `large_model`
+- `disk_usage_bytes`
+- `disk_usage_human`
+- `error`
+
+也就是说，汇总报告现在会同时给出：
+
+- 模型规模标签，例如 `8B`、`70B`
+- 实际落盘占用，例如 `14.2 GB`
+
+### 7.3 失败时的行为
+
+如果某个模型下载失败：
+
+- 该模型会在报告里标记为 `failed`
+- `error` 字段会记录异常信息
+- 控制器会继续下载后续模型，不会整批中断
 
 ---
 
-## 7. 几个容易混淆的点
+## 8. 容易混淆的点
 
-### 7.1 `optional=True` 是什么意思
+### 8.1 `optional=True` 不是“永远不能默认下载”
 
-表示这个模型不会出现在“默认下载集合”里，但你仍然可以：
+它只是表示：
 
-- 用 `--include-optional` 一并下载
-- 用 `--names ...` 单独点名下载
+- 默认批量下载时先不下
+- 你可以通过 `--include-optional` 或 `--names` 把它纳入
 
-### 7.2 `community_mirror_only=True` 是什么意思
+### 8.2 `large_model=True` 的模型默认不会被“全量下载”
 
-这类模型要求最终使用的仓库必须是 Transformers 兼容的 Hugging Face 仓库。
+这里的“全量下载”指：
 
-也就是说，如果你给这类模型传了 `repo_override`，指向了一个非 Transformers 仓库，例如只提供 GGUF 文件的仓库，下载前校验就会报错。
+```powershell
+python -m thesis_platform.scripts.download_models
+```
 
-当前带这个约束的主要是各类 Llama 模型。
+或者：
 
-### 7.3 `force=True` 会做什么
+```powershell
+python -m thesis_platform.scripts.download_models --include-optional
+```
 
-对于 Hugging Face 下载器，如果目标目录已经存在，重新下载前会先删除旧目录，再重新拉取快照。
+这两种情况下，大于 `15B` 的模型仍然不会自动下载。
 
-### 7.4 当前工作目录会影响下载位置吗
+只有两种方式会下大模型：
+
+- 显式传 `--include-large`
+- 用 `--names` 明确点名
+
+### 8.3 `community_mirror_only=True` 的含义
+
+这类模型要求最终仓库是 Transformers 兼容的 Hugging Face 仓库。
+
+如果你给它传了一个只包含 GGUF 等非 Transformers 产物的仓库，下载前校验会失败。
+
+### 8.4 `force=True` 会做什么
+
+对 Hugging Face 下载器来说，目标目录已存在时会先删除旧目录，再重新拉取快照。
+
+### 8.5 当前工作目录不会改变下载位置
 
 不会。
 
-下载根目录是按照 `thesis_platform` 包路径固定解析的，不是按命令执行时的 shell 当前目录决定的。
+下载根目录是按 `thesis_platform` 包路径固定解析的，不是按你执行命令时所在的 shell 目录决定的。
 
 ---
 
-## 8. 推荐的实际使用方式
+## 9. 推荐的实际用法
 
-如果你的目标只是把项目所需模型准备好，建议按下面顺序使用：
+如果你的目标只是把论文复现所需模型准备好，建议按这个顺序：
 
-1. 在仓库根目录安装依赖：`pip install -r thesis_platform/requirements.txt`
+1. 安装依赖：`pip install -r thesis_platform/requirements.txt`
 2. 先看可用模型：`python -m thesis_platform.scripts.download_models --list`
 3. 先下载默认模型：`python -m thesis_platform.scripts.download_models`
-4. 如果某些大模型或额外模型需要补齐，再用 `--names` 或 `--include-optional`
-5. 如果某个默认仓库失效，再用 `--repo-override`
+4. 如果需要额外的可选中型模型，再加 `--include-optional`
+5. 如果确实需要 `>15B` 大模型，再显式用 `--include-large` 或 `--names`
+6. 如果默认仓库不可用，再用 `--repo-override`
 
 ---
 
-## 9. 一个最小示例
+## 10. 一个最小示例
 
 只下载 `opt_125m` 和 `roberta_large`：
 
@@ -320,20 +399,20 @@ cd D:\学习记录\导师项目\研究\caiqiyue_file
 python -m thesis_platform.scripts.download_models --names opt_125m roberta_large
 ```
 
-下载完成后可以到这里查看：
+下载完成后可以查看：
 
-- `D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/open_model/opt_125m/`
-- `D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/open_model/roberta_large/`
-- `D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/open_model/download_report.json`
+- `D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\open_model\opt_125m\`
+- `D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\open_model\roberta_large\`
+- `D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\open_model\download_report.json`
 
 ---
 
-## 10. 结论
+## 11. 结论
 
-这个包的设计思路很简单：
+这个包的设计思路很直接：
 
-- 每个具体模型模块只描述“我是谁、默认从哪个仓库下、是否可选”。
-- 真正的通用逻辑都集中在 `base.py`、`hf.py`、`registry.py`、`controller.py`。
-- 日常使用时，优先用 `python -m thesis_platform.scripts.download_models`。
-- 如果需要嵌入到你自己的代码里，再使用 `download_models(...)` 或 `create_model_downloader(...)`。
-
+- 每个具体模型模块只描述“我是谁、默认从哪个仓库下、是不是可选、是不是大模型”。
+- 通用逻辑集中在 `base.py`、`hf.py`、`registry.py`、`controller.py`。
+- 默认批量下载不会自动拉取 `15B` 以上模型。
+- 报告里现在会同时给出模型规模和实际磁盘占用。
+- 某个模型失败时会记录错误并继续后续下载。

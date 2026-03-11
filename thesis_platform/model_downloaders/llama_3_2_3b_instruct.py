@@ -13,3 +13,5 @@ class Llama32_3BInstructDownloader(HuggingFaceModelDownloader):
     description = "Download the community-mirrored prompt-transfer target Llama 3.2 3B instruct checkpoint."
     optional = True
     community_mirror_only = True
+    parameter_count_billions = 3.0
+    model_size_label = "3B"

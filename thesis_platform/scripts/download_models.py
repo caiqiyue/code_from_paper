@@ -36,7 +36,12 @@ def main() -> None:
     parser.add_argument(
         "--include-optional",
         action="store_true",
-        help="Include optional, gated, or very large models in the default download set.",
+        help="Include optional models up to 15B in the default download set.",
+    )
+    parser.add_argument(
+        "--include-large",
+        action="store_true",
+        help="Include models larger than 15B in the default download set.",
     )
     parser.add_argument(
         "--repo-override",
@@ -54,6 +59,7 @@ def main() -> None:
         names=args.names,
         force=args.force,
         include_optional=args.include_optional,
+        include_large=args.include_large,
         repo_overrides=parse_repo_overrides(args.repo_override),
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))

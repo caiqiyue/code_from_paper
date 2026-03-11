@@ -12,3 +12,5 @@ class DeepSeekR1DistillLlama70BDownloader(HuggingFaceModelDownloader):
     repo_id = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
     description = "Download the DeepSeek R1 Distill Llama 70B checkpoint mentioned in FedTextGrad."
     optional = True
+    parameter_count_billions = 70.0
+    model_size_label = "70B"

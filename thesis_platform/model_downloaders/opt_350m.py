@@ -11,3 +11,5 @@ class OPT350MDownloader(HuggingFaceModelDownloader):
     name = "opt_350m"
     repo_id = "facebook/opt-350m"
     description = "Download the OPT-350M checkpoint used in GRADMM."
+    parameter_count_billions = 0.35
+    model_size_label = "350M"

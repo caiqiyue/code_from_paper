@@ -22,13 +22,16 @@ def list_model_downloaders() -> list[dict[str, Any]]:
     """Return metadata for every registered model downloader."""
 
     entries: list[dict[str, Any]] = []
-    for name in get_registered_model_names(include_optional=True):
+    for name in get_registered_model_names(include_optional=True, include_large=True):
         downloader = create_model_downloader(name)
         entries.append(
             {
                 "name": downloader.name,
                 "default_repo_id": downloader.default_repo_id,
                 "optional": downloader.optional,
+                "parameter_count_billions": downloader.parameter_count_billions,
+                "model_size_label": downloader.resolved_model_size_label,
+                "large_model": downloader.large_model,
                 "community_mirror_only": downloader.community_mirror_only,
                 "description": downloader.description,
             }
@@ -39,21 +42,29 @@ def list_model_downloaders() -> list[dict[str, Any]]:
 def resolve_model_downloaders(
     names: list[str] | None = None,
     include_optional: bool = False,
+    include_large: bool = False,
     repo_overrides: dict[str, str] | None = None,
 ) -> list[Any]:
     """Instantiate the selected model downloaders."""
 
     overrides = repo_overrides or {}
-    unknown_override_names = [name for name in overrides if name not in get_registered_model_names(include_optional=True)]
+    unknown_override_names = [
+        name for name in overrides if name not in get_registered_model_names(include_optional=True, include_large=True)
+    ]
     if unknown_override_names:
         raise ValueError(f"Unknown model downloaders in repo overrides: {', '.join(sorted(unknown_override_names))}")
     return [
         create_model_downloader(name, repo_override=overrides.get(name))
-        for name in resolve_model_names(names, include_optional=include_optional)
+        for name in resolve_model_names(names, include_optional=include_optional, include_large=include_large)
     ]
 
 
-def build_model_report(results: list[ModelDownloadResult], requested_names: list[str], include_optional: bool) -> dict[str, Any]:
+def build_model_report(
+    results: list[ModelDownloadResult],
+    requested_names: list[str],
+    include_optional: bool,
+    include_large: bool,
+) -> dict[str, Any]:
     """Assemble the final model download summary."""
 
     counts = Counter(result.status for result in results)
@@ -63,6 +74,7 @@ def build_model_report(results: list[ModelDownloadResult], requested_names: list
         "download_root": to_package_relative(models_root()),
         "requested_names": requested_names,
         "include_optional": include_optional,
+        "include_large": include_large,
         "counts": {
             "downloaded": counts.get("downloaded", 0),
             "skipped": counts.get("skipped", 0),
@@ -77,6 +89,7 @@ def download_models(
     names: list[str] | None = None,
     force: bool = False,
     include_optional: bool = False,
+    include_large: bool = False,
     repo_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run the selected model downloads and write one summary report."""
@@ -84,6 +97,7 @@ def download_models(
     downloaders = resolve_model_downloaders(
         names=names,
         include_optional=include_optional,
+        include_large=include_large,
         repo_overrides=repo_overrides,
     )
     requested_names = [downloader.name for downloader in downloaders]
@@ -93,6 +107,7 @@ def download_models(
         try:
             results.append(downloader.download(force=force))
         except Exception as exc:
+            disk_usage_bytes, disk_usage_human = downloader.collect_disk_usage()
             results.append(
                 ModelDownloadResult(
                     name=downloader.name,
@@ -104,13 +119,18 @@ def download_models(
                     metadata_path=to_package_relative(downloader.metadata_path()),
                     description=downloader.description,
                     optional=downloader.optional,
+                    parameter_count_billions=downloader.parameter_count_billions,
+                    model_size_label=downloader.resolved_model_size_label,
+                    large_model=downloader.large_model,
                     repo_overridden=downloader.repo_overridden,
                     source_policy=downloader.source_policy,
                     error=str(exc),
                     message="Model download failed and was skipped.",
+                    disk_usage_bytes=disk_usage_bytes,
+                    disk_usage_human=disk_usage_human,
                 )
             )
 
-    report = build_model_report(results, requested_names, include_optional)
+    report = build_model_report(results, requested_names, include_optional, include_large)
     write_json(models_root() / "download_report.json", report)
     return report

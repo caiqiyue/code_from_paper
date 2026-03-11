@@ -13,3 +13,5 @@ class Llama2_13BChatDownloader(HuggingFaceModelDownloader):
     description = "Download the community-mirrored Llama 2 13B chat checkpoint used in DataInf."
     optional = True
     community_mirror_only = True
+    parameter_count_billions = 13.0
+    model_size_label = "13B"

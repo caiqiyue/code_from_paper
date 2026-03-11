@@ -11,3 +11,5 @@ class RobertaLargeDownloader(HuggingFaceModelDownloader):
     name = "roberta_large"
     repo_id = "roberta-large"
     description = "Download the RoBERTa-large checkpoint used in DataInf."
+    parameter_count_billions = 0.355
+    model_size_label = "355M"

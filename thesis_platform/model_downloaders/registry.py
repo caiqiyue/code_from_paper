@@ -7,6 +7,14 @@ from .base import BaseModelDownloader
 _MODEL_DOWNLOADERS: dict[str, type[BaseModelDownloader]] = {}
 
 
+def _is_large_model(downloader_cls: type[BaseModelDownloader]) -> bool:
+    """Return whether one downloader class should be treated as a >15B model."""
+
+    parameter_count = getattr(downloader_cls, "parameter_count_billions", None)
+    threshold = getattr(downloader_cls, "large_model_threshold_billions", 15.0)
+    return parameter_count is not None and parameter_count > threshold
+
+
 def register_model_downloader(cls: type[BaseModelDownloader]) -> type[BaseModelDownloader]:
     """Register a model downloader class by its public name."""
 
@@ -18,12 +26,16 @@ def register_model_downloader(cls: type[BaseModelDownloader]) -> type[BaseModelD
     return cls
 
 
-def get_registered_model_names(include_optional: bool = True) -> list[str]:
+def get_registered_model_names(include_optional: bool = True, include_large: bool = True) -> list[str]:
     """Return every registered model downloader name."""
 
     names = []
     for name in sorted(_MODEL_DOWNLOADERS):
-        if include_optional or not _MODEL_DOWNLOADERS[name].optional:
+        downloader_cls = _MODEL_DOWNLOADERS[name]
+        is_large_model = _is_large_model(downloader_cls)
+        if not include_large and is_large_model:
+            continue
+        if include_optional or not downloader_cls.optional or is_large_model:
             names.append(name)
     return names
 
@@ -38,11 +50,18 @@ def create_model_downloader(name: str, repo_override: str | None = None) -> Base
     return downloader_cls(repo_override=repo_override)
 
 
-def resolve_model_names(names: Iterable[str] | None = None, include_optional: bool = False) -> list[str]:
+def resolve_model_names(
+    names: Iterable[str] | None = None,
+    include_optional: bool = False,
+    include_large: bool = False,
+) -> list[str]:
     """Resolve an optional subset of model names into a stable ordered list."""
 
     if names is None:
-        selected = get_registered_model_names(include_optional=include_optional)
+        selected = get_registered_model_names(
+            include_optional=include_optional,
+            include_large=include_large,
+        )
     else:
         selected = list(names)
     deduplicated = list(dict.fromkeys(selected))

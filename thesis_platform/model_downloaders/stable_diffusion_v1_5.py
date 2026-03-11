@@ -11,3 +11,5 @@ class StableDiffusionV15Downloader(HuggingFaceModelDownloader):
     name = "stable_diffusion_v1_5"
     repo_id = "runwayml/stable-diffusion-v1-5"
     description = "Download the Stable Diffusion v1.5 checkpoint used in DataInf."
+    parameter_count_billions = 1.0
+    model_size_label = "~1.0B"

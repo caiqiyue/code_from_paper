@@ -11,3 +11,5 @@ class Phi15Downloader(HuggingFaceModelDownloader):
     name = "phi_1_5"
     repo_id = "microsoft/phi-1_5"
     description = "Download the Phi-1.5 checkpoint used in GRADMM."
+    parameter_count_billions = 1.5
+    model_size_label = "1.5B"

@@ -53,6 +53,8 @@ class _SuccessfulModelDownloader(BaseModelDownloader):
     description = "test model"
     repo_id = "org/test-model"
     optional = False
+    parameter_count_billions = 1.0
+    model_size_label = "1B"
 
     def __init__(self, root: Path, repo_override: str | None = None) -> None:
         super().__init__(repo_override=repo_override)
@@ -63,6 +65,7 @@ class _SuccessfulModelDownloader(BaseModelDownloader):
 
     def perform_download(self, force: bool):
         self.target_path().mkdir(parents=True, exist_ok=True)
+        (self.target_path() / "weights.bin").write_bytes(b"1234567890")
         return {"message": "ok", "metadata": {"source_type": "test"}}
 
 
@@ -92,11 +95,12 @@ class DownloaderTests(unittest.TestCase):
         self.assertIn("gsm8k", formatter_names)
         self.assertIn("livebench", formatter_names)
 
-        all_model_names = get_registered_model_names(include_optional=True)
-        default_model_names = get_registered_model_names(include_optional=False)
+        all_model_names = get_registered_model_names(include_optional=True, include_large=True)
+        default_model_names = get_registered_model_names(include_optional=False, include_large=False)
         self.assertIn("roberta_large", all_model_names)
         self.assertIn("llama_2_13b_chat_hf", all_model_names)
         self.assertNotIn("llama_2_13b_chat_hf", default_model_names)
+        self.assertNotIn("llama_3_1_405b_instruct", default_model_names)
 
     def test_path_helpers_ignore_current_working_directory(self) -> None:
         """Verify default download roots stay anchored to the package, not the shell cwd."""
@@ -145,6 +149,8 @@ class DownloaderTests(unittest.TestCase):
             self.assertEqual(summary["counts"]["downloaded"], 1)
             self.assertEqual(summary["counts"]["failed"], 1)
             self.assertTrue((root / "download_report.json").exists())
+            self.assertGreater(summary["results"][0]["disk_usage_bytes"], 0)
+            self.assertEqual(summary["results"][0]["model_size_label"], "1B")
 
     def test_datainf_wrappers_share_one_script_invocation(self) -> None:
         """Verify the three DataInf wrappers only trigger the upstream script once."""
@@ -176,14 +182,35 @@ class DownloaderTests(unittest.TestCase):
             self.assertTrue((datasets_dir / "datainf_math_without_reason" / "formatted" / "train.hf").exists())
             self.assertTrue((datasets_dir / "datainf_math_with_reason" / "formatted" / "train.hf").exists())
 
-    def test_model_controller_excludes_optional_by_default(self) -> None:
-        """Verify optional models are excluded from the default resolved set."""
+    def test_model_controller_excludes_optional_and_large_by_default(self) -> None:
+        """Verify optional models and >15B models are excluded from the default resolved set."""
 
-        default_names = [downloader.name for downloader in model_controller.resolve_model_downloaders(include_optional=False)]
-        optional_names = [downloader.name for downloader in model_controller.resolve_model_downloaders(include_optional=True)]
+        default_names = [
+            downloader.name
+            for downloader in model_controller.resolve_model_downloaders(
+                include_optional=False,
+                include_large=False,
+            )
+        ]
+        optional_names = [
+            downloader.name
+            for downloader in model_controller.resolve_model_downloaders(
+                include_optional=True,
+                include_large=False,
+            )
+        ]
+        large_names = [
+            downloader.name
+            for downloader in model_controller.resolve_model_downloaders(
+                include_optional=False,
+                include_large=True,
+            )
+        ]
         self.assertIn("llama_3_1_8b_instruct", default_names)
         self.assertNotIn("llama_2_13b_chat_hf", default_names)
+        self.assertNotIn("llama_3_1_405b_instruct", default_names)
         self.assertIn("llama_2_13b_chat_hf", optional_names)
+        self.assertIn("llama_3_1_405b_instruct", large_names)
 
     def test_repo_overrides_change_the_resolved_model_source(self) -> None:
         """Verify CLI-style repo overrides win over the default model source."""

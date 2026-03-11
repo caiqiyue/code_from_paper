@@ -13,3 +13,5 @@ class Llama32_11BVisionInstructDownloader(HuggingFaceModelDownloader):
     description = "Download the community-mirrored Llama 3.2 11B Vision Instruct checkpoint used in FedTextGrad docs."
     optional = True
     community_mirror_only = True
+    parameter_count_billions = 11.0
+    model_size_label = "11B"

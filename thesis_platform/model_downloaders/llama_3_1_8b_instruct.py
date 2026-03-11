@@ -12,3 +12,5 @@ class Llama31_8BInstructDownloader(HuggingFaceModelDownloader):
     repo_id = "unsloth/Meta-Llama-3.1-8B-Instruct"
     description = "Download the community-mirrored FedTextGrad local Llama 3.1 8B instruct checkpoint."
     community_mirror_only = True
+    parameter_count_billions = 8.0
+    model_size_label = "8B"
