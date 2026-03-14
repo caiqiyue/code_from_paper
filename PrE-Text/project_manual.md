@@ -488,3 +488,6 @@ That order follows the actual experiment flow and makes the internal dependencie
 3. `meta-llama/Llama-2-7b-hf` access may require a Hugging Face license agreement.
 4. The current `llama_bootstrap.py` default generates `50000` samples, while the README says the paper scaled this much further.
 5. Source files now contain class-level and function-level docstrings plus inline comments on key steps, so the code can be used together with this manual.
+> Note
+> 当前仓库已经平台化重构为 `pretext_platform/`。
+> 本文档保留的是旧版扁平脚本结构的细读说明；最新项目结构、配置驱动入口和实验方式请优先参考根目录 `README.md`。

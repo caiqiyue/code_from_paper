@@ -7,6 +7,7 @@ from typing import Any
 
 from thesis_platform.core.context import ClientContext, RoundContext, ServerContext
 from thesis_platform.core.io_utils import ensure_dir, write_json, write_jsonl, write_text
+from thesis_platform.core.logging_utils import get_logger
 from thesis_platform.core.prompt_updater import apply_prompt_update
 from thesis_platform.core.schemas import Critique, PromptUpdate, ScoredSample, Sample
 from thesis_platform.core.selector import select_top_k
@@ -38,6 +39,7 @@ class RoundRunner:
         self.retriever = retriever
         self.critic = critic
         self.aggregator = aggregator
+        self.logger = get_logger()
 
     def run_round(
         self,
@@ -52,6 +54,7 @@ class RoundRunner:
         """Run one full federation round and persist its artifacts to disk."""
 
         ensure_dir(output_dir)
+        display_round = round_id + 1
         round_ctx = RoundContext(
             round_id=round_id,
             prompt_text=server_ctx.prompt_text,
@@ -61,8 +64,10 @@ class RoundRunner:
         )
 
         server_start = time.perf_counter()
+        self.logger.info("Round %d | generation start", display_round)
         generated_samples = self.generator.generate(round_ctx)  # Server creates candidate synthetic samples.
         server_after_generation = time.perf_counter()
+        self.logger.info("Round %d | generation complete | generated=%d", display_round, len(generated_samples))
 
         scored_samples: list[ScoredSample] = []
         critiques: list[Critique] = []
@@ -70,6 +75,7 @@ class RoundRunner:
         retrieved_pairs: list[Any] = []
         client_latency_total = 0.0
 
+        self.logger.info("Round %d | client scoring start across %d clients", display_round, len(client_contexts))
         for client_ctx in client_contexts:
             client_start = time.perf_counter()
             client_scored = self.scorer.score(generated_samples, client_ctx)  # Each client scores the same synthetic pool.
@@ -84,11 +90,23 @@ class RoundRunner:
             client_critiques = self.critic.critique(paired_samples, client_ctx)  # Translate badness into textual rules.
             critiques.extend(client_critiques)
             client_latency_total += time.perf_counter() - client_start
+        self.logger.info(
+            "Round %d | client scoring complete | scored=%d selected_bad=%d retrieved_pairs=%d critiques=%d",
+            display_round,
+            len(scored_samples),
+            len(selected_bad_samples),
+            len(retrieved_pairs),
+            len(critiques),
+        )
 
+        self.logger.info("Round %d | aggregation start", display_round)
         prompt_update = self.aggregator.aggregate(critiques, server_ctx)  # Server merges all critique rules.
         updated_prompt = server_ctx.prompt_text
         if prompt_update is not None:
             updated_prompt = apply_prompt_update(server_ctx.prompt_text, prompt_update)  # Build the next-round prompt.
+            self.logger.info("Round %d | aggregation complete | prompt updated", display_round)
+        else:
+            self.logger.info("Round %d | aggregation complete | prompt unchanged", display_round)
 
         server_latency = time.perf_counter() - server_after_generation
         upload_tokens = sum(len(item.text.split()) for item in critiques)
@@ -104,6 +122,7 @@ class RoundRunner:
             )
         )
 
+        self.logger.info("Round %d | writing artifacts to %s", display_round, output_dir)
         write_text(output_dir / "server_prompt.txt", server_ctx.prompt_text)  # Persist every intermediate artifact for analysis.
         write_jsonl(output_dir / "generated_samples.jsonl", generated_samples)
         write_jsonl(output_dir / "scored_samples.jsonl", scored_samples)
@@ -113,6 +132,7 @@ class RoundRunner:
         if prompt_update is not None:
             write_json(output_dir / "prompt_update.json", prompt_update)
         write_json(output_dir / "round_metrics.json", round_metrics)
+        self.logger.info("Round %d | artifacts persisted", display_round)
 
         del server_start
         return RoundArtifacts(

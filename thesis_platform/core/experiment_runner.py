@@ -15,6 +15,11 @@ from thesis_platform.data.loaders import load_samples
 from thesis_platform.data.partition import partition_samples
 from thesis_platform.models.embedding import build_embedder
 
+try:
+    from tqdm import tqdm
+except ModuleNotFoundError:  # pragma: no cover - tqdm is declared in requirements but keep a fallback
+    tqdm = None
+
 
 class ExperimentRunner:
     """Top-level experiment orchestrator for one resolved experiment config."""
@@ -34,8 +39,9 @@ class ExperimentRunner:
 
         public_seed_path = self.config.resolve_path(self.config.data.get("public_seed_path"))
         if public_seed_path is None:
+            self.logger.info("No public seed dataset configured.")
             return []
-        return load_samples(
+        samples = load_samples(
             public_seed_path,
             dataset_name=str(self.config.data.get("dataset_name", "dataset")),
             source="public_seed",
@@ -44,6 +50,8 @@ class ExperimentRunner:
             client_id="server",
             prefix="seed",
         )
+        self.logger.info("Loaded %d public seed samples from %s", len(samples), public_seed_path)
+        return samples
 
     def _load_client_contexts(self) -> list[ClientContext]:
         """Load the dataset and partition it into per-client runtime contexts."""
@@ -60,6 +68,7 @@ class ExperimentRunner:
             client_id="raw",
             prefix="real",
         )
+        self.logger.info("Loaded %d private training samples from %s", len(all_samples), train_path)
         partitions = partition_samples(  # Split one dataset into stable per-client buckets.
             all_samples,
             num_clients=int(self.config.data.get("num_clients", 3)),
@@ -69,6 +78,13 @@ class ExperimentRunner:
         )
         retriever_cfg = self.config.retriever
         embedder = build_embedder(retriever_cfg.get("embedding_model"), self.repo_root)  # Share one embedder across clients.
+        self.logger.info(
+            "Partitioned dataset into %d clients with max %d samples/client and validation_ratio=%.2f",
+            len(partitions),
+            int(self.config.data.get("max_samples_per_client", 16)),
+            float(self.config.data.get("validation_ratio", 0.1)),
+        )
+        self.logger.info("Embedder backend: %s", type(embedder).__name__)
         contexts: list[ClientContext] = []
         for idx, bucket in enumerate(partitions):
             client_id = f"client_{idx}"
@@ -89,6 +105,7 @@ class ExperimentRunner:
 
         from thesis_platform import adapters  # noqa: F401
 
+        self.logger.info("Experiment %s | starting with config %s", self.experiment_id, self.config.path)
         public_seed_samples = self._load_public_seed_samples()
         client_contexts = self._load_client_contexts()
 
@@ -97,6 +114,15 @@ class ExperimentRunner:
         retriever = create("retriever", str(self.config.retriever.get("name", "knn")), self.config.retriever, self.repo_root)
         critic = create("critic", str(self.config.critic.get("name", "none")), self.config.critic, self.repo_root)
         aggregator = create("aggregator", str(self.config.aggregator.get("name", "none")), self.config.aggregator, self.repo_root)  # Build adapters from the registry.
+        self.logger.info(
+            "Experiment %s | adapters generator=%s scorer=%s retriever=%s critic=%s aggregator=%s",
+            self.experiment_id,
+            type(generator).__name__,
+            type(scorer).__name__,
+            type(retriever).__name__,
+            type(critic).__name__,
+            type(aggregator).__name__,
+        )
         round_runner = RoundRunner(
             generator=generator,
             scorer=scorer,
@@ -121,7 +147,11 @@ class ExperimentRunner:
 
         rounds = int(self.config.federation.get("rounds", 1))
         all_round_metrics: list[dict[str, Any]] = []
-        for round_id in range(rounds):
+        self.logger.info("Experiment %s | executing %d rounds", self.experiment_id, rounds)
+        progress = tqdm(range(rounds), total=rounds, desc=f"{self.experiment_id}", unit="round") if tqdm is not None else None
+        round_iter = progress if progress is not None else range(rounds)
+        for round_id in round_iter:
+            self.logger.info("Round %d/%d | start", round_id + 1, rounds)
             round_dir = ensure_dir(self.experiment_dir / f"round_{round_id:03d}")
             artifacts = round_runner.run_round(  # Execute one full generator-to-aggregator loop.
                 round_id=round_id,
@@ -134,6 +164,22 @@ class ExperimentRunner:
             server_ctx.prompt_text = artifacts.updated_prompt  # Feed the updated prompt into the next round.
             server_ctx.prompt_history.append(server_ctx.prompt_text)
             all_round_metrics.append({"round_id": round_id, **artifacts.round_metrics})
+            if progress is not None:
+                progress.set_postfix(
+                    generated=artifacts.round_metrics.get("generated_count", 0),
+                    critiques=artifacts.round_metrics.get("critique_count", 0),
+                )
+            self.logger.info(
+                "Round %d/%d | complete | generated=%s selected_bad=%d critiques=%d output=%s",
+                round_id + 1,
+                rounds,
+                artifacts.round_metrics.get("generated_count", 0),
+                len(artifacts.selected_bad_samples),
+                len(artifacts.critiques),
+                round_dir,
+            )
+        if progress is not None:
+            progress.close()
 
         summary = {
             "experiment_id": self.experiment_id,
@@ -144,4 +190,5 @@ class ExperimentRunner:
         write_json(self.experiment_dir / "metrics_summary.json", summary)
         write_json(self.experiment_dir / "resolved_config.json", self.config.raw)
         write_text(self.experiment_dir / "config.yaml", json.dumps(self.config.raw, ensure_ascii=False, indent=2))
+        self.logger.info("Experiment %s | finished | summary=%s", self.experiment_id, self.experiment_dir / "metrics_summary.json")
         return summary

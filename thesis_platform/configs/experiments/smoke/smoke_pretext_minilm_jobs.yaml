@@ -1,0 +1,43 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/generators/pretext_seed.yaml
+  - ../../methods/scorers/pretext_hist.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_qwen.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: pretext_minilm_jobs_end_to_end
+  stage: pretext_end_to_end
+  seed: 42
+
+data:
+  dataset_name: pretext_jobs
+  task_type: instruction_tuning
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  public_seed_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  num_clients: 12
+  max_samples_per_client: 8
+  validation_ratio: 0.2
+
+generator:
+  generated_per_round: 64
+  mask: 0.3
+  t_steps: 2
+  seed: 42
+
+retriever:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  top_k: 3
+
+critic:
+  compress_to_n_rules: 2
+  redact_enable: true
+
+aggregator:
+  max_rules: 5
+
+federation:
+  rounds: 2
+  top_k_bad: 6

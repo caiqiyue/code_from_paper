@@ -27,12 +27,46 @@ def _flatten_item(value: Any) -> list[str]:
     return [str(value).strip()]
 
 
+def _sorted_json_keys(payload: dict[Any, Any]) -> list[Any]:
+    """Return stable numeric-first ordering for JSON object keys."""
+
+    return sorted(payload.keys(), key=lambda item: int(item) if str(item).isdigit() else str(item))
+
+
+def _looks_like_dataset_container(payload: dict[Any, Any]) -> bool:
+    """Heuristically distinguish dataset containers from single-sample records."""
+
+    if not payload:
+        return True
+    keys = [str(key) for key in payload.keys()]
+    if all(key.isdigit() for key in keys):
+        return True
+    if all(isinstance(value, list) for value in payload.values()):
+        return True
+    split_like_keys = {
+        "train",
+        "eval",
+        "validation",
+        "val",
+        "test",
+        "initialization",
+        "seed",
+        "public_seed",
+    }
+    return all(key.lower() in split_like_keys for key in keys)
+
+
 def _normalize_json_payload(payload: Any) -> list[str]:
     """Normalize supported JSON dataset shapes into a list of raw texts."""
 
     if isinstance(payload, dict):
-        keys = sorted(payload.keys(), key=lambda item: int(item) if str(item).isdigit() else str(item))
-        return [" ".join(_flatten_item(payload[key])).strip() for key in keys if _flatten_item(payload[key])]
+        if _looks_like_dataset_container(payload):
+            normalized: list[str] = []
+            for key in _sorted_json_keys(payload):
+                normalized.extend(text for text in _flatten_item(payload[key]) if text)
+            return normalized
+        text = " ".join(_flatten_item(payload)).strip()
+        return [text] if text else []
     if isinstance(payload, list):
         normalized: list[str] = []
         for item in payload:

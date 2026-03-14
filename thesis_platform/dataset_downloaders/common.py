@@ -144,6 +144,10 @@ def _count_known_json_rows(path: Path) -> int | None:
 
     if isinstance(payload, dict) and isinstance(payload.get("examples"), list):
         return len(payload["examples"])
+    if isinstance(payload, dict):
+        list_values = [value for value in payload.values() if isinstance(value, list)]
+        if list_values and len(list_values) == len(payload):
+            return sum(len(value) for value in list_values)
     if isinstance(payload, list):
         return len(payload)
     return None

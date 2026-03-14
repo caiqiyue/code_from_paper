@@ -1,0 +1,32 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/generators/pretext_seed.yaml
+  - ../../methods/scorers/pretext_hist.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_qwen.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: pretext_minilm_congressional_end_to_end
+  stage: pretext_end_to_end
+  seed: 42
+
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  train_path: datasets/congressional_train.json
+  public_seed_path: datasets/initial_set.json
+  num_clients: 12
+  max_samples_per_client: 8
+  validation_ratio: 0.2
+
+generator:
+  generated_per_round: 64
+  mask: 0.3
+  t_steps: 2
+  seed: 42
+
+federation:
+  rounds: 2
+  top_k_bad: 6

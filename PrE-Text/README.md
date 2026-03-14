@@ -1,106 +1,189 @@
+# PrE-Text Platform
 
-<h1 align="center"> PrE-Text: Training Language Models on Private Federated Data in the Age of LLMs</h1>
+`PrE-Text` 已重构为一个独立的实验平台包 `pretext_platform/`。  
+它保留原论文的核心算法主链：
 
-This repository provides code and instructions for reproducing the experiments of PrE-Text: Training Language Models on Private Federated Data in the Age of LLMs. It implements the PrE-Text algorithm, which allows us to finetune language models to better predict private federated text without training on-device.
+1. Stage 1: Private Evolution 生成 DP seed texts
+2. Stage 2: 基于 LLaMA-2-7B 的 bootstrap 扩增
+3. Downstream evaluation:
+   - `DistilGPT2`
+   - `LLaMA-2-7B + LoRA`
 
-<p align="center">
-  <img src="assets/comparison_to_prior.jpg" width="100%">
-</p>
+同时，项目结构和配置方式对齐 `thesis_platform`，但运行时不依赖 `thesis_platform` 的 Python 代码，只复用当前工作区中已经准备好的数据集和模型目录。
 
-PrE-Text provides advantages over on-device training, including (1) much better communication/client computation cost, (2) ease of deployment, and (3) the ability to privately finetune large models that cannot fit on-device (such as LLMs). It is able to provide these advantages while outperforming on-device baselines (such as DP-FedAvg and DP-FTRL) on next token prediction in our experiments at practical privacy levels of $\epsilon=1.29$, $\epsilon=7.58$.
+## 目录结构
 
-<p align="center">
-  <img src="assets/comparison_table.jpg" width="80%">
-</p>
-
-
-# Environment setup
-We use conda/pip to setup our environment.
+```text
+PrE-Text/
+  pretext_platform/
+    algorithms/
+    core/
+    data/
+    evaluation/
+    scripts/
+  configs/
+    base/
+    templates/
+    experiments/
+  tests/
+  main.py
+  llama_bootstrap.py
+  eval_distilgpt2.py
+  eval_llama2.py
 ```
-$ git clone https://github.com/houcharlie/PrE-Text.git
-$ cd PrE-Text
-$ conda create -n pretext python=3.10 -y
-$ conda activate pretext
-$ pip install -r requirements.txt
+
+说明：
+
+- `pretext_platform/` 是新的主实现。
+- 根目录四个旧脚本仍保留，但已经变成兼容包装器。
+- `variation.py`、`similarity.py`、`nn_histogram.py`、`custom_datasets.py` 也已转为兼容导出，统一指向新包实现。
+
+## 默认数据和模型来源
+
+平台默认直接复用当前工作区中已有资源：
+
+- 数据集根目录：`../datasets`
+- 模型根目录：`../thesis_platform/open_model`
+
+默认会使用：
+
+- `../datasets/initial_set.json`
+- `../datasets/congressional_train.json`
+- `../datasets/congressional_eval.json`
+- `../datasets/bioarxiv_train.json`
+- `../datasets/bioarxiv_eval.json`
+- `../thesis_platform/open_model/all_minilm_l6_v2`
+- `../thesis_platform/open_model/roberta_large`
+- `../thesis_platform/open_model/llama_2_7b_hf`
+- `../thesis_platform/open_model/distilgpt2`
+
+注意：
+
+- `DistilGPT2` 下游评测严格要求显式提供 `c4_checkpoint.pth`。
+- 当前仓库默认配置把它写成 `./c4_checkpoint.pth`。
+- 如果该文件不存在，`eval_small` 会直接失败，不会自动退化到无 warm-start 模式。
+
+## 配置驱动运行
+
+推荐入口：
+
+```bash
+python -m pretext_platform.scripts.run_pipeline --config configs/experiments/smoke_congressional_eps758.yaml
 ```
 
-# Datasets
-To run PrE-Text on your own dataset, first create a file called `initialization.json` which contains at least 10000 samples you want to use as your initial population of samples ($S_1$ in the paper). Then create a `[dataset_name]_train.json` and `[dataset_name]_eval.json` where `[dataset_name]_train.json` should be a list of private samples and `[dataset_name]_eval.json` should be a list of samples keyed by "1", e.g. `{"1": [list of samples]}`. `[dataset_name]_train.json` represents the dataset of all federated users combined. Note that we kept the maximum number of samples in each client to be below 16 in the paper for PrE-Text--the amount of noise added to ensure privacy is proportional to this number. If your upper bound for the number of samples per client is too large (greater than 16), please subsample the samples at each client before gathering them together into `[dataset_name]_train.json`.
+分阶段入口：
 
-Put everything under the `data` folder.
-
-
-# Running PrE-Text
-PrE-Text broadly consists of two stages: (1) the first stage creates a small set of differentially private (DP) synthetic data at the server (which we call DP seed data), and (2) the second stage bootstraps more samples from the DP seed data to create a large DP synthetic dataset once again at the server. Note that all the privacy loss is incurred in stage 1, and no additional privacy is leaked in stage 2 because of the post-processing property of DP. 
-
-You need to set (1) results to be stored, (2) where the downloaded models from huggingface will be, (3) the name of your dataset, (4) the maximum number of samples in each client, (5) the ratio of the noise to the sensitivity, and (6) the $\delta$ for $(\epsilon, \delta)$-DP, which needs to be set to be much smaller than 1/(number of clients).
+```bash
+python -m pretext_platform.scripts.run_stage1 --config configs/experiments/smoke_congressional_eps758.yaml
+python -m pretext_platform.scripts.run_bootstrap --config configs/experiments/smoke_congressional_eps758.yaml
+python -m pretext_platform.scripts.run_eval_large --config configs/experiments/smoke_congressional_eps758.yaml
+python -m pretext_platform.scripts.run_eval_small --config configs/experiments/full_congressional_eps129.yaml
 ```
-$ export OUTPUT_DIR=[your results directory here]
-$ export MODEL_DIR=[where to download your models]
-$ export DATASET_NAME=[dataset_name]
-$ export MAX_SAMPLES=[max samples for each client]
-$ export NOISE=[noise added]
-$ export DELTA=[delta for eps-delta DP]
+
+## 内置实验配置
+
+当前内置 4 套配置：
+
+- `configs/experiments/smoke_congressional_eps758.yaml`
+- `configs/experiments/full_congressional_eps129.yaml`
+- `configs/experiments/smoke_bioarxiv_eps758.yaml`
+- `configs/experiments/full_bioarxiv_eps129.yaml`
+
+设计约定：
+
+- `smoke_*`：轻量验证配置，默认关闭 `eval_small`
+- `full_*`：更接近原论文默认超参的完整配置
+- `eps758` 对应 `sigma=2.31`
+- `eps129` 对应 `sigma=11.3`
+
+## 输出结构
+
+所有结果都写入：
+
+```text
+outputs/pretext_platform/<experiment_id>/
 ```
-In our experiments, we had $\delta=3 \times 10^{-6}$. Given this $\delta$, we used Opacus to calibrate the noise for the $\epsilon$ values we wanted. Specifically, we set NOISE value to be 11.3 for $\epsilon=1.29$ and 2.31 for $\epsilon=7.58$.
 
+实验目录下分为：
+
+- `stage1/`
+- `stage2/`
+- `eval_small/`
+- `eval_large/`
+
+其中保留原论文关键产物命名：
+
+- `stage1/private_embeds.npy`
+- `stage1/generated_text_it*.json`
+- `stage1/surviving_text_it*.json`
+- `stage2/llama7b_text_syn.json`
+
+同时新增平台摘要文件：
+
+- `resolved_config.json`
+- `stage1_summary.json`
+- `stage2_summary.json`
+- `eval_small_summary.json`
+- `eval_large_summary.json`
+- `metrics_summary.json`
+
+## 旧命令兼容
+
+以下旧命令仍可使用：
+
+```bash
+python main.py ...
+python llama_bootstrap.py ...
+python eval_distilgpt2.py ...
+python eval_llama2.py ...
 ```
-TOKENIZERS_PARALLELISM=false accelerate launch main.py -outputdir $OUTPUT_DIR -cachedir \
-$MODEL_DIR -datadir $DATASET_NAME -sensitivity $MAX_SAMPLES -sigma $NOISE -delta $DELTA
+
+它们现在只负责：
+
+1. 解析旧参数
+2. 映射成新配置
+3. 调用 `pretext_platform` 中对应 stage
+
+## 测试
+
+运行：
+
+```bash
+python -m unittest discover -s tests -p "test_*.py"
 ```
-This will save miniLM-L6-v2 and RoBERTa-large into cachedir, and run PE, depositing the resulting generated synthetic text into your designated output directory.
 
-Then for the expansion part, you can run
-```
-python llama_bootstrap.py -outputdir $OUTPUT_DIR -cachedir \
-$MODEL_DIR -datadir $DATASET_NAME -sensitivity $MAX_SAMPLES -sigma $NOISE -delta $DELTA
-``` 
-Note that the script expands the DP seed data into 50000 samples--our experiments in the paper expand it to 2 million samples. You can change this in L53 of llama_bootstrap.py.
+测试覆盖：
 
-We were able to run these commands on a single V100 (32 GB) GPU and also on a single A40 (48 GB) GPU.
+- YAML 继承与路径解析
+- 训练/评测数据双格式加载
+- Stage 1 编排与产物命名
+- pipeline 输出摘要
+- legacy CLI 映射
+- `eval_small` 缺失 checkpoint 的显式失败
 
-# Running the downstream evals
+## 环境依赖
 
-**1. Small model setting evaluations (serving model on-device)** 
-For our on-device (small model) setting evaluations, the goal is to train a DistilGPT2 model to perform next word prediction.
+保留当前仓库的 `requirements.txt`。  
+核心依赖仍然是：
 
-To reproduce our experiment in the small model setting, follow these steps:
-1. First follow the instructions in our paper to produce a DistilGPT2 model that is finetuned on a subset of the c4 dataset. As found in [Google's Gboard differentially private federated learning deployment](https://arxiv.org/abs/2305.18465), training on the c4 dataset first before any DP finetuning improves performance greatly. Place the checkpoint into `PrE-Text/c4_checkpoint.pth`.
+- `torch`
+- `transformers`
+- `accelerate`
+- `sentence-transformers`
+- `faiss-cpu`
+- `opacus`
+- `vllm`
+- `datasets`
+- `peft`
+- `PyYAML`
 
-2. To start the downstream model evaluation, given this checkpoint, you can run
-```
-accelerate launch eval_distilgpt2.py -outputdir $OUTPUT_DIR -cachedir \
-$MODEL_DIR -datadir $DATASET_NAME -sensitivity $MAX_SAMPLES -sigma $NOISE -delta $DELTA
-```
-We were able to run this on a machine with 4 A40 (48GB) GPUs.
+## 引用
 
-**2. Large model setting evaluations (serving model on-device)** 
-For our large model setting evaluations, the goal is to refine a large model located on server (LLaMA-2-7b) towards the private data distribution using the synthetic data generated by PrE-Text. After you have run PrE-Text, you can do the following command:
+如果你在研究中使用 PrE-Text，请继续引用原论文：
 
-```
-accelerate launch eval_llama2.py -outputdir $OUTPUT_DIR -cachedir \
-$MODEL_DIR -datadir $DATASET_NAME -sensitivity $MAX_SAMPLES -sigma $NOISE -delta $DELTA
-```
-We were able to run this on a machine with 4 A40 (48GB) GPUs.
-
-# Hyperparameters in the code
-- `datadir`: Set this to the `[dataset_name]`
-- `sigma`: This is the ratio of the noise to the sensitivity.
-- `delta`: This is $\delta$ in $(\epsilon, \delta)$-DP.
-- `sensitivity`: This is maximum number of samples per client, and the $\ell_2$ sensitivity of the algorithm.
-- `mask`: This determines the percentage of tokens to mask out.
-- `lookahead`: This is the lookahead number, check the paper for its precise meaning. Essentially, a larger number reduces the variance of the quality of a proposed text variation in the Private Evolution part of the algorithm.
-- `multiplier`: This times 256 is the number of samples generated per round of Private Evolution.
-- `seq_len`: The sequence length.
-- `t_steps`: The number of times to repeat the mask-fill process per synthetic sample in a round.
-- `trial`: The trial id. This is useful to run multiple trials of the algorithm for reporting averages of runs.
-- `H_multiplier`: This times 4 times the noise scale is the threshold (line 16 of Algorithm 2 in the paper)
-
-# Citation
-If PrE-Text or this repository is useful in your own research/applications, you can use the following BibTeX entry:
-```
+```bibtex
 @misc{hou2024pretext,
-      title={PrE-Text: Training Language Models on Private Federated Data in the Age of LLMs}, 
+      title={PrE-Text: Training Language Models on Private Federated Data in the Age of LLMs},
       author={Charlie Hou and Akshat Shrivastava and Hongyuan Zhan and Rylan Conway and Trang Le and Adithya Sagar and Giulia Fanti and Daniel Lazar},
       year={2024},
       eprint={2406.02958},

@@ -1,0 +1,20 @@
+inherits:
+  - ../base/paths.yaml
+  - ../base/models.yaml
+  - ../base/runtime.yaml
+  - ../templates/noise_eps129.yaml
+
+meta:
+  experiment_id: full_congressional_eps129
+  seed: 42
+
+data:
+  dataset_name: congressional
+  max_samples_per_client: 8
+  initialization_min_words: 20
+
+eval_small:
+  enabled: true
+
+eval_large:
+  enabled: true

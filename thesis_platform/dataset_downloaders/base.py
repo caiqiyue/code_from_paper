@@ -22,6 +22,7 @@ class DatasetDownloadResult:
     metadata_path: str | None
     description: str
     formatter_name: str
+    optional: bool = False
     message: str = ""
     error: str | None = None
     sample_counts: dict[str, Any] | None = None
@@ -38,6 +39,7 @@ class BaseDatasetDownloader:
     name = ""
     description = ""
     formatter_name = "identity"
+    optional = False
 
     def dataset_root(self) -> Path:
         """Return the primary root directory for this dataset."""
@@ -112,6 +114,7 @@ class BaseDatasetDownloader:
         return {
             "name": self.name,
             "description": self.description,
+            "optional": self.optional,
             "downloaded_at": utc_timestamp(),
             "dataset_root": to_package_relative(self.dataset_root()),
             "raw_path": optional_package_relative(self.raw_path()),
@@ -158,6 +161,7 @@ class BaseDatasetDownloader:
                 metadata_path=to_package_relative(self.metadata_path()),
                 description=self.description,
                 formatter_name=self.formatter_name,
+                optional=self.optional,
                 message="Dataset artifacts already exist.",
                 sample_counts=self.load_cached_sample_counts() or self.collect_sample_counts(),
             )
@@ -182,6 +186,7 @@ class BaseDatasetDownloader:
             metadata_path=to_package_relative(self.metadata_path()),
             description=self.description,
             formatter_name=self.formatter_name,
+            optional=self.optional,
             message=str(formatted_payload.get("message") or raw_payload.get("message") or "Dataset download completed."),
             sample_counts=sample_counts,
         )

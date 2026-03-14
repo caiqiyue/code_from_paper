@@ -1,0 +1,51 @@
+runtime:
+  device: cuda
+
+stage1:
+  enabled: true
+  rounds: 11
+  mask: 0.3
+  lookahead: 4
+  multiplier: 4
+  seq_len: 64
+  t_steps: 2
+  batch_size: 256
+  embed_batch_size: 512
+  temperature: 1.0
+  top_p: 1.0
+  top_k: 0
+  num_workers: 1
+  nearest_neighbors_print: 3
+  H_multiplier: 0.25
+  delta: 3e-6
+
+bootstrap:
+  enabled: true
+  num_prompts: 50000
+  temperature: 1.0
+  top_p: 1.0
+  max_tokens: 85
+  max_model_len: 1000
+
+eval_small:
+  enabled: true
+  cutoff_len: 64
+  grad_accum_steps: 64
+  epochs: 20
+  batch_size: 256
+  eval_batch_size: 8
+  learning_rate: 0.0002
+  num_proc: 1
+
+eval_large:
+  enabled: true
+  cutoff_len: 64
+  grad_accum_steps: 16
+  epochs: 1
+  batch_size: 8
+  eval_batch_size: 2
+  learning_rate: 0.0002
+  num_proc: 1
+  lora_rank: 4
+  lora_alpha: 8
+  lora_dropout: 0.0

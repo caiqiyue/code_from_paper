@@ -12,6 +12,7 @@ from unittest import mock
 from thesis_platform.dataset_downloaders import create_dataset_downloader, get_registered_dataset_names
 from thesis_platform.dataset_downloaders import controller as dataset_controller
 from thesis_platform.dataset_downloaders import datainf_generation
+from thesis_platform.dataset_downloaders import pretext_utils
 from thesis_platform.dataset_downloaders.base import BaseDatasetDownloader
 from thesis_platform.dataset_downloaders import common as dataset_common
 from thesis_platform.dataset_downloaders.common import datasets_root, package_root as dataset_package_root, to_package_relative
@@ -46,6 +47,13 @@ class _FailingDatasetDownloader(_SuccessfulDatasetDownloader):
 
     def perform_download_raw(self, force: bool):
         raise RuntimeError("boom")
+
+
+class _SuccessfulPretextDatasetDownloader(_SuccessfulDatasetDownloader):
+    name = "pretext_success"
+    description = "test pretext dataset"
+    optional = True
+    pretext_c4_category = "jobs"
 
 
 class _SuccessfulModelDownloader(BaseModelDownloader):
@@ -84,21 +92,32 @@ class DownloaderTests(unittest.TestCase):
     def test_registered_names_include_expected_entries(self) -> None:
         """Verify dataset registries expose the expected public names."""
 
-        dataset_names = get_registered_dataset_names()
+        dataset_names = get_registered_dataset_names(include_optional=True)
+        default_dataset_names = get_registered_dataset_names(include_optional=False)
         self.assertIn("glue_sst2", dataset_names)
         self.assertIn("datainf_math_with_reason", dataset_names)
         self.assertIn("rt_polarity", dataset_names)
+        self.assertIn("pretext_jobs", dataset_names)
+        self.assertIn("pretext_initialization_c4_en", dataset_names)
+        self.assertNotIn("pretext_jobs", default_dataset_names)
 
         formatter_names = get_registered_dataset_formatter_names()
         self.assertIn("identity", formatter_names)
         self.assertIn("imdb", formatter_names)
         self.assertIn("gsm8k", formatter_names)
         self.assertIn("livebench", formatter_names)
+        self.assertIn("pretext_json", formatter_names)
 
         all_model_names = get_registered_model_names(include_optional=True, include_large=True)
         default_model_names = get_registered_model_names(include_optional=False, include_large=False)
+        self.assertIn("all_minilm_l6_v2", all_model_names)
+        self.assertIn("distilgpt2", all_model_names)
+        self.assertIn("llama_2_7b_hf", all_model_names)
+        self.assertIn("flan_t5_3b", all_model_names)
         self.assertIn("roberta_large", all_model_names)
         self.assertIn("llama_2_13b_chat_hf", all_model_names)
+        self.assertIn("all_minilm_l6_v2", default_model_names)
+        self.assertNotIn("distilgpt2", default_model_names)
         self.assertNotIn("llama_2_13b_chat_hf", default_model_names)
         self.assertNotIn("llama_3_1_405b_instruct", default_model_names)
 
@@ -131,10 +150,69 @@ class DownloaderTests(unittest.TestCase):
             self.assertEqual(summary["counts"]["downloaded"], 1)
             self.assertEqual(summary["counts"]["failed"], 1)
             self.assertTrue((root / "download_report.json").exists())
+            self.assertFalse(summary["include_optional"])
             self.assertIn("raw_path", summary["results"][0])
             self.assertIn("formatted_path", summary["results"][0])
             self.assertIn("sample_counts", summary["results"][0])
             self.assertEqual(summary["results"][0]["sample_counts"]["raw"]["splits"]["train"], 2)
+
+    def test_dataset_controller_excludes_optional_by_default(self) -> None:
+        """Verify optional datasets stay out of the default resolved set."""
+
+        default_names = [downloader.name for downloader in dataset_controller.resolve_dataset_downloaders()]
+        optional_names = [
+            downloader.name
+            for downloader in dataset_controller.resolve_dataset_downloaders(include_optional=True)
+        ]
+        self.assertNotIn("pretext_jobs", default_names)
+        self.assertNotIn("pretext_initialization_c4_en", default_names)
+        self.assertIn("pretext_jobs", optional_names)
+        self.assertIn("pretext_initialization_c4_en", optional_names)
+
+    def test_pretext_cache_builds_only_requested_categories(self) -> None:
+        """Verify the C4 cache builder only materializes the requested PrE-Text buckets."""
+
+        text = " ".join(["sample"] * 25)
+        fake_rows = [
+            {"text": f"{text} init {index}", "url": f"https://example.com/article/{index}"}
+            for index in range(3)
+        ] + [
+            {"text": f"{text} jobs {index}", "url": f"https://indeed.com/jobs/{index}"}
+            for index in range(2)
+        ]
+        fake_datasets = types.SimpleNamespace(load_dataset=mock.Mock(return_value=fake_rows))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "datasets"
+            with mock.patch.object(pretext_utils, "datasets_root", return_value=root):
+                with mock.patch.object(
+                    pretext_utils,
+                    "_PRETEXT_C4_TARGETS",
+                    {"jobs": 2, "forums": 2, "microblog": 2, "code": 2, "initialization": 3},
+                ):
+                    with mock.patch.dict(sys.modules, {"datasets": fake_datasets}):
+                        cache_root = pretext_utils.ensure_pretext_c4_cache(
+                            required_categories=["initialization", "jobs"],
+                            force=True,
+                        )
+                        self.assertTrue((cache_root / "initialization.jsonl").exists())
+                        self.assertTrue((cache_root / "jobs.jsonl").exists())
+                        self.assertFalse((cache_root / "forums.jsonl").exists())
+                        self.assertFalse((cache_root / "microblog.jsonl").exists())
+                        self.assertFalse((cache_root / "code.jsonl").exists())
+
+    def test_dataset_controller_prewarms_only_selected_pretext_categories(self) -> None:
+        """Verify one download run prewarms only the PrE-Text buckets requested this time."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "datasets"
+            downloaders = [_SuccessfulPretextDatasetDownloader(root), _SuccessfulDatasetDownloader(root)]
+            with mock.patch.object(dataset_controller, "resolve_dataset_downloaders", return_value=downloaders):
+                with mock.patch.object(dataset_controller, "datasets_root", return_value=root):
+                    with mock.patch.object(pretext_utils, "ensure_pretext_c4_cache") as warm_cache:
+                        dataset_controller.download_datasets(include_optional=True)
+
+        warm_cache.assert_called_once_with(required_categories=["jobs"], force=False)
 
     def test_model_controller_continues_after_failure(self) -> None:
         """Verify the model controller writes a report even when one downloader fails."""

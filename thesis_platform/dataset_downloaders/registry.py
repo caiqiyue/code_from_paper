@@ -18,10 +18,12 @@ def register_dataset_downloader(cls: type[BaseDatasetDownloader]) -> type[BaseDa
     return cls
 
 
-def get_registered_dataset_names() -> list[str]:
+def get_registered_dataset_names(include_optional: bool = True) -> list[str]:
     """Return every registered dataset downloader name."""
 
-    return sorted(_DATASET_DOWNLOADERS)
+    if include_optional:
+        return sorted(_DATASET_DOWNLOADERS)
+    return sorted(name for name, downloader_cls in _DATASET_DOWNLOADERS.items() if not downloader_cls.optional)
 
 
 def create_dataset_downloader(name: str) -> BaseDatasetDownloader:
@@ -34,10 +36,10 @@ def create_dataset_downloader(name: str) -> BaseDatasetDownloader:
     return downloader_cls()
 
 
-def resolve_dataset_names(names: Iterable[str] | None = None) -> list[str]:
+def resolve_dataset_names(names: Iterable[str] | None = None, include_optional: bool = False) -> list[str]:
     """Resolve an optional subset of dataset names into a stable ordered list."""
 
-    selected = list(names) if names is not None else get_registered_dataset_names()
+    selected = list(names) if names is not None else get_registered_dataset_names(include_optional=include_optional)
     deduplicated = list(dict.fromkeys(selected))
     unknown = [name for name in deduplicated if name not in _DATASET_DOWNLOADERS]
     if unknown:

@@ -377,3 +377,6 @@ README 提供了作者的参考硬件：
 5. 运行 `python llama_bootstrap.py`。
 6. 如果要做评测，再准备 `c4_checkpoint.pth` 并运行 `eval_distilgpt2.py`。
 7. 如果要做大模型评测，再运行 `eval_llama2.py`。
+> Note
+> 当前仓库已经平台化重构为 `pretext_platform/`。
+> 本文件主要保留旧版脚本化实现的阅读说明；实际运行方式、目录结构和配置入口请优先参考根目录 `README.md`。

@@ -488,3 +488,18 @@ python -m thesis_platform.scripts.download_models --names opt_125m roberta_large
 - 默认批量下载不会自动拉取 `15B` 以上模型。
 - 报告里现在会同时给出模型规模和实际磁盘占用。
 - 某个模型失败时会记录错误并继续后续下载。
+
+## 12. PrE-Text Additions
+
+为对齐 PrE-Text，当前额外补了这些模型下载器：
+
+- `all_minilm_l6_v2`
+- `distilgpt2`
+- `llama_2_7b_hf`
+- `flan_t5_3b`
+
+其中：
+
+- `all_minilm_l6_v2` 是默认模型，可直接通过 `python -m thesis_platform.scripts.download_models --names all_minilm_l6_v2` 下载。
+- `distilgpt2`、`llama_2_7b_hf`、`flan_t5_3b` 都标记为 `optional=True`，默认批量下载不会自动包含它们；需要显式 `--include-optional` 或 `--names`。
+- PrE-Text 论文里提到的 `c4_checkpoint.pth` 是作者自行准备的 warm-start checkpoint，不是 Hugging Face 公共模型，因此当前没有对应的自动下载器。

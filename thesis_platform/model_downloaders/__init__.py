@@ -1,8 +1,12 @@
 """Model download registry and controller."""
 
 from . import (
+    all_minilm_l6_v2,
     deepseek_r1_distill_llama_70b,
+    distilgpt2,
+    flan_t5_3b,
     llama_2_13b_chat_hf,
+    llama_2_7b_hf,
     llama_3_1_405b_instruct,
     llama_3_1_8b_instruct,
     llama_3_2_11b_vision_instruct,

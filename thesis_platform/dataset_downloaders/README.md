@@ -474,3 +474,34 @@ python -m thesis_platform.scripts.download_datasets --names imdb rt_polarity twi
 1. 在仓库根目录运行 `python -m thesis_platform.scripts.download_datasets --list` 查看可用数据集。
 2. 用 `python -m thesis_platform.scripts.download_datasets --names <dataset_name>` 下载指定数据集。
 3. 所有数据都会固定下载到 `D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\datasets`。
+
+## 13. PrE-Text Additions
+
+为对齐 PrE-Text，当前额外补了这些可选数据集下载器：
+
+- `pretext_initialization_c4_en`
+- `pretext_jobs`
+- `pretext_forums`
+- `pretext_microblog`
+- `pretext_code`
+
+这些下载器默认不会混入“下载全部数据集”。如果你要一起下载，需要显式加：
+
+```powershell
+python -m thesis_platform.scripts.download_datasets --include-optional
+```
+
+或者只下载某几个：
+
+```powershell
+python -m thesis_platform.scripts.download_datasets --names pretext_jobs pretext_initialization_c4_en
+```
+
+说明：
+
+- `pretext_initialization_c4_en` 会产出 PrE-Text 期望的 `formatted/initialization.json`。
+- `pretext_jobs` / `pretext_forums` / `pretext_microblog` / `pretext_code` 会产出 `formatted/<name>_train.json` 和 `formatted/<name>_eval.json`。
+- 这几项都基于 `allenai/c4` 的流式扫描来构造，并尽量贴近论文描述的样本规模。
+- 当前实现只会扫描你这次真正请求的 PrE-Text 类别；例如只点 `pretext_initialization_c4_en pretext_jobs` 时，不会顺手去构建 `forums`、`microblog`、`code` 的缓存。
+- 下载时会额外打印 `PrE-Text C4 cache | building categories: ...` 和目标样本数，以及完成某个类别时的进度日志，便于判断长时间扫描是否仍在推进。
+- `pretext_code` 只能做“技术问答域名近似版”，因为论文原始按用户划分的问答数据并没有随仓库发布。

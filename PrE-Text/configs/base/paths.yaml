@@ -1,0 +1,5 @@
+paths:
+  repo_root: ../..
+  dataset_root: ../datasets
+  model_root: ../thesis_platform/open_model
+  output_root: ./outputs/pretext_platform
