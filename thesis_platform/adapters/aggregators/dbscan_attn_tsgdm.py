@@ -1,16 +1,43 @@
 from __future__ import annotations
 
+from thesis_platform.algorithms.aggregators.dbscan_core import aggregate_dbscan_critiques
+from thesis_platform.models.embedding import build_embedder
+
 
 class DBSCANAttnTSGDMAggregator:
-    """Reserved adapter for the future DBSCAN-Attn plus TSGD-M aggregator."""
+    """DBSCAN-Attn aggregator with cross-round momentum memory."""
 
     def __init__(self, config, repo_root):
-        """Accept config now so the registry and config layout stay stable."""
+        """Build the embedder and memory hyper-parameters used by TSGD-M."""
 
-        del config, repo_root
+        self.max_rules = int(config.get("max_rules", 5))
+        self.cluster_eps = float(config.get("cluster_eps", 0.35))
+        self.cluster_min_samples = int(config.get("cluster_min_samples", 2))
+        self.momentum_beta = float(config.get("momentum_beta", 0.7))
+        embedding_model = config.get("embedding_model")
+        if not embedding_model:
+            raise ValueError("dbscan_attn_tsgdm requires aggregator.embedding_model.")
+        self.embedder = build_embedder(
+            embedding_model,
+            repo_root,
+            allow_fallback=bool(config.get("allow_hashing_fallback", False)),
+        )
 
     def aggregate(self, client_critiques, server_ctx):
-        """Fail explicitly because DBSCAN-Attn-TSGDM is not part of the MVP."""
+        """Aggregate critiques with semantic clustering and persistent memory."""
 
-        del client_critiques, server_ctx
-        raise RuntimeError("dbscan_attn_tsgdm is registered but not enabled in the MVP.")
+        prompt_update, updated_memory = aggregate_dbscan_critiques(
+            client_critiques,
+            round_id=len(server_ctx.prompt_history) - 1,
+            max_rules=self.max_rules,
+            embedder=self.embedder,
+            text_backend=server_ctx.text_backend,
+            eps=self.cluster_eps,
+            min_samples=self.cluster_min_samples,
+            use_memory=True,
+            memory=server_ctx.aggregation_memory,
+            momentum_beta=self.momentum_beta,
+            base_prompt=server_ctx.base_prompt,
+        )
+        server_ctx.aggregation_memory = updated_memory
+        return prompt_update

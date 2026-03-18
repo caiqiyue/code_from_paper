@@ -1,0 +1,7 @@
+generator:
+  name: pretext_prompt_llm
+  initial_prompt: "Generate text that matches the target dataset style."
+  generated_per_round: 12
+  exemplars_per_prompt: 2
+  max_new_tokens: 192
+  temperature: 0.2

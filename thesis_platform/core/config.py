@@ -187,6 +187,12 @@ class ExperimentConfig:
         return self.raw.get("evaluation", {})
 
     @property
+    def llm(self) -> dict[str, Any]:
+        """Return the shared client/server text-backend config section."""
+
+        return self.raw.get("llm", {})
+
+    @property
     def runtime(self) -> dict[str, Any]:
         """Return the runtime config section."""
 

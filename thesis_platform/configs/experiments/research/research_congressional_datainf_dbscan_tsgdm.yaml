@@ -1,0 +1,35 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../base/llm_research.yaml
+  - ../../methods/generators/pretext_prompt_llm.yaml
+  - ../../methods/scorers/datainf.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_llm.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+
+meta:
+  experiment_id: research_congressional_datainf_dbscan_tsgdm
+  stage: research
+  seed: 42
+
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  sample_format: raw_text
+  partition_strategy: preserve_buckets
+  train_path: datasets/congressional_train.json
+  public_seed_path: datasets/initial_set.json
+  max_public_seed_samples: 24
+  num_clients: 3
+  max_samples_per_client: 8
+  validation_ratio: 0.25
+
+retriever:
+  embedding_model: models/all-MiniLM-L6-v2
+  allow_hashing_fallback: false
+  top_k: 2
+
+federation:
+  rounds: 2
+  top_k_bad: 2

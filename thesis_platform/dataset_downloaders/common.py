@@ -101,12 +101,32 @@ def _infer_single_dataset_split_name(path: Path) -> str:
     return path.stem or path.name
 
 
+def _looks_like_huggingface_artifact(path: Path) -> bool:
+    """Return whether one path resembles a `datasets.save_to_disk` artifact."""
+
+    if not path.exists():
+        return False
+    if path.is_file():
+        return path.suffix in {".arrow", ".parquet"}
+    marker_names = {
+        "dataset_info.json",
+        "state.json",
+        "dataset_dict.json",
+    }
+    if any((path / marker_name).exists() for marker_name in marker_names):
+        return True
+    return any(child.suffix in {".arrow", ".parquet"} for child in path.iterdir() if child.is_file())
+
+
 def _inspect_huggingface_artifact(path: Path) -> dict[str, Any] | None:
     """Inspect one Hugging Face `save_to_disk` artifact when possible."""
 
+    if not _looks_like_huggingface_artifact(path):
+        return None
+
     try:
         from datasets import DatasetDict, load_from_disk
-    except ImportError:
+    except Exception:
         return None
 
     try:

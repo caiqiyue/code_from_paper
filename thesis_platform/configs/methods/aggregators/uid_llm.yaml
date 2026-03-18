@@ -1,0 +1,3 @@
+aggregator:
+  name: uid_llm
+  max_rules: 5

@@ -123,6 +123,17 @@ def load_initialization_texts(path: Path, *, min_words: int) -> list[str]:
     return [text for text in texts if len(text.split()) > min_words]
 
 
+def _apply_limit(texts: list[str], limit: Any, *, field_name: str) -> list[str]:
+    """Optionally cap one text list to a configured maximum size."""
+
+    if limit in (None, ""):
+        return texts
+    resolved_limit = int(limit)
+    if resolved_limit <= 0:
+        raise ValueError(f"data.{field_name} must be a positive integer when provided.")
+    return texts[:resolved_limit]
+
+
 def load_dataset_bundle(config: ExperimentConfig) -> DatasetBundle:
     """Load all dataset resources required by the configured experiment."""
 
@@ -141,10 +152,17 @@ def load_dataset_bundle(config: ExperimentConfig) -> DatasetBundle:
         max_samples_per_client=max_samples_per_client,
         seed=seed,
     )
-    eval_texts = load_eval_texts(eval_path)
-    initialization_texts = load_initialization_texts(
-        initialization_path,
-        min_words=int(data_cfg.get("initialization_min_words", 20)),
+    train_texts = _apply_limit(train_texts, data_cfg.get("train_limit"), field_name="train_limit")
+    train_meta["sampled_train_sample_count"] = len(train_texts)
+
+    eval_texts = _apply_limit(load_eval_texts(eval_path), data_cfg.get("eval_limit"), field_name="eval_limit")
+    initialization_texts = _apply_limit(
+        load_initialization_texts(
+            initialization_path,
+            min_words=int(data_cfg.get("initialization_min_words", 20)),
+        ),
+        data_cfg.get("initialization_limit"),
+        field_name="initialization_limit",
     )
     return DatasetBundle(
         dataset_name=dataset_name,
@@ -160,5 +178,8 @@ def load_dataset_bundle(config: ExperimentConfig) -> DatasetBundle:
             "eval_path": str(eval_path),
             "initialization_path": str(initialization_path),
             "train_shape": train_meta["shape"],
+            "train_limit": data_cfg.get("train_limit"),
+            "eval_limit": data_cfg.get("eval_limit"),
+            "initialization_limit": data_cfg.get("initialization_limit"),
         },
     )

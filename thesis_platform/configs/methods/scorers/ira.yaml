@@ -1,2 +1,3 @@
 scorer:
   name: ira
+  score_direction: larger_is_worse

@@ -1,2 +1,8 @@
 aggregator:
   name: dbscan_attn_tsgdm
+  max_rules: 5
+  embedding_model: models/all-MiniLM-L6-v2
+  allow_hashing_fallback: false
+  cluster_eps: 0.35
+  cluster_min_samples: 2
+  momentum_beta: 0.7

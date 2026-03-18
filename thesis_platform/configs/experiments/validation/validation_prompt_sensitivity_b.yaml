@@ -1,0 +1,44 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/generators/pretext_seed.yaml
+  - ../../methods/scorers/datainf.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_qwen.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: validation_prompt_sensitivity_b
+  stage: validation
+  seed: 123
+
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  train_path: datasets/congressional_train.json
+  public_seed_path: datasets/initial_set.json
+  num_clients: 3
+  max_samples_per_client: 6
+  validation_ratio: 0.33
+
+generator:
+  initial_prompt: "Write casual travel diary snippets about beaches, coffee, and holiday moods."
+  generated_per_round: 12
+  mask: 0.3
+  t_steps: 2
+  seed: 123
+
+retriever:
+  embedding_model: models/all-MiniLM-L6-v2
+  top_k: 3
+
+critic:
+  compress_to_n_rules: 2
+  redact_enable: true
+
+aggregator:
+  max_rules: 4
+
+federation:
+  rounds: 1
+  top_k_bad: 3

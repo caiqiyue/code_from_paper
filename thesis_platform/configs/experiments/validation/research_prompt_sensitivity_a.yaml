@@ -1,0 +1,43 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../base/llm_mock.yaml
+  - ../../methods/generators/pretext_prompt_llm.yaml
+  - ../../methods/scorers/datainf.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_llm.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+
+meta:
+  experiment_id: research_prompt_sensitivity_a
+  stage: validation
+  seed: 123
+
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  sample_format: raw_text
+  partition_strategy: preserve_buckets
+  train_path: datasets/validation/congressional_train_tiny.json
+  public_seed_path: datasets/validation/initial_set_tiny.json
+  max_public_seed_samples: 6
+  num_clients: 3
+  max_samples_per_client: 4
+  validation_ratio: 0.25
+
+generator:
+  initial_prompt: "Generate formal congressional policy text with legislative detail."
+  generated_per_round: 4
+  exemplars_per_prompt: 2
+
+retriever:
+  embedding_model: models/all-MiniLM-L6-v2
+  allow_hashing_fallback: false
+  top_k: 1
+
+aggregator:
+  max_rules: 3
+
+federation:
+  rounds: 1
+  top_k_bad: 1

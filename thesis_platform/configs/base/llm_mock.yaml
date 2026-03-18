@@ -1,0 +1,11 @@
+llm:
+  client:
+    engine: mock
+    model_name_or_path: ""
+    temperature: 0.0
+    max_new_tokens: 128
+  server:
+    engine: mock
+    model_name_or_path: ""
+    temperature: 0.0
+    max_new_tokens: 128

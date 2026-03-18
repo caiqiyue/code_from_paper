@@ -81,3 +81,44 @@ class DataLoaderTests(unittest.TestCase):
             self.assertEqual(bundle.train_client_count, 2)
             self.assertEqual(bundle.sampled_train_sample_count, 2)
             self.assertEqual(bundle.eval_texts, ["e", "f"])
+
+    def test_dataset_bundle_applies_optional_limits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            datasets_dir = root / "datasets"
+            datasets_dir.mkdir()
+            (datasets_dir / "demo_train.json").write_text(json.dumps(["a", "b", "c", "d"]), encoding="utf-8")
+            (datasets_dir / "demo_eval.json").write_text(json.dumps(["e", "f", "g"]), encoding="utf-8")
+            (datasets_dir / "initial_set.json").write_text(
+                json.dumps(
+                    [
+                        "this initialization sample has many words for filtering purposes only",
+                        "this second initialization sample also has enough words to remain available",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            config = ExperimentConfig.from_mapping(
+                {
+                    "meta": {"experiment_id": "demo"},
+                    "paths": {
+                        "repo_root": ".",
+                        "dataset_root": "./datasets",
+                        "output_root": "./out",
+                    },
+                    "data": {
+                        "dataset_name": "demo",
+                        "max_samples_per_client": 8,
+                        "initialization_min_words": 5,
+                        "train_limit": 2,
+                        "eval_limit": 1,
+                        "initialization_limit": 1,
+                    },
+                },
+                base_dir=root,
+            )
+            bundle = load_dataset_bundle(config)
+            self.assertEqual(bundle.train_texts, ["a", "b"])
+            self.assertEqual(bundle.eval_texts, ["e"])
+            self.assertEqual(len(bundle.initialization_texts), 1)
+            self.assertEqual(bundle.sampled_train_sample_count, 2)

@@ -56,6 +56,13 @@ class _SuccessfulPretextDatasetDownloader(_SuccessfulDatasetDownloader):
     pretext_c4_category = "jobs"
 
 
+class _SuccessfulPretextForumsDatasetDownloader(_SuccessfulDatasetDownloader):
+    name = "pretext_forums_success"
+    description = "test pretext forums dataset"
+    optional = True
+    pretext_c4_category = "forums"
+
+
 class _SuccessfulModelDownloader(BaseModelDownloader):
     name = "success_model"
     description = "test model"
@@ -213,6 +220,65 @@ class DownloaderTests(unittest.TestCase):
                         dataset_controller.download_datasets(include_optional=True)
 
         warm_cache.assert_called_once_with(required_categories=["jobs"], force=False)
+
+    def test_pretext_cache_preserves_completed_categories_before_failure(self) -> None:
+        """Verify completed PrE-Text categories survive one interrupted C4 streaming pass."""
+
+        text = " ".join(["sample"] * 25)
+
+        def interrupted_rows():
+            yield {"text": f"{text} job 0", "url": "https://indeed.com/jobs/0"}
+            yield {"text": f"{text} job 1", "url": "https://indeed.com/jobs/1"}
+            raise RuntimeError("network boom")
+
+        fake_datasets = types.SimpleNamespace(load_dataset=mock.Mock(return_value=interrupted_rows()))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "datasets"
+            with mock.patch.object(pretext_utils, "datasets_root", return_value=root):
+                with mock.patch.object(
+                    pretext_utils,
+                    "_PRETEXT_C4_TARGETS",
+                    {"jobs": 2, "forums": 2, "microblog": 2, "code": 2, "initialization": 3},
+                ):
+                    with mock.patch.dict(sys.modules, {"datasets": fake_datasets}):
+                        with self.assertRaises(RuntimeError):
+                            pretext_utils.ensure_pretext_c4_cache(
+                                required_categories=["jobs", "forums"],
+                                force=True,
+                            )
+
+            self.assertTrue((root / "_pretext_c4_cache" / "jobs.jsonl").exists())
+            self.assertFalse((root / "_pretext_c4_cache" / "forums.jsonl").exists())
+
+    def test_dataset_controller_uses_categories_completed_before_cache_failure(self) -> None:
+        """Verify one partial cache build still downloads categories already persisted to cache."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "datasets"
+            cache_root = root / "_pretext_c4_cache"
+            cache_root.mkdir(parents=True, exist_ok=True)
+            (cache_root / "jobs.jsonl").write_text('{"text":"ok","url":"https://indeed.com/jobs/0"}\n', encoding="utf-8")
+            downloaders = [
+                _SuccessfulPretextDatasetDownloader(root),
+                _SuccessfulPretextForumsDatasetDownloader(root),
+            ]
+            with mock.patch.object(dataset_controller, "resolve_dataset_downloaders", return_value=downloaders):
+                with mock.patch.object(dataset_controller, "datasets_root", return_value=root):
+                    with mock.patch.object(pretext_utils, "datasets_root", return_value=root):
+                        with mock.patch.object(
+                            pretext_utils,
+                            "ensure_pretext_c4_cache",
+                            side_effect=RuntimeError("interrupted after jobs completed"),
+                        ):
+                            summary = dataset_controller.download_datasets(include_optional=True)
+
+        self.assertEqual(summary["counts"]["downloaded"], 1)
+        self.assertEqual(summary["counts"]["failed"], 1)
+        self.assertEqual(summary["results"][0]["name"], "pretext_success")
+        self.assertEqual(summary["results"][0]["status"], "downloaded")
+        self.assertEqual(summary["results"][1]["name"], "pretext_forums_success")
+        self.assertEqual(summary["results"][1]["status"], "failed")
 
     def test_model_controller_continues_after_failure(self) -> None:
         """Verify the model controller writes a report even when one downloader fails."""

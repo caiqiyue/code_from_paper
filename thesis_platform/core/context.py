@@ -15,7 +15,9 @@ class RoundContext:
     prompt_text: str
     public_seed_samples: list[Sample]
     config: dict[str, Any]
-    output_dir: Path
+    output_dir: Path | None
+    text_backend: Any = None
+    runtime_artifacts: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -28,6 +30,10 @@ class ClientContext:
     all_samples: list[Sample]
     embedder: Any
     config: dict[str, Any]
+    negative_samples: list[Sample] = field(default_factory=list)
+    text_backend: Any = None
+    objective_type: str = "domain_probe"
+    probe_state: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -39,6 +45,10 @@ class ServerContext:
     prompt_history: list[str] = field(default_factory=list)
     config: dict[str, Any] = field(default_factory=dict)
     output_dir: Path | None = None
+    text_backend: Any = None
+    aggregation_memory: dict[str, Any] = field(default_factory=dict)
+    generated_history: list[list[str]] = field(default_factory=list)
+    base_prompt: str | None = None
 
 
 @dataclass(slots=True)

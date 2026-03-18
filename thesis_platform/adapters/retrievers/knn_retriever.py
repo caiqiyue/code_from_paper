@@ -19,11 +19,11 @@ class KNNRetriever:
         corpus = client_ctx.train_samples or client_ctx.all_samples
         if not bad_samples:
             return []
-        corpus_vectors = client_ctx.embedder.embed_texts([sample.text for sample in corpus]) if corpus else []
+        corpus_vectors = client_ctx.embedder.embed_texts([sample.rendered_text() for sample in corpus]) if corpus else []
         pairs: list[PairedSample] = []
         for idx, bad_sample in enumerate(bad_samples):
             if corpus:
-                query_vector = client_ctx.embedder.embed_texts([bad_sample.text])[0]
+                query_vector = client_ctx.embedder.embed_texts([bad_sample.rendered_text()])[0]
                 indices = cosine_top_k(query_vector, corpus_vectors, self.top_k)
                 real_samples = [corpus[index] for index in indices]
             else:

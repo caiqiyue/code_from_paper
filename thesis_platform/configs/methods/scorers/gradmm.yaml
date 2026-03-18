@@ -1,4 +1,7 @@
 scorer:
   name: gradmm
   score_direction: larger_is_worse
-  alpha: 0.5
+  objective: domain_probe
+  probe_epochs: 80
+  probe_lr: 0.1
+  damping: 0.01

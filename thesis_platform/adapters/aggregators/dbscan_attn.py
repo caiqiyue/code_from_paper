@@ -1,16 +1,40 @@
 from __future__ import annotations
 
+from thesis_platform.algorithms.aggregators.dbscan_core import aggregate_dbscan_critiques
+from thesis_platform.models.embedding import build_embedder
+
 
 class DBSCANAttnAggregator:
-    """Reserved adapter for the future DBSCAN-Attn server aggregator."""
+    """Cluster critique rules semantically and rank them by support and severity."""
 
     def __init__(self, config, repo_root):
-        """Accept config now so the registry and config layout stay stable."""
+        """Build the embedder used for clustering critique rules."""
 
-        del config, repo_root
+        self.max_rules = int(config.get("max_rules", 5))
+        self.cluster_eps = float(config.get("cluster_eps", 0.35))
+        self.cluster_min_samples = int(config.get("cluster_min_samples", 2))
+        embedding_model = config.get("embedding_model")
+        if not embedding_model:
+            raise ValueError("dbscan_attn requires aggregator.embedding_model.")
+        self.embedder = build_embedder(
+            embedding_model,
+            repo_root,
+            allow_fallback=bool(config.get("allow_hashing_fallback", False)),
+        )
 
     def aggregate(self, client_critiques, server_ctx):
-        """Fail explicitly because DBSCAN-Attn is not part of the MVP."""
+        """Aggregate critiques through embedding clustering without momentum memory."""
 
-        del client_critiques, server_ctx
-        raise RuntimeError("dbscan_attn is registered but not enabled in the MVP.")
+        prompt_update, _ = aggregate_dbscan_critiques(
+            client_critiques,
+            round_id=len(server_ctx.prompt_history) - 1,
+            max_rules=self.max_rules,
+            embedder=self.embedder,
+            text_backend=server_ctx.text_backend,
+            eps=self.cluster_eps,
+            min_samples=self.cluster_min_samples,
+            use_memory=False,
+            memory=server_ctx.aggregation_memory,
+            base_prompt=server_ctx.base_prompt,
+        )
+        return prompt_update

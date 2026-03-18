@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from typing import Any
 
 from .base import BaseDatasetDownloader
-from .common import datasets_root, move_path, package_root, remove_path, repo_root, to_package_relative
+from .common import datasets_root, package_root, remove_path, repo_root, to_package_relative
 
 
 def datainf_temporary_output_paths() -> dict[str, tuple[Path, Path]]:
@@ -89,8 +90,18 @@ def datainf_formatted_output_paths(downloader: DataInfGeneratedDatasetDownloader
     return target / "train.hf", target / "test.hf"
 
 
+def _copy_datainf_output(source: Path, target: Path) -> None:
+    """Copy one generated DataInf artifact while preserving the shared cache."""
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_dir():
+        shutil.copytree(source, target)
+        return
+    shutil.copy2(source, target)
+
+
 def move_datainf_outputs_into_dataset(downloader: DataInfGeneratedDatasetDownloader, force: bool = False) -> dict[str, Any]:
-    """Move generated DataInf artifacts into the dataset-specific formatted directory."""
+    """Copy generated DataInf artifacts into the dataset-specific formatted directory."""
 
     generation_result = ensure_datainf_generation(downloader.dataset_key, force=force)
     source_train, source_test = datainf_temporary_output_paths()[downloader.dataset_key]
@@ -102,8 +113,8 @@ def move_datainf_outputs_into_dataset(downloader: DataInfGeneratedDatasetDownloa
         remove_path(target_train)
     if target_test.exists():
         remove_path(target_test)
-    move_path(source_train, target_train)
-    move_path(source_test, target_test)
+    _copy_datainf_output(source_train, target_train)
+    _copy_datainf_output(source_test, target_test)
     return {
         "generation": generation_result,
         "formatted_train": to_package_relative(target_train),

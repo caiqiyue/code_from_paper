@@ -88,15 +88,24 @@ def download_datasets(
     )
 
     if pretext_categories:
-        from .pretext_utils import ensure_pretext_c4_cache
+        from .pretext_utils import ensure_pretext_c4_cache, pretext_c4_cache_root
 
         try:
             ensure_pretext_c4_cache(required_categories=pretext_categories, force=force)
         except Exception as exc:
             pretext_cache_error = exc
+        pretext_cache_root_path = pretext_c4_cache_root()
+    else:
+        pretext_cache_root_path = None
 
     for downloader in tqdm(downloaders, desc="Datasets", unit="dataset"):
-        if pretext_cache_error is not None and getattr(downloader, "pretext_c4_category", None) is not None:
+        category = getattr(downloader, "pretext_c4_category", None)
+        has_category_cache = (
+            category is not None
+            and pretext_cache_root_path is not None
+            and (pretext_cache_root_path / f"{category}.jsonl").exists()
+        )
+        if pretext_cache_error is not None and category is not None and not has_category_cache:
             results.append(
                 DatasetDownloadResult(
                     name=downloader.name,

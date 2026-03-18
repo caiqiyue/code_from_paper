@@ -1,0 +1,4 @@
+critic:
+  name: fedtextgrad_llm
+  compress_to_n_rules: 3
+  redact_enable: true

@@ -20,6 +20,24 @@ class Sample:
     label: str | int | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
+    def render_text(self) -> str:
+        """Return the best available text view for embedding, prompting, and logging."""
+
+        if self.text:
+            return self.text
+        if self.instruction is not None and self.response is not None:
+            return f"Instruction: {self.instruction}\nResponse: {self.response}".strip()
+        if self.instruction is not None:
+            return self.instruction
+        if self.response is not None:
+            return self.response
+        return ""
+
+    def rendered_text(self) -> str:
+        """Backward-compatible alias used by research-mode helpers."""
+
+        return self.render_text()
+
 
 @dataclass(slots=True)
 class ScoredSample(Sample):

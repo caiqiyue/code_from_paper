@@ -161,6 +161,34 @@ def _format_target_summary(categories: list[str], counts: dict[str, int], target
     return ", ".join(f"{category}={counts[category]}/{targets[category]}" for category in categories)
 
 
+def _write_pretext_cache_metadata(
+    cache_root: Path,
+    *,
+    required_categories: list[str],
+    built_categories: list[str],
+) -> None:
+    """Persist cache metadata after one full or partial cache build."""
+
+    write_json(
+        cache_root / "metadata.json",
+        {
+            "source_dataset": PRETEXT_C4_SOURCE_DATASET,
+            "source_config": PRETEXT_C4_SOURCE_CONFIG,
+            "source_split": PRETEXT_C4_SOURCE_SPLIT,
+            "generated_at": utc_timestamp(),
+            "built_categories": built_categories,
+            "available_categories": sorted(path.stem for path in cache_root.glob("*.jsonl")),
+            "targets": {category: _PRETEXT_C4_TARGETS[category] for category in required_categories},
+            "min_words": PRETEXT_MIN_WORDS,
+            "seed": PRETEXT_C4_RANDOM_SEED,
+            "heuristic_note": (
+                "This cache approximates the PrE-Text paper datasets with URL-domain heuristics because the "
+                "original curated dataset files are not bundled with the paper repository."
+            ),
+        },
+    )
+
+
 def ensure_pretext_c4_cache(
     required_categories: Iterable[str] | None = None,
     force: bool = False,
@@ -192,6 +220,30 @@ def ensure_pretext_c4_cache(
     counts = {category: 0 for category in missing_categories}
     seen_hashes: set[bytes] = set()
     total_samples = sum(targets.values())
+    completed_categories: list[str] = []
+
+    def persist_completed_category(category: str) -> None:
+        """Flush one completed category to the shared cache immediately."""
+
+        if category in completed_categories:
+            return
+        handle = file_handles.pop(category, None)
+        if handle is not None:
+            handle.flush()
+            handle.close()
+        source = temp_root / f"{category}.jsonl"
+        if not source.exists():
+            return
+        destination = _cache_file(category)
+        if destination.exists():
+            remove_path(destination)
+        move_path(source, destination)
+        completed_categories.append(category)
+        _write_pretext_cache_metadata(
+            cache_root,
+            required_categories=required,
+            built_categories=completed_categories,
+        )
 
     if cached_categories:
         print(
@@ -207,6 +259,7 @@ def ensure_pretext_c4_cache(
         + ", ".join(f"{category}={targets[category]}" for category in missing_categories)
     )
     progress = tqdm(total=total_samples, desc="PrE-Text C4 cache", unit="sample") if tqdm else None
+    iteration_error: Exception | None = None
 
     try:
         dataset = load_dataset(
@@ -242,12 +295,15 @@ def ensure_pretext_c4_cache(
                     progress.set_postfix_str(_format_target_summary(missing_categories, counts, targets))
             if counts[category] == targets[category]:
                 print(f"PrE-Text C4 cache | completed {category}: {targets[category]} samples")
+                persist_completed_category(category)
             if all(counts[name] >= targets[name] for name in missing_categories):
                 break
+    except Exception as exc:
+        iteration_error = exc
     finally:
         if progress:
             progress.close()
-        for handle in file_handles.values():
+        for handle in list(file_handles.values()):
             handle.close()
 
     missing = {
@@ -255,39 +311,39 @@ def ensure_pretext_c4_cache(
         for category, target in targets.items()
         if counts[category] < target
     }
-    if missing:
+    if missing or iteration_error is not None:
         remove_path(temp_root)
         missing_text = ", ".join(f"{category}={count}" for category, count in sorted(missing.items()))
+        completed_text = ", ".join(completed_categories)
+        completed_suffix = (
+            f" Completed categories were preserved in the shared cache: {completed_text}."
+            if completed_categories
+            else ""
+        )
+        if iteration_error is not None:
+            if missing_text:
+                missing_text = f" Missing counts: {missing_text}."
+            raise RuntimeError(
+                "PrE-Text C4 cache build was interrupted before all requested categories completed."
+                f"{completed_suffix}{missing_text} Original error: {iteration_error}"
+            ) from iteration_error
         raise RuntimeError(
             "Unable to collect enough C4 rows for the requested PrE-Text cache. "
             f"Missing counts: {missing_text}."
         )
 
     for category in missing_categories:
+        if category in completed_categories:
+            continue
         destination = _cache_file(category)
         if destination.exists():
             remove_path(destination)
         move_path(temp_root / f"{category}.jsonl", destination)
     remove_path(temp_root)
-    write_json(
-        cache_root / "metadata.json",
-        {
-            "source_dataset": PRETEXT_C4_SOURCE_DATASET,
-            "source_config": PRETEXT_C4_SOURCE_CONFIG,
-            "source_split": PRETEXT_C4_SOURCE_SPLIT,
-            "generated_at": utc_timestamp(),
-            "built_categories": missing_categories,
-            "available_categories": sorted(
-                path.stem for path in cache_root.glob("*.jsonl")
-            ),
-            "targets": {category: _PRETEXT_C4_TARGETS[category] for category in required},
-            "min_words": PRETEXT_MIN_WORDS,
-            "seed": PRETEXT_C4_RANDOM_SEED,
-            "heuristic_note": (
-                "This cache approximates the PrE-Text paper datasets with URL-domain heuristics because the "
-                "original curated dataset files are not bundled with the paper repository."
-            ),
-        },
+    _write_pretext_cache_metadata(
+        cache_root,
+        required_categories=required,
+        built_categories=missing_categories,
     )
     return cache_root
 

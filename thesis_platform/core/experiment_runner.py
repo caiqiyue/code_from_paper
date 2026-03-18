@@ -13,6 +13,7 @@ from thesis_platform.core.registry import create
 from thesis_platform.core.round_runner import RoundRunner
 from thesis_platform.data.loaders import load_samples
 from thesis_platform.data.partition import partition_samples
+from thesis_platform.models.backends import build_text_backend
 from thesis_platform.models.embedding import build_embedder
 
 try:
@@ -30,9 +31,20 @@ class ExperimentRunner:
         self.config = config
         self.logger = get_logger()
         self.repo_root = config.repo_root()
-        self.output_root = ensure_dir(config.output_root())  # Ensure the shared output root exists early.
+        self.output_root = ensure_dir(config.output_root())
         self.experiment_id = str(config.meta.get("experiment_id", config.path.stem))
         self.experiment_dir = ensure_dir(self.output_root / self.experiment_id)
+
+    def _build_text_backends(self) -> tuple[Any, Any]:
+        """Build shared client/server text backends when configured."""
+
+        llm_cfg = self.config.llm
+        client_cfg = dict(llm_cfg.get("client", {}))
+        server_cfg = dict(llm_cfg.get("server", {}))
+
+        client_backend = build_text_backend({**client_cfg, "role": "client"}, repo_root=self.repo_root) if client_cfg else None
+        server_backend = build_text_backend({**server_cfg, "role": "server"}, repo_root=self.repo_root) if server_cfg else None
+        return client_backend, server_backend
 
     def _load_public_seed_samples(self) -> list[Any]:
         """Load the public seed pool used by the server-side generator."""
@@ -41,6 +53,7 @@ class ExperimentRunner:
         if public_seed_path is None:
             self.logger.info("No public seed dataset configured.")
             return []
+        public_seed_sample_format = str(self.config.data.get("public_seed_sample_format", self.config.data.get("sample_format", "raw_text")))
         samples = load_samples(
             public_seed_path,
             dataset_name=str(self.config.data.get("dataset_name", "dataset")),
@@ -49,16 +62,23 @@ class ExperimentRunner:
             round_id=0,
             client_id="server",
             prefix="seed",
+            sample_format=public_seed_sample_format,
+            limit=(
+                int(self.config.data.get("max_public_seed_samples"))
+                if self.config.data.get("max_public_seed_samples") not in (None, "")
+                else None
+            ),
         )
         self.logger.info("Loaded %d public seed samples from %s", len(samples), public_seed_path)
         return samples
 
-    def _load_client_contexts(self) -> list[ClientContext]:
+    def _load_client_contexts(self, *, client_backend: Any) -> list[ClientContext]:
         """Load the dataset and partition it into per-client runtime contexts."""
 
         train_path = self.config.resolve_path(self.config.data.get("train_path"))
         if train_path is None:
             raise ValueError("data.train_path must be configured.")
+        sample_format = str(self.config.data.get("sample_format", "raw_text"))
         all_samples = load_samples(
             train_path,
             dataset_name=str(self.config.data.get("dataset_name", "dataset")),
@@ -67,27 +87,43 @@ class ExperimentRunner:
             round_id=0,
             client_id="raw",
             prefix="real",
+            sample_format=sample_format,
         )
         self.logger.info("Loaded %d private training samples from %s", len(all_samples), train_path)
-        partitions = partition_samples(  # Split one dataset into stable per-client buckets.
+        partitions = partition_samples(
             all_samples,
             num_clients=int(self.config.data.get("num_clients", 3)),
             max_samples_per_client=int(self.config.data.get("max_samples_per_client", 16)),
             validation_ratio=float(self.config.data.get("validation_ratio", 0.1)),
             seed=int(self.config.meta.get("seed", 42)),
+            strategy=str(self.config.data.get("partition_strategy", "shuffle_round_robin")),
         )
         retriever_cfg = self.config.retriever
-        embedder = build_embedder(retriever_cfg.get("embedding_model"), self.repo_root)  # Share one embedder across clients.
+        embedder = build_embedder(
+            retriever_cfg.get("embedding_model"),
+            self.repo_root,
+            allow_fallback=bool(retriever_cfg.get("allow_hashing_fallback", True)),
+        )
         self.logger.info(
             "Partitioned dataset into %d clients with max %d samples/client and validation_ratio=%.2f",
             len(partitions),
             int(self.config.data.get("max_samples_per_client", 16)),
             float(self.config.data.get("validation_ratio", 0.1)),
         )
-        self.logger.info("Embedder backend: %s", type(embedder).__name__)
+        self.logger.info("Embedder backend: %s", getattr(embedder, "backend_name", type(embedder).__name__))
+
+        all_partition_samples = [sample for partition in partitions for sample in partition["all"]]
         contexts: list[ClientContext] = []
+        objective_type = str(
+            self.config.scorer.get(
+                "objective",
+                "pair_alignment" if str(self.config.scorer.get("name", "")).lower() == "ira" else "domain_probe",
+            )
+        )
         for idx, bucket in enumerate(partitions):
             client_id = f"client_{idx}"
+            bucket_sample_ids = {sample.sample_id for sample in bucket["all"]}
+            negative_samples = [sample for sample in all_partition_samples if sample.sample_id not in bucket_sample_ids]
             contexts.append(
                 ClientContext(
                     client_id=client_id,
@@ -96,6 +132,9 @@ class ExperimentRunner:
                     all_samples=bucket["all"],
                     embedder=embedder,
                     config=self.config.raw,
+                    negative_samples=negative_samples,
+                    text_backend=client_backend,
+                    objective_type=objective_type,
                 )
             )
         return contexts
@@ -106,14 +145,15 @@ class ExperimentRunner:
         from thesis_platform import adapters  # noqa: F401
 
         self.logger.info("Experiment %s | starting with config %s", self.experiment_id, self.config.path)
+        client_backend, server_backend = self._build_text_backends()
         public_seed_samples = self._load_public_seed_samples()
-        client_contexts = self._load_client_contexts()
+        client_contexts = self._load_client_contexts(client_backend=client_backend)
 
         generator = create("generator", str(self.config.generator.get("name")), self.config.generator, self.repo_root)
         scorer = create("scorer", str(self.config.scorer.get("name")), self.config.scorer, self.repo_root)
         retriever = create("retriever", str(self.config.retriever.get("name", "knn")), self.config.retriever, self.repo_root)
         critic = create("critic", str(self.config.critic.get("name", "none")), self.config.critic, self.repo_root)
-        aggregator = create("aggregator", str(self.config.aggregator.get("name", "none")), self.config.aggregator, self.repo_root)  # Build adapters from the registry.
+        aggregator = create("aggregator", str(self.config.aggregator.get("name", "none")), self.config.aggregator, self.repo_root)
         self.logger.info(
             "Experiment %s | adapters generator=%s scorer=%s retriever=%s critic=%s aggregator=%s",
             self.experiment_id,
@@ -143,6 +183,8 @@ class ExperimentRunner:
             prompt_history=[initial_prompt],
             config=self.config.raw,
             output_dir=self.experiment_dir,
+            text_backend=server_backend,
+            base_prompt=initial_prompt,
         )
 
         rounds = int(self.config.federation.get("rounds", 1))
@@ -153,7 +195,7 @@ class ExperimentRunner:
         for round_id in round_iter:
             self.logger.info("Round %d/%d | start", round_id + 1, rounds)
             round_dir = ensure_dir(self.experiment_dir / f"round_{round_id:03d}")
-            artifacts = round_runner.run_round(  # Execute one full generator-to-aggregator loop.
+            artifacts = round_runner.run_round(
                 round_id=round_id,
                 server_ctx=server_ctx,
                 client_contexts=client_contexts,
@@ -161,7 +203,8 @@ class ExperimentRunner:
                 federation_cfg=self.config.federation,
                 output_dir=round_dir,
             )
-            server_ctx.prompt_text = artifacts.updated_prompt  # Feed the updated prompt into the next round.
+            server_ctx.generated_history.append([sample.rendered_text() for sample in artifacts.generated_samples])
+            server_ctx.prompt_text = artifacts.updated_prompt
             server_ctx.prompt_history.append(server_ctx.prompt_text)
             all_round_metrics.append({"round_id": round_id, **artifacts.round_metrics})
             if progress is not None:

@@ -1,32 +1,57 @@
 from __future__ import annotations
 
-from thesis_platform.algorithms.scorers.gradmm_core import compute_gradmm_scores
+from thesis_platform.algorithms.scorers.probe_core import _append_bias, build_probe_bundle, sample_features, sample_gradient
 from thesis_platform.core.schemas import ScoredSample
 
 
 class GradMMScorer:
-    """Adapter that exposes the GRADMM-style scorer through the platform interface."""
+    """Research-mode gradient-mismatch scorer built on the shared client probe."""
 
     def __init__(self, config, repo_root):
-        """Store the GRADMM weighting hyper-parameters."""
+        """Store the GRADMM hyper-parameters."""
 
         del repo_root
-        self.alpha = float(config.get("alpha", 0.5))
         self.score_direction = str(config.get("score_direction", "larger_is_worse"))
+        self.objective = str(config.get("objective", "domain_probe"))
+        self.probe_epochs = int(config.get("probe_epochs", 80))
+        self.probe_lr = float(config.get("probe_lr", 0.1))
+        self.damping = float(config.get("damping", 1e-2))
 
     def score(self, samples, client_ctx):
-        """Score synthetic samples against the client's reference sample pool."""
+        """Score synthetic samples against the client's probe-space reference gradient."""
 
-        sample_vectors = client_ctx.embedder.embed_texts([sample.text for sample in samples])
-        reference_pool = client_ctx.train_samples or client_ctx.all_samples
-        reference_vectors = client_ctx.embedder.embed_texts([sample.text for sample in reference_pool]) if reference_pool else sample_vectors
-        scores, metas = compute_gradmm_scores(
-            sample_vectors,
-            reference_vectors,
-            texts=[sample.text for sample in samples],
-            corpus_texts=[sample.text for sample in reference_pool],
-            alpha=self.alpha,
+        objective = self.objective or client_ctx.objective_type
+        bundle = build_probe_bundle(
+            client_ctx,
+            objective=objective,
+            probe_epochs=self.probe_epochs,
+            probe_lr=self.probe_lr,
+            damping=self.damping,
         )
+        sample_matrix = sample_features(samples, client_ctx.embedder, objective=objective)
+        sample_aug = _append_bias(sample_matrix)
+        scores: list[float] = []
+        metas: list[dict[str, float | str]] = []
+        for feature in sample_aug:
+            gradient = sample_gradient(feature, 1.0, bundle.weights)
+            grad_distance = float(((gradient - bundle.positive_reference_gradient) ** 2).sum())
+            scores.append(grad_distance)
+            metas.append(
+                {
+                    "gradient_distance": grad_distance,
+                    "objective": objective,
+                    "embedder": bundle.embedder_name,
+                }
+            )
+
+        client_ctx.probe_state["last_metrics"] = {
+            "objective": objective,
+            "val_loss_before": bundle.val_loss_before,
+            "val_loss_after": bundle.simulate_update_loss(sample_aug),
+            "probe_epochs": self.probe_epochs,
+            "probe_lr": self.probe_lr,
+            "damping": self.damping,
+        }
         return [
             ScoredSample.from_sample(
                 sample,
@@ -34,7 +59,7 @@ class GradMMScorer:
                 score=float(score),
                 score_name="gradmm",
                 score_direction=self.score_direction,
-                meta=meta,
+                meta=dict(meta),
             )
             for sample, score, meta in zip(samples, scores, metas)
         ]

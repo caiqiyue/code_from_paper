@@ -1,4 +1,7 @@
 scorer:
   name: datainf
   score_direction: larger_is_worse
-  lambda_const_param: 10
+  objective: domain_probe
+  probe_epochs: 80
+  probe_lr: 0.1
+  damping: 0.01
