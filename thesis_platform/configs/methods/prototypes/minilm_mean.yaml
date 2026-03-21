@@ -1,0 +1,4 @@
+prototype:
+  name: minilm_mean
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false

@@ -17,6 +17,10 @@ class RoundContext:
     config: dict[str, Any]
     output_dir: Path | None
     text_backend: Any = None
+    prompt_scope: str = "global"
+    cluster_id: str | None = None
+    sample_id_prefix: str = "syn"
+    sample_source: str = "synthetic"
     runtime_artifacts: dict[str, Any] = field(default_factory=dict)
 
 
@@ -33,6 +37,10 @@ class ClientContext:
     negative_samples: list[Sample] = field(default_factory=list)
     text_backend: Any = None
     objective_type: str = "domain_probe"
+    prototype_vector: list[float] | None = None
+    prototype_weight: float = 1.0
+    cluster_id: str | None = None
+    cluster_prompt: str | None = None
     probe_state: dict[str, Any] = field(default_factory=dict)
 
 
@@ -49,6 +57,10 @@ class ServerContext:
     aggregation_memory: dict[str, Any] = field(default_factory=dict)
     generated_history: list[list[str]] = field(default_factory=list)
     base_prompt: str | None = None
+    cluster_prompts: dict[str, str] = field(default_factory=dict)
+    client_cluster_map: dict[str, str] = field(default_factory=dict)
+    prototype_feedbacks: list[Any] = field(default_factory=list)
+    routing_state: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

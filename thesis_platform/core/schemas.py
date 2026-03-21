@@ -108,6 +108,18 @@ class Critique:
 
 
 @dataclass(slots=True)
+class PrototypeFeedback:
+    """Client-side prototype payload uploaded to the server for routing."""
+
+    client_id: str
+    round_id: int
+    prototype_vector: list[float]
+    weight: float
+    source_sample_ids: list[str]
+    meta: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class PromptUpdate:
     """Aggregated prompt-level update produced by a server-side aggregator."""
 
@@ -116,4 +128,8 @@ class PromptUpdate:
     rules: list[str]
     summary: str
     prompt_text: str
+    global_rules: list[str] = field(default_factory=list)
+    cluster_rules: dict[str, list[str]] = field(default_factory=dict)
+    client_cluster_map: dict[str, str] = field(default_factory=dict)
+    routing_state: dict[str, Any] = field(default_factory=dict)
     meta: dict[str, Any] = field(default_factory=dict)

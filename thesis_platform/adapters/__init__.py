@@ -15,7 +15,9 @@ from thesis_platform.adapters.retrievers.knn_retriever import KNNRetriever
 from thesis_platform.adapters.retrievers.label_match import LabelMatchRetriever
 from thesis_platform.adapters.retrievers.none import NoRetriever
 from thesis_platform.adapters.scorers.datainf_scorer import DataInfScorer
+from thesis_platform.adapters.scorers.datainf_real_scorer import DataInfRealScorer
 from thesis_platform.adapters.scorers.gradmm_scorer import GradMMScorer
+from thesis_platform.adapters.scorers.gradmm_real_scorer import GradMMRealScorer
 from thesis_platform.adapters.scorers.ira_scorer import IRAScorer
 from thesis_platform.adapters.scorers.pretext_histogram import PretextHistogramScorer
 from thesis_platform.core.registry import register
@@ -25,7 +27,9 @@ register("generator", "pretext_prompt_llm", PretextPromptLLMGenerator)
 
 register("scorer", "pretext_hist", PretextHistogramScorer)
 register("scorer", "datainf", DataInfScorer)
+register("scorer", "datainf_real", DataInfRealScorer)
 register("scorer", "gradmm", GradMMScorer)
+register("scorer", "gradmm_real", GradMMRealScorer)
 register("scorer", "ira", IRAScorer)
 
 register("retriever", "none", NoRetriever)

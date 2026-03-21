@@ -82,16 +82,18 @@ class PretextPromptLLMGenerator:
             )
             generated.append(
                 Sample(
-                    sample_id=f"syn_r{round_ctx.round_id}_{idx}",
+                    sample_id=f"{round_ctx.sample_id_prefix}_r{round_ctx.round_id}_{idx}",
                     client_id="server",
                     round_id=round_ctx.round_id,
-                    source="synthetic",
+                    source=round_ctx.sample_source,
                     dataset_name=source_samples[0].dataset_name,
                     task_type=source_samples[0].task_type,
                     text=sample_text,
                     meta={
                         "seed_sample_ids": [sample.sample_id for sample in source_samples],
                         "prompt": round_ctx.prompt_text,
+                        "prompt_scope": round_ctx.prompt_scope,
+                        "cluster_id": round_ctx.cluster_id,
                         "backend_name": getattr(round_ctx.text_backend, "backend_name", type(round_ctx.text_backend).__name__),
                     },
                 )

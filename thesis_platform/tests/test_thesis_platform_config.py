@@ -16,6 +16,16 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(config.repo_root().exists())
         self.assertTrue(str(config.output_root()).endswith("outputs\\thesis_platform") or str(config.output_root()).endswith("outputs/thesis_platform"))
 
+    def test_load_v3_jobs_config_exposes_new_sections(self) -> None:
+        """Verify the v3 Jobs config exposes prototype, routing, privacy, and downstream_eval."""
+
+        config = load_experiment_config("thesis_platform/configs/experiments/v3/jobs_real_datainf_v3.yaml")
+        self.assertEqual(config.prototype["name"], "minilm_mean")
+        self.assertTrue(config.routing["enabled"])
+        self.assertEqual(config.privacy["epsilon"], 1.29)
+        self.assertTrue(config.downstream_eval["enabled"])
+        self.assertEqual(config.scorer["name"], "datainf_real")
+
 
 if __name__ == "__main__":
     unittest.main()

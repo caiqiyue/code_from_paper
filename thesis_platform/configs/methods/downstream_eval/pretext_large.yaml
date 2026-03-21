@@ -1,0 +1,21 @@
+downstream_eval:
+  enabled: true
+  kind: pretext_large_eval
+  export_filename: llama7b_text_syn.json
+  dataset_root: thesis_platform/datasets
+  model_root: thesis_platform/open_model
+  llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
+  minilm_path: thesis_platform/open_model/all_minilm_l6_v2
+  roberta_large_path: thesis_platform/open_model/roberta_large
+  distilgpt2_path: thesis_platform/open_model/distilgpt2
+  cutoff_len: 64
+  grad_accum_steps: 16
+  epochs: 1
+  batch_size: 8
+  eval_batch_size: 2
+  learning_rate: 0.0002
+  num_proc: 1
+  lora_rank: 4
+  lora_alpha: 8
+  lora_dropout: 0.0
+  baseline_summary_paths: []

@@ -9,10 +9,12 @@ from thesis_platform.core.config import ExperimentConfig
 from thesis_platform.core.context import ClientContext, ServerContext
 from thesis_platform.core.io_utils import ensure_dir, write_json, write_text
 from thesis_platform.core.logging_utils import get_logger
+from thesis_platform.core.preflight import validate_preflight
 from thesis_platform.core.registry import create
 from thesis_platform.core.round_runner import RoundRunner
 from thesis_platform.data.loaders import load_samples
 from thesis_platform.data.partition import partition_samples
+from thesis_platform.evaluation.downstream_eval import collect_baseline_summaries, export_synthetic_corpus, run_pretext_large_eval
 from thesis_platform.models.backends import build_text_backend
 from thesis_platform.models.embedding import build_embedder
 
@@ -88,6 +90,11 @@ class ExperimentRunner:
             client_id="raw",
             prefix="real",
             sample_format=sample_format,
+            limit=(
+                int(self.config.data.get("train_limit"))
+                if self.config.data.get("train_limit") not in (None, "")
+                else None
+            ),
         )
         self.logger.info("Loaded %d private training samples from %s", len(all_samples), train_path)
         partitions = partition_samples(
@@ -145,6 +152,7 @@ class ExperimentRunner:
         from thesis_platform import adapters  # noqa: F401
 
         self.logger.info("Experiment %s | starting with config %s", self.experiment_id, self.config.path)
+        validate_preflight(self.config)
         client_backend, server_backend = self._build_text_backends()
         public_seed_samples = self._load_public_seed_samples()
         client_contexts = self._load_client_contexts(client_backend=client_backend)
@@ -189,6 +197,7 @@ class ExperimentRunner:
 
         rounds = int(self.config.federation.get("rounds", 1))
         all_round_metrics: list[dict[str, Any]] = []
+        last_artifacts = None
         self.logger.info("Experiment %s | executing %d rounds", self.experiment_id, rounds)
         progress = tqdm(range(rounds), total=rounds, desc=f"{self.experiment_id}", unit="round") if tqdm is not None else None
         round_iter = progress if progress is not None else range(rounds)
@@ -202,7 +211,10 @@ class ExperimentRunner:
                 public_seed_samples=public_seed_samples,
                 federation_cfg=self.config.federation,
                 output_dir=round_dir,
+                prototype_cfg=self.config.prototype,
+                routing_cfg=self.config.routing,
             )
+            last_artifacts = artifacts
             server_ctx.generated_history.append([sample.rendered_text() for sample in artifacts.generated_samples])
             server_ctx.prompt_text = artifacts.updated_prompt
             server_ctx.prompt_history.append(server_ctx.prompt_text)
@@ -230,6 +242,32 @@ class ExperimentRunner:
             "final_prompt": server_ctx.prompt_text,
             "round_metrics": all_round_metrics,
         }
+        downstream_cfg = self.config.downstream_eval
+        if last_artifacts is not None and bool(downstream_cfg.get("enabled")):
+            downstream_root = ensure_dir(self.experiment_dir / "downstream_eval")
+            stage2_dir = ensure_dir(downstream_root / "stage2")
+            corpus_path = export_synthetic_corpus(
+                [sample.rendered_text() for sample in last_artifacts.client_assigned_samples],
+                output_dir=stage2_dir,
+                filename=str(downstream_cfg.get("export_filename", "llama7b_text_syn.json")),
+            )
+            summary["synthetic_corpus_path"] = str(corpus_path)
+            if downstream_cfg.get("kind") == "pretext_large_eval":
+                pretext_output_dir = ensure_dir(downstream_root / "pretext_large_eval")
+                downstream_summary = run_pretext_large_eval(
+                    self.config,
+                    stage2_dir=stage2_dir,
+                    output_dir=pretext_output_dir,
+                )
+                write_json(downstream_root / "pretext_large_eval_summary.json", downstream_summary)
+                summary["downstream_eval"] = downstream_summary
+            baseline_paths = list(downstream_cfg.get("baseline_summary_paths", []))
+            if baseline_paths:
+                summary["baseline_summaries"] = collect_baseline_summaries(
+                    self.repo_root,
+                    baseline_paths,
+                    output_dir=downstream_root,
+                )
         write_json(self.experiment_dir / "metrics_summary.json", summary)
         write_json(self.experiment_dir / "resolved_config.json", self.config.raw)
         write_text(self.experiment_dir / "config.yaml", json.dumps(self.config.raw, ensure_ascii=False, indent=2))

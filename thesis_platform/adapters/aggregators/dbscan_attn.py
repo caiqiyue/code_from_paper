@@ -36,5 +36,7 @@ class DBSCANAttnAggregator:
             use_memory=False,
             memory=server_ctx.aggregation_memory,
             base_prompt=server_ctx.base_prompt,
+            prototype_feedbacks=list(server_ctx.prototype_feedbacks),
+            personalized_mix_ratio=server_ctx.routing_state.get("personalized_mix_ratio"),
         )
         return prompt_update

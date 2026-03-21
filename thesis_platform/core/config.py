@@ -181,6 +181,59 @@ class ExperimentConfig:
         return self.raw.get("aggregator", {})
 
     @property
+    def prototype(self) -> dict[str, Any]:
+        """Return the prototype extraction config with v3 defaults."""
+
+        return _deep_merge(
+            {
+                "name": "minilm_mean",
+                "embedding_model": "thesis_platform/open_model/all_minilm_l6_v2",
+                "allow_hashing_fallback": False,
+            },
+            self.raw.get("prototype", {}),
+        )
+
+    @property
+    def routing(self) -> dict[str, Any]:
+        """Return the routing config with v3 defaults."""
+
+        return _deep_merge(
+            {
+                "enabled": False,
+                "personalized_mix_ratio": 0.7,
+                "cluster_eps": 0.35,
+                "cluster_min_samples": 2,
+            },
+            self.raw.get("routing", {}),
+        )
+
+    @property
+    def privacy(self) -> dict[str, Any]:
+        """Return the privacy config with paper-aligned defaults."""
+
+        return _deep_merge(
+            {
+                "epsilon": 1.29,
+                "delta": 3e-6,
+            },
+            self.raw.get("privacy", {}),
+        )
+
+    @property
+    def downstream_eval(self) -> dict[str, Any]:
+        """Return the downstream-eval config with v3 defaults."""
+
+        return _deep_merge(
+            {
+                "enabled": False,
+                "kind": "none",
+                "export_filename": "llama7b_text_syn.json",
+                "baseline_summary_paths": [],
+            },
+            self.raw.get("downstream_eval", {}),
+        )
+
+    @property
     def evaluation(self) -> dict[str, Any]:
         """Return the evaluation config section."""
 

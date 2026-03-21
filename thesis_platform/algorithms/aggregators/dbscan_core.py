@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from thesis_platform.algorithms.math_utils import cosine_similarity
-from thesis_platform.core.schemas import Critique, PromptUpdate
+from thesis_platform.core.schemas import Critique, PromptUpdate, PrototypeFeedback
 
 JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 
@@ -72,6 +72,62 @@ def _cluster_rule_entries(rule_entries: list[dict[str, Any]], vectors: np.ndarra
     return clusters
 
 
+def _cluster_client_prototypes(
+    prototype_feedbacks: list[PrototypeFeedback],
+    *,
+    eps: float,
+    min_samples: int,
+) -> tuple[dict[str, str], list[dict[str, Any]]]:
+    """Cluster client prototypes for personalized routing."""
+
+    if not prototype_feedbacks:
+        return {}, []
+
+    usable_feedbacks = [feedback for feedback in prototype_feedbacks if feedback.prototype_vector]
+    if len(usable_feedbacks) <= 1:
+        feedbacks = usable_feedbacks or prototype_feedbacks
+        mapping = {feedback.client_id: f"cluster_{idx}" for idx, feedback in enumerate(feedbacks)}
+        payload = [
+            {
+                "cluster_id": mapping[feedback.client_id],
+                "client_ids": [feedback.client_id],
+                "weight_sum": float(feedback.weight),
+                "prototype_count": 1,
+            }
+            for feedback in feedbacks
+        ]
+        return mapping, payload
+
+    from sklearn.cluster import DBSCAN
+
+    vectors = np.asarray([feedback.prototype_vector for feedback in usable_feedbacks], dtype=np.float64)
+    labels = DBSCAN(eps=eps, min_samples=min_samples, metric="cosine").fit_predict(vectors)
+    mapping: dict[str, str] = {}
+    grouped: dict[str, list[PrototypeFeedback]] = {}
+    noise_index = 0
+    for feedback, raw_label in zip(usable_feedbacks, labels):
+        if int(raw_label) < 0:
+            cluster_id = f"noise_{noise_index}"
+            noise_index += 1
+        else:
+            cluster_id = f"cluster_{int(raw_label)}"
+        mapping[feedback.client_id] = cluster_id
+        grouped.setdefault(cluster_id, []).append(feedback)
+
+    payload = []
+    for cluster_id, members in grouped.items():
+        payload.append(
+            {
+                "cluster_id": cluster_id,
+                "client_ids": [member.client_id for member in members],
+                "weight_sum": float(sum(member.weight for member in members)),
+                "prototype_count": len(members),
+            }
+        )
+    payload.sort(key=lambda item: item["cluster_id"])
+    return mapping, payload
+
+
 def _rank_clusters(clusters: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ranked: list[dict[str, Any]] = []
     for cluster in clusters:
@@ -99,6 +155,109 @@ def _rank_clusters(clusters: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
     ranked.sort(key=lambda item: item["score"], reverse=True)
     return ranked
+
+
+def _resolve_conflicting_rule_indices(vectors: np.ndarray, weights: list[float]) -> list[int]:
+    """Keep stronger, non-conflicting rule vectors before SVD summarization."""
+
+    if len(vectors) <= 1:
+        return list(range(len(vectors)))
+    kept: list[int] = []
+    for index, vector in enumerate(vectors):
+        dominated = False
+        for other_index, other in enumerate(vectors):
+            if index == other_index:
+                continue
+            if cosine_similarity(vector.tolist(), other.tolist()) < 0 and weights[index] < weights[other_index]:
+                dominated = True
+                break
+        if not dominated:
+            kept.append(index)
+    return kept or list(range(len(vectors)))
+
+
+def _svd_rank_rule_entries(
+    rule_entries: list[dict[str, Any]],
+    vectors: np.ndarray,
+    *,
+    max_rules: int,
+) -> list[str]:
+    """Rank cluster-local rules after simple conflict filtering and SVD decoupling."""
+
+    if not rule_entries:
+        return []
+    if len(rule_entries) == 1:
+        return [str(rule_entries[0]["rule"]).strip()]
+
+    weights = [float(entry.get("source_score", 0.0)) + 1.0 for entry in rule_entries]
+    kept_indices = _resolve_conflicting_rule_indices(vectors, weights)
+    filtered_entries = [rule_entries[index] for index in kept_indices]
+    filtered_vectors = vectors[kept_indices]
+    if len(filtered_entries) == 1:
+        return [str(filtered_entries[0]["rule"]).strip()]
+
+    centered = filtered_vectors - np.mean(filtered_vectors, axis=0, keepdims=True)
+    if centered.size == 0 or not np.any(centered):
+        return [str(entry["rule"]).strip() for entry in filtered_entries[:max_rules]]
+
+    try:
+        _, singular_values, right = np.linalg.svd(centered, full_matrices=False)
+    except np.linalg.LinAlgError:
+        return [str(entry["rule"]).strip() for entry in filtered_entries[:max_rules]]
+
+    principal_axis = right[0]
+    projections = filtered_vectors @ principal_axis
+    ranked_indices = sorted(
+        range(len(filtered_entries)),
+        key=lambda index: (abs(float(projections[index])), weights[kept_indices[index]]),
+        reverse=True,
+    )
+    selected_rules = [str(filtered_entries[index]["rule"]).strip() for index in ranked_indices[:max_rules]]
+    if singular_values.size > 0 and singular_values[0] <= 1e-8:
+        return [str(entry["rule"]).strip() for entry in filtered_entries[:max_rules]]
+    return selected_rules
+
+
+def _build_rule_entries(critiques: list[Critique]) -> list[dict[str, Any]]:
+    """Flatten critiques into normalized rule entries."""
+
+    rule_entries: list[dict[str, Any]] = []
+    for critique in critiques:
+        for rule in critique.rules:
+            normalized = _normalize_rule(rule)
+            if not normalized:
+                continue
+            rule_entries.append(
+                {
+                    "rule": rule.strip(),
+                    "normalized": normalized,
+                    "source_score": float(critique.meta.get("source_score", 0.0)),
+                    "client_id": critique.client_id,
+                }
+            )
+    return rule_entries
+
+
+def _summarize_cluster_local_rules(
+    critiques: list[Critique],
+    *,
+    embedder,
+    text_backend,
+    eps: float,
+    min_samples: int,
+    max_rules: int,
+) -> tuple[list[str], dict[str, Any]]:
+    """Summarize cluster-local critiques into a small personalized rule list."""
+
+    rule_entries = _build_rule_entries(critiques)
+    if not rule_entries:
+        return [], {"rule_count": 0}
+    vectors = np.asarray(embedder.embed_texts([entry["rule"] for entry in rule_entries]), dtype=np.float64)
+    local_rules = _svd_rank_rule_entries(rule_entries, vectors, max_rules=max_rules * 2)
+    ranked_clusters = _rank_clusters(_cluster_rule_entries(rule_entries, vectors, eps=eps, min_samples=min_samples))
+    if text_backend is not None and local_rules:
+        local_rules, _ = summarize_rules_with_llm(local_rules, text_backend=text_backend, max_rules=max_rules)
+    return local_rules[:max_rules], {"rule_count": len(rule_entries), "critique_cluster_count": len(ranked_clusters)}
 
 
 def _merge_memory(
@@ -180,23 +339,12 @@ def aggregate_dbscan_critiques(
     memory: dict[str, Any] | None = None,
     momentum_beta: float = 0.7,
     base_prompt: str | None = None,
+    prototype_feedbacks: list[PrototypeFeedback] | None = None,
+    personalized_mix_ratio: float | None = None,
 ) -> tuple[PromptUpdate | None, dict[str, Any]]:
     """Cluster, rank, and summarize critique rules into a prompt update."""
 
-    rule_entries: list[dict[str, Any]] = []
-    for critique in critiques:
-        for rule in critique.rules:
-            normalized = _normalize_rule(rule)
-            if not normalized:
-                continue
-            rule_entries.append(
-                {
-                    "rule": rule.strip(),
-                    "normalized": normalized,
-                    "source_score": float(critique.meta.get("source_score", 0.0)),
-                    "client_id": critique.client_id,
-                }
-            )
+    rule_entries = _build_rule_entries(critiques)
     if not rule_entries:
         return None, memory or {"entries": []}
 
@@ -221,16 +369,51 @@ def aggregate_dbscan_critiques(
         return None, updated_memory
 
     compression_ratio = len(rule_entries) / max(len(final_rules), 1)
+    client_cluster_map: dict[str, str] = {}
+    prototype_clusters: list[dict[str, Any]] = []
+    cluster_rules: dict[str, list[str]] = {}
+    cluster_payload: dict[str, Any] = {}
+    if prototype_feedbacks:
+        client_cluster_map, prototype_clusters = _cluster_client_prototypes(
+            prototype_feedbacks,
+            eps=eps,
+            min_samples=min_samples,
+        )
+        critiques_by_cluster: dict[str, list[Critique]] = {}
+        for critique in critiques:
+            cluster_id = client_cluster_map.get(critique.client_id, f"noise_{critique.client_id}")
+            critiques_by_cluster.setdefault(cluster_id, []).append(critique)
+        for cluster_id, cluster_critiques in critiques_by_cluster.items():
+            local_rules, local_meta = _summarize_cluster_local_rules(
+                cluster_critiques,
+                embedder=embedder,
+                text_backend=text_backend,
+                eps=eps,
+                min_samples=min_samples,
+                max_rules=max_rules,
+            )
+            cluster_rules[cluster_id] = local_rules
+            cluster_payload[cluster_id] = local_meta
+
     prompt_update = PromptUpdate(
         update_id=f"dbscan_update_r{round_id}",
         round_id=round_id,
         rules=final_rules,
         summary=" ".join(final_rules),
         prompt_text=" ".join(final_rules),
+        global_rules=final_rules,
+        cluster_rules=cluster_rules,
+        client_cluster_map=client_cluster_map,
+        routing_state={
+            "cluster_ids": sorted(cluster_rules.keys()),
+            "personalized_mix_ratio": personalized_mix_ratio,
+        },
         meta={
             "mode": "dbscan_attn_tsgdm" if use_memory else "dbscan_attn",
             "cluster_count": len(ranked_clusters),
             "clusters": ranked_clusters,
+            "prototype_clusters": prototype_clusters,
+            "cluster_payload": cluster_payload,
             "compression_ratio": compression_ratio,
             "memory_rules": memory_rules,
             "memory_summary": memory_summary,

@@ -1,0 +1,8 @@
+scorer:
+  name: datainf_real
+  score_direction: larger_is_worse
+  feature_model: thesis_platform/open_model/roberta_large
+  allow_hashing_fallback: false
+  max_length: 256
+  lambda_const_param: 10.0
+  device: auto

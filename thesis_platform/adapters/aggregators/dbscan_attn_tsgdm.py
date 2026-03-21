@@ -38,6 +38,8 @@ class DBSCANAttnTSGDMAggregator:
             memory=server_ctx.aggregation_memory,
             momentum_beta=self.momentum_beta,
             base_prompt=server_ctx.base_prompt,
+            prototype_feedbacks=list(server_ctx.prototype_feedbacks),
+            personalized_mix_ratio=server_ctx.routing_state.get("personalized_mix_ratio"),
         )
         server_ctx.aggregation_memory = updated_memory
         return prompt_update

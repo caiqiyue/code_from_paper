@@ -7,6 +7,9 @@
 #   can use it directly when a local embedding model path is configured.
 # - Full DataInf training/influence-analysis dependencies are intentionally not
 #   merged here; use `DataInf/requirements.txt` separately for that workflow.
+# - `opacus` and `peft` are required by the real paper-aligned evaluation path.
+# - `vllm` is included for PrE-Text-style bootstrap compatibility on supported
+#   platforms, but is not required by the first-stage Jobs large-eval path.
 
 PyYAML>=6.0
 accelerate>=0.28
@@ -19,6 +22,9 @@ scipy>=1.12
 safetensors>=0.4
 sentence-transformers>=2.2
 sentencepiece>=0.2
+opacus>=1.4
+peft>=0.10
 torch>=2.1
 transformers>=4.38
 tqdm>=4.66
+vllm>=0.3.3; platform_system != "Windows"

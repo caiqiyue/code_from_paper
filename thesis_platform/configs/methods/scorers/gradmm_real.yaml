@@ -1,0 +1,8 @@
+scorer:
+  name: gradmm_real
+  score_direction: larger_is_worse
+  feature_model: thesis_platform/open_model/roberta_large
+  allow_hashing_fallback: false
+  max_length: 256
+  alpha: 0.25
+  device: auto
