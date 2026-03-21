@@ -1,0 +1,77 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/scorers/datainf_real.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+  - ../../methods/prototypes/minilm_mean.yaml
+  - ../../methods/routing/personalized_v3.yaml
+  - ../../methods/privacy/jobs_eps129.yaml
+
+meta:
+  experiment_id: windows_real_test_3rounds
+  stage: validation_real
+  seed: 42
+
+data:
+  dataset_name: jobs
+  task_type: instruction_tuning
+  sample_format: raw_text
+  partition_strategy: preserve_buckets
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  public_seed_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  max_public_seed_samples: 8
+  num_clients: 2
+  max_samples_per_client: 2
+  validation_ratio: 0.5
+  train_limit: 8
+  eval_limit: 4
+  initialization_limit: 8
+
+# 强制使用真实 LLM（llama_3_2_3b_instruct）
+llm:
+  client:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/llama_3_2_3b_instruct
+    device: cuda
+    dtype: float16
+    temperature: 0.0
+    max_new_tokens: 96
+    use_chat_template: true
+  server:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/llama_3_2_3b_instruct
+    device: cuda
+    dtype: float16
+    temperature: 0.2
+    max_new_tokens: 128
+    use_chat_template: true
+
+generator:
+  name: pretext_prompt_llm
+  generated_per_round: 6
+  exemplars_per_prompt: 1
+  max_new_tokens: 128
+  temperature: 0.2
+  initial_prompt: "Generate concise job-related text."
+
+critic:
+  name: fedtextgrad_llm
+
+scorer:
+  allow_hashing_fallback: false
+
+retriever:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+  top_k: 1
+
+aggregator:
+  allow_hashing_fallback: false
+  cluster_min_samples: 1
+
+federation:
+  rounds: 3
+  top_k_bad: 1

@@ -15,6 +15,7 @@ from . import (
     opt_125m,
     opt_350m,
     phi_1_5,
+    qwen_2_0_5b_instruct,
     roberta_large,
     stable_diffusion_v1_5,
 )

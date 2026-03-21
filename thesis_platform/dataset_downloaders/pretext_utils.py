@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from urllib.parse import urlparse
@@ -15,6 +17,10 @@ except ImportError:  # pragma: no cover - exercised only in minimal environments
 from thesis_platform.core.io_utils import ensure_dir, write_json, write_jsonl
 
 from .common import datasets_root, move_path, remove_path, utc_timestamp
+
+# HuggingFace token for authenticated downloads (improves stability, avoids rate limits)
+# Set via HF_TOKEN environment variable or pass directly
+HF_TOKEN = os.environ.get("HF_TOKEN", None)
 
 PRETEXT_C4_SOURCE_DATASET = "allenai/c4"
 PRETEXT_C4_SOURCE_CONFIG = "en"
@@ -261,13 +267,32 @@ def ensure_pretext_c4_cache(
     progress = tqdm(total=total_samples, desc="PrE-Text C4 cache", unit="sample") if tqdm else None
     iteration_error: Exception | None = None
 
+    # Retry loop for network stability
+    # Note: HF_TOKEN is picked up automatically by datasets library from environment variable
+    max_retries = 5
+    base_delay = 5
+    dataset = None
+    for attempt in range(max_retries):
+        try:
+            dataset = load_dataset(
+                PRETEXT_C4_SOURCE_DATASET,
+                PRETEXT_C4_SOURCE_CONFIG,
+                split=PRETEXT_C4_SOURCE_SPLIT,
+                streaming=True,
+            )
+            break
+        except Exception as exc:
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)
+                print(f"PrE-Text C4 cache | network error (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {exc}")
+                time.sleep(delay)
+            else:
+                iteration_error = exc
+
+    if dataset is None:
+        raise RuntimeError(f"Failed to load C4 dataset after {max_retries} attempts. Last error: {iteration_error}")
+
     try:
-        dataset = load_dataset(
-            PRETEXT_C4_SOURCE_DATASET,
-            PRETEXT_C4_SOURCE_CONFIG,
-            split=PRETEXT_C4_SOURCE_SPLIT,
-            streaming=True,
-        )
         for row in dataset:
             text = _normalize_text(str(row.get("text") or ""))
             if not text or not _valid_text(text):
