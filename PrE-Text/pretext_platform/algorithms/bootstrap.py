@@ -49,8 +49,10 @@ def build_bootstrap_prompts(seed_texts: list[str], *, num_prompts: int, seed: in
     return prompt_list
 
 
-def generate_bootstrapped_samples(prompt_list: list[str], model_path: Path, bootstrap_cfg: dict) -> list[str]:
-    """Run vLLM generation for the bootstrap prompts and return raw outputs."""
+def generate_bootstrapped_samples_vllm(prompt_list: list[str], model_path: Path, bootstrap_cfg: dict) -> list[str]:
+    """Run vLLM generation for the bootstrap prompts and return raw outputs.
+    Linux/macOS only - vLLM is not available on Windows.
+    """
 
     from vllm import LLM, SamplingParams
 
@@ -65,6 +67,119 @@ def generate_bootstrapped_samples(prompt_list: list[str], model_path: Path, boot
     )
     outputs = llm.generate(prompt_list, sampling_params)
     return [output.outputs[0].text for output in outputs]
+
+
+def generate_bootstrapped_samples_hf(
+    prompt_list: list[str], model_path: Path, bootstrap_cfg: dict
+) -> list[str]:
+    """Run HuggingFace Transformers generation for bootstrap prompts.
+    Cross-platform alternative to vLLM - works on Windows, Linux, and macOS.
+    Loads model on CPU first, then moves to GPU for inference.
+    """
+
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
+
+    # Load model with fp16 on CPU first, then move to GPU
+    # device_map='auto' causes segfaults on Windows with certain PyTorch/CUDA versions
+    # Force use_safetensors=True for Windows compatibility (avoids segfault with large bin files)
+    model = AutoModelForCausalLM.from_pretrained(
+        str(model_path),
+        local_files_only=True,
+        torch_dtype=torch.float16,
+        use_safetensors=True,
+    )
+
+    if torch.cuda.is_available():
+        model = model.to("cuda")
+
+    temperature = float(bootstrap_cfg.get("temperature", 1.0))
+    top_p = float(bootstrap_cfg.get("top_p", 1.0))
+    max_tokens = int(bootstrap_cfg.get("max_tokens", 85))
+    # Use smaller batch size for large models to avoid OOM
+    batch_size = int(bootstrap_cfg.get("batch_size", 2))
+
+    outputs = []
+    model.eval()
+
+    with torch.no_grad():
+        for i in range(0, len(prompt_list), batch_size):
+            batch_prompts = prompt_list[i : i + batch_size]
+
+            # Tokenize the batch
+            inputs = tokenizer(
+                batch_prompts,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=int(bootstrap_cfg.get("max_model_len", 1000)) - max_tokens,
+            )
+
+            # Move to device
+            if torch.cuda.is_available():
+                inputs = {k: v.cuda() for k, v in inputs.items()}
+
+            # Generate
+            generated_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                do_sample=temperature > 0,
+                pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+            )
+
+            # Decode
+            for generated in generated_ids:
+                # Remove the prompt from the beginning
+                prompt_length = inputs["input_ids"].shape[1]
+                generated_text = tokenizer.decode(
+                    generated[prompt_length:], skip_special_tokens=True
+                )
+                outputs.append(generated_text)
+
+            # Clear CUDA cache after each batch to prevent OOM
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    return outputs
+
+
+def generate_bootstrapped_samples(
+    prompt_list: list[str], model_path: Path, bootstrap_cfg: dict
+) -> list[str]:
+    """Run generation for the bootstrap prompts using the best available backend.
+
+    On Linux/macOS with vLLM installed: uses vLLM for fast batched inference.
+    On Windows or when vLLM is unavailable: falls back to HuggingFace Transformers.
+
+    To explicitly choose a backend, set `bootstrap.generator_backend` in config:
+    - "vllm": Use vLLM (Linux only)
+    - "huggingface": Use HuggingFace Transformers (cross-platform)
+    """
+
+    backend = bootstrap_cfg.get("generator_backend", "auto")
+
+    if backend == "vllm":
+        return generate_bootstrapped_samples_vllm(prompt_list, model_path, bootstrap_cfg)
+    elif backend == "huggingface":
+        return generate_bootstrapped_samples_hf(prompt_list, model_path, bootstrap_cfg)
+    else:  # "auto"
+        # Try vLLM first, fall back to HuggingFace
+        try:
+            return generate_bootstrapped_samples_vllm(prompt_list, model_path, bootstrap_cfg)
+        except ImportError:
+            import platform
+
+            if platform.system() == "Windows":
+                print(
+                    "vLLM not available on Windows, falling back to HuggingFace Transformers. "
+                    "Note: This is slower than vLLM but produces equivalent results."
+                )
+            return generate_bootstrapped_samples_hf(prompt_list, model_path, bootstrap_cfg)
 
 
 def run_bootstrap_stage(

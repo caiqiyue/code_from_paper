@@ -213,8 +213,14 @@ class ExperimentConfig:
 
         return _deep_merge(
             {
+                "enabled": False,
+                "mode": "sample_critique_upload_proxy",
                 "epsilon": 1.29,
                 "delta": 3e-6,
+                "sample_cost": 0.0,
+                "critique_cost": 0.0,
+                "upload_token_cost": 0.0,
+                "enforce_budget": False,
             },
             self.raw.get("privacy", {}),
         )
@@ -223,15 +229,20 @@ class ExperimentConfig:
     def downstream_eval(self) -> dict[str, Any]:
         """Return the downstream-eval config with v3 defaults."""
 
-        return _deep_merge(
+        config = _deep_merge(
             {
                 "enabled": False,
                 "kind": "none",
                 "export_filename": "llama7b_text_syn.json",
+                "run_large_eval": False,
+                "run_small_eval": False,
                 "baseline_summary_paths": [],
             },
             self.raw.get("downstream_eval", {}),
         )
+        if "run_large_eval" not in self.raw.get("downstream_eval", {}):
+            config["run_large_eval"] = config.get("kind") == "pretext_large_eval"
+        return config
 
     @property
     def evaluation(self) -> dict[str, Any]:

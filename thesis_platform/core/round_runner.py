@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from thesis_platform.algorithms.prototypes.minilm_mean import extract_minilm_mean_prototype
+from thesis_platform.core.artifact_manifest import ARTIFACT_SCHEMA_VERSION
 from thesis_platform.core.context import ClientContext, RoundContext, ServerContext
 from thesis_platform.core.io_utils import ensure_dir, write_json, write_jsonl, write_text
 from thesis_platform.core.logging_utils import get_logger
+from thesis_platform.core.privacy import PrivacyLedger
 from thesis_platform.core.prompt_updater import apply_prompt_update, render_cluster_prompt
 from thesis_platform.core.schemas import Critique, PromptUpdate, PrototypeFeedback, ScoredSample, Sample
 from thesis_platform.core.selector import select_top_k
@@ -33,6 +35,7 @@ class RoundArtifacts:
     prototype_feedbacks: list[PrototypeFeedback]
     cluster_prompts: dict[str, str]
     routing_summary: dict[str, Any]
+    privacy_summary: dict[str, Any]
 
 
 class RoundRunner:
@@ -183,15 +186,26 @@ class RoundRunner:
                     real_samples.append(sample)
             if not real_samples:
                 real_samples = list(client_ctx.train_samples or client_ctx.all_samples)
-            avg_bad_score = (
-                sum(float(sample.score) for sample in selected_bad) / len(selected_bad) if selected_bad else 1.0
-            )
+            # R_k utility score: use pure influence_score from scorer, normalized to [0, 1]
+            # influence_score represents how much harm the bad sample causes to local validation loss
+            # Higher influence_score = more harmful = higher utility for routing
+            if selected_bad:
+                raw_influence_scores = [float(sample.meta.get("influence_score", sample.score)) for sample in selected_bad]
+                # Normalize to [0, 1] using min-max scaling across selected bad samples
+                min_inf = min(raw_influence_scores)
+                max_inf = max(raw_influence_scores)
+                if max_inf > min_inf:
+                    r_k_utility = sum((x - min_inf) / (max_inf - min_inf) for x in raw_influence_scores) / len(raw_influence_scores)
+                else:
+                    r_k_utility = 0.5  # neutral when all scores are equal
+            else:
+                r_k_utility = 0.5
             feedback = extract_minilm_mean_prototype(
                 client_id=client_ctx.client_id,
                 round_id=round_id,
                 samples=real_samples,
                 embedder=client_ctx.embedder,
-                weight=avg_bad_score,
+                weight=r_k_utility,
             )
             client_ctx.prototype_vector = list(feedback.prototype_vector)
             client_ctx.prototype_weight = float(feedback.weight)
@@ -234,6 +248,7 @@ class RoundRunner:
         output_dir: Path,
         prototype_cfg: dict[str, Any] | None = None,
         routing_cfg: dict[str, Any] | None = None,
+        privacy_ledger: PrivacyLedger | None = None,
     ) -> RoundArtifacts:
         """Run one full federation round and persist its artifacts to disk."""
 
@@ -409,6 +424,47 @@ class RoundRunner:
         round_metrics["assigned_generated_count"] = len(client_assigned_samples)
         round_metrics["prototype_count"] = len(prototype_feedbacks)
         round_metrics["personalized_mix_ratio"] = personalized_mix_ratio if routing_enabled else 0.0
+        privacy_summary = (
+            privacy_ledger.record_round(
+                round_id=round_id,
+                sample_count=len(client_assigned_samples),
+                critique_count=len(critiques),
+                upload_token_count=upload_tokens,
+            )
+            if privacy_ledger is not None
+            else {
+                "round_id": round_id,
+                "privacy_enabled": False,
+                "privacy_mode": "disabled",
+                "epsilon_budget": None,
+                "delta_budget": None,
+                "privacy_spent": 0.0,
+                "privacy_spent_cumulative": 0.0,
+                "privacy_budget_left": None,
+                "privacy_budget_exceeded": False,
+                "privacy_event_counts": {
+                    "sample_count": len(client_assigned_samples),
+                    "critique_count": len(critiques),
+                    "upload_token_count": upload_tokens,
+                },
+                "privacy_spend_breakdown": {
+                    "samples": 0.0,
+                    "critiques": 0.0,
+                    "upload_tokens": 0.0,
+                },
+            }
+        )
+        round_metrics.update(
+            {
+                "privacy_enabled": privacy_summary["privacy_enabled"],
+                "privacy_mode": privacy_summary["privacy_mode"],
+                "privacy_spent": privacy_summary["privacy_spent"],
+                "privacy_spent_cumulative": privacy_summary["privacy_spent_cumulative"],
+                "privacy_budget_left": privacy_summary["privacy_budget_left"],
+                "privacy_budget_exceeded": privacy_summary["privacy_budget_exceeded"],
+            }
+        )
+        round_metrics["privacy"] = privacy_summary
 
         probe_entries = [metrics for metrics in probe_metrics.values() if metrics]
         if probe_entries:
@@ -426,6 +482,10 @@ class RoundRunner:
             round_metrics["prototype_cluster_count"] = 0
 
         routing_summary = {
+            "schema_version": ARTIFACT_SCHEMA_VERSION,
+            "artifact_type": "routing_summary",
+            "experiment_id": server_ctx.experiment_id,
+            "round_id": round_id,
             "enabled": routing_enabled,
             "personalized_mix_ratio": personalized_mix_ratio if routing_enabled else 0.0,
             "candidate_pool_counts": {key: len(value) for key, value in generated_pools.items()},
@@ -433,6 +493,20 @@ class RoundRunner:
             "prototype_count": len(prototype_feedbacks),
             "client_cluster_map": dict(server_ctx.client_cluster_map),
             "cluster_prompt_count": len(cluster_prompts),
+        }
+        round_metrics_payload = {
+            "schema_version": ARTIFACT_SCHEMA_VERSION,
+            "artifact_type": "round_metrics",
+            "experiment_id": server_ctx.experiment_id,
+            "round_id": round_id,
+            **round_metrics,
+        }
+        probe_metrics_payload = {
+            "schema_version": ARTIFACT_SCHEMA_VERSION,
+            "artifact_type": "probe_metrics",
+            "experiment_id": server_ctx.experiment_id,
+            "round_id": round_id,
+            "clients": probe_metrics,
         }
 
         self.logger.info("Round %d | writing artifacts to %s", display_round, output_dir)
@@ -461,8 +535,8 @@ class RoundRunner:
             if prompt_update.meta.get("prototype_clusters"):
                 write_json(output_dir / "prototype_clusters.json", prompt_update.meta["prototype_clusters"])
         if probe_metrics:
-            write_json(output_dir / "probe_metrics.json", probe_metrics)
-        write_json(output_dir / "round_metrics.json", round_metrics)
+            write_json(output_dir / "probe_metrics.json", probe_metrics_payload)
+        write_json(output_dir / "round_metrics.json", round_metrics_payload)
         self.logger.info("Round %d | artifacts persisted", display_round)
 
         del server_start
@@ -479,4 +553,5 @@ class RoundRunner:
             prototype_feedbacks=prototype_feedbacks,
             cluster_prompts=cluster_prompts,
             routing_summary=routing_summary,
+            privacy_summary=privacy_summary,
         )

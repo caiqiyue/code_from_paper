@@ -2,12 +2,15 @@ downstream_eval:
   enabled: true
   kind: pretext_large_eval
   export_filename: llama7b_text_syn.json
+  run_large_eval: true
+  run_small_eval: false
   dataset_root: thesis_platform/datasets
   model_root: thesis_platform/open_model
   llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
   minilm_path: thesis_platform/open_model/all_minilm_l6_v2
   roberta_large_path: thesis_platform/open_model/roberta_large
   distilgpt2_path: thesis_platform/open_model/distilgpt2
+  c4_checkpoint_path: ""
   cutoff_len: 64
   grad_accum_steps: 16
   epochs: 1

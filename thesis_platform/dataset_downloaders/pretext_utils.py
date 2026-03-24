@@ -4,7 +4,6 @@ import hashlib
 import json
 import os
 import random
-import time
 from collections.abc import Iterable
 from pathlib import Path
 from urllib.parse import urlparse
@@ -215,6 +214,28 @@ def ensure_pretext_c4_cache(
 
     from datasets import load_dataset
 
+    # Download ALL of C4-en once (not streaming), then iterate from local cache.
+    # This avoids thousands of fragile HTTP requests during streaming.
+    # The datasets library handles retries and caching internally.
+    print("PrE-Text C4 cache | downloading full C4-en dataset (this takes a while)...")
+    try:
+        full_dataset = load_dataset(
+            PRETEXT_C4_SOURCE_DATASET,
+            PRETEXT_C4_SOURCE_CONFIG,
+            split=PRETEXT_C4_SOURCE_SPLIT,
+            streaming=False,
+            download_mode="reuse_cache_if_exists",
+        )
+        # Convert to iterable list so we can iterate without network I/O
+        all_rows = list(full_dataset)
+        print(f"PrE-Text C4 cache | loaded {len(all_rows)} rows from cache, now filtering...")
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to download/load C4 dataset. Error: {exc}. "
+            "Note: HF_TOKEN is set but the dataset library may need additional config. "
+            "Try setting HF_TOKEN in environment before running."
+        ) from exc
+
     temp_root = datasets_root() / "_pretext_c4_cache_build"
     remove_path(temp_root)
     ensure_dir(temp_root)
@@ -267,33 +288,9 @@ def ensure_pretext_c4_cache(
     progress = tqdm(total=total_samples, desc="PrE-Text C4 cache", unit="sample") if tqdm else None
     iteration_error: Exception | None = None
 
-    # Retry loop for network stability
-    # Note: HF_TOKEN is picked up automatically by datasets library from environment variable
-    max_retries = 5
-    base_delay = 5
-    dataset = None
-    for attempt in range(max_retries):
-        try:
-            dataset = load_dataset(
-                PRETEXT_C4_SOURCE_DATASET,
-                PRETEXT_C4_SOURCE_CONFIG,
-                split=PRETEXT_C4_SOURCE_SPLIT,
-                streaming=True,
-            )
-            break
-        except Exception as exc:
-            if attempt < max_retries - 1:
-                delay = base_delay * (2 ** attempt)
-                print(f"PrE-Text C4 cache | network error (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {exc}")
-                time.sleep(delay)
-            else:
-                iteration_error = exc
-
-    if dataset is None:
-        raise RuntimeError(f"Failed to load C4 dataset after {max_retries} attempts. Last error: {iteration_error}")
-
+    # Iterate from local data (no network needed) - just filter and classify
     try:
-        for row in dataset:
+        for row in all_rows:
             text = _normalize_text(str(row.get("text") or ""))
             if not text or not _valid_text(text):
                 continue
@@ -325,11 +322,12 @@ def ensure_pretext_c4_cache(
                 break
     except Exception as exc:
         iteration_error = exc
-    finally:
-        if progress:
-            progress.close()
-        for handle in list(file_handles.values()):
-            handle.close()
+
+    # Always close file handles when done (success or failure)
+    if progress:
+        progress.close()
+    for handle in list(file_handles.values()):
+        handle.close()
 
     missing = {
         category: target - counts[category]

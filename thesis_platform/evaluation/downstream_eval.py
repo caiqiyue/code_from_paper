@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from thesis_platform.core.artifact_manifest import ARTIFACT_SCHEMA_VERSION
 from thesis_platform.core.io_utils import ensure_dir, to_jsonable, write_json
 
 
@@ -14,7 +15,7 @@ def export_synthetic_corpus(
     output_dir: Path,
     filename: str = "llama7b_text_syn.json",
 ) -> Path:
-    """Write the final synthetic corpus in the format expected by pretext large-eval."""
+    """Write the final synthetic corpus in the format expected by downstream evaluation."""
 
     output_dir = ensure_dir(output_dir)
     corpus_path = output_dir / filename
@@ -36,21 +37,18 @@ def _ensure_pretext_import(repo_root: Path) -> None:
         sys.path.insert(0, str(pretext_root))
 
 
-def run_pretext_large_eval(thesis_config, *, stage2_dir: Path, output_dir: Path) -> dict[str, Any]:
-    """Run the PrE-Text large-model downstream evaluation in-process."""
-
-    repo_root = thesis_config.repo_root()
-    _ensure_pretext_import(repo_root)
-
-    from pretext_platform.core.config import ExperimentConfig as PretextExperimentConfig
-    from pretext_platform.core.models import resolve_model_paths
-    from pretext_platform.data.loaders import load_dataset_bundle
-    from pretext_platform.evaluation.llama2_eval import run_llama2_eval
-
+def _build_pretext_raw(
+    thesis_config,
+    *,
+    output_dir: Path,
+    enable_large_eval: bool,
+    enable_small_eval: bool,
+) -> dict[str, Any]:
     downstream_cfg = thesis_config.downstream_eval
-    pretext_raw = {
+    repo_root = thesis_config.repo_root()
+    return {
         "meta": {
-            "experiment_id": f"{thesis_config.meta.get('experiment_id', 'experiment')}_pretext_large_eval",
+            "experiment_id": f"{thesis_config.meta.get('experiment_id', 'experiment')}_pretext_eval",
             "seed": int(thesis_config.meta.get("seed", 42)),
         },
         "paths": {
@@ -108,9 +106,18 @@ def run_pretext_large_eval(thesis_config, *, stage2_dir: Path, output_dir: Path)
         },
         "stage1": {"enabled": False, "rounds": 1},
         "bootstrap": {"enabled": False},
-        "eval_small": {"enabled": False},
+        "eval_small": {
+            "enabled": enable_small_eval,
+            "cutoff_len": int(downstream_cfg.get("small_cutoff_len", downstream_cfg.get("cutoff_len", 64))),
+            "grad_accum_steps": int(downstream_cfg.get("small_grad_accum_steps", 64)),
+            "epochs": int(downstream_cfg.get("small_epochs", 20)),
+            "batch_size": int(downstream_cfg.get("small_batch_size", 256)),
+            "eval_batch_size": int(downstream_cfg.get("small_eval_batch_size", 8)),
+            "learning_rate": float(downstream_cfg.get("small_learning_rate", 0.0002)),
+            "num_proc": int(downstream_cfg.get("small_num_proc", 1)),
+        },
         "eval_large": {
-            "enabled": True,
+            "enabled": enable_large_eval,
             "cutoff_len": int(downstream_cfg.get("cutoff_len", 64)),
             "grad_accum_steps": int(downstream_cfg.get("grad_accum_steps", 16)),
             "epochs": int(downstream_cfg.get("epochs", 1)),
@@ -126,10 +133,63 @@ def run_pretext_large_eval(thesis_config, *, stage2_dir: Path, output_dir: Path)
             "device": str(thesis_config.runtime.get("device", "cuda")),
         },
     }
-    pretext_config = PretextExperimentConfig.from_mapping(pretext_raw, base_dir=repo_root, name="thesis_v3_pretext_eval.yaml")
+
+
+def _build_pretext_config(thesis_config, *, output_dir: Path, enable_large_eval: bool, enable_small_eval: bool):
+    repo_root = thesis_config.repo_root()
+    _ensure_pretext_import(repo_root)
+
+    from pretext_platform.core.config import ExperimentConfig as PretextExperimentConfig
+
+    return PretextExperimentConfig.from_mapping(
+        _build_pretext_raw(
+            thesis_config,
+            output_dir=output_dir,
+            enable_large_eval=enable_large_eval,
+            enable_small_eval=enable_small_eval,
+        ),
+        base_dir=repo_root,
+        name="thesis_v3_pretext_eval.yaml",
+    )
+
+
+def run_pretext_large_eval(thesis_config, *, stage2_dir: Path, output_dir: Path) -> dict[str, Any]:
+    """Run the PrE-Text large-model downstream evaluation in-process."""
+
+    pretext_config = _build_pretext_config(
+        thesis_config,
+        output_dir=output_dir,
+        enable_large_eval=True,
+        enable_small_eval=False,
+    )
+
+    from pretext_platform.core.models import resolve_model_paths
+    from pretext_platform.data.loaders import load_dataset_bundle
+    from pretext_platform.evaluation.llama2_eval import run_llama2_eval
+
     dataset_bundle = load_dataset_bundle(pretext_config)
     model_paths = resolve_model_paths(pretext_config)
     summary = run_llama2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
+    return to_jsonable(summary)
+
+
+def run_pretext_small_eval(thesis_config, *, stage2_dir: Path, output_dir: Path) -> dict[str, Any]:
+    """Run the PrE-Text small-model downstream evaluation in-process."""
+
+    pretext_config = _build_pretext_config(
+        thesis_config,
+        output_dir=output_dir,
+        enable_large_eval=False,
+        enable_small_eval=True,
+    )
+
+    from pretext_platform.core.models import resolve_model_paths
+    from pretext_platform.data.loaders import load_dataset_bundle
+    from pretext_platform.evaluation.distilgpt2_eval import run_distilgpt2_eval
+
+    dataset_bundle = load_dataset_bundle(pretext_config)
+    model_paths = resolve_model_paths(pretext_config)
+    summary = run_distilgpt2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
     return to_jsonable(summary)
 
 
@@ -146,3 +206,263 @@ def collect_baseline_summaries(repo_root: Path, summary_paths: list[str], *, out
             resolved[raw_path] = json.load(handle)
     write_json(ensure_dir(output_dir) / "baseline_summaries.json", resolved)
     return resolved
+
+
+class DownstreamEvalManager:
+    """Own the whole v3 downstream-eval lifecycle and stable reporting contract."""
+
+    def __init__(self, thesis_config, *, experiment_id: str, output_dir: Path):
+        self.thesis_config = thesis_config
+        self.experiment_id = experiment_id
+        self.output_dir = ensure_dir(output_dir)
+        self.repo_root = thesis_config.repo_root()
+        self.downstream_cfg = thesis_config.downstream_eval
+
+    def _stage_summary_path(self, stage_key: str) -> Path:
+        return self.output_dir / f"pretext_{stage_key}_summary.json"
+
+    def _stage_disabled_payload(self, *, stage_key: str, stage_name: str, message: str) -> dict[str, Any]:
+        return {
+            "schema_version": ARTIFACT_SCHEMA_VERSION,
+            "artifact_type": f"downstream_eval_{stage_key}_summary",
+            "experiment_id": self.experiment_id,
+            "stage_key": stage_key,
+            "stage_name": stage_name,
+            "enabled": False,
+            "status": "disabled",
+            "message": message,
+            "summary_path": str(self._stage_summary_path(stage_key)),
+            "metrics": {},
+            "artifacts": {},
+            "missing_assets": [],
+        }
+
+    def _missing_assets(self, required_paths: dict[str, Path | None]) -> list[dict[str, str]]:
+        missing: list[dict[str, str]] = []
+        for label, path in required_paths.items():
+            if path is None or not path.exists():
+                missing.append({"label": label, "path": str(path or Path("<unset>"))})
+        return missing
+
+    def _write_stage_payload(self, stage_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+        path = self._stage_summary_path(stage_key)
+        payload["summary_path"] = str(path)
+        write_json(path, payload)
+        return payload
+
+    def _run_large_stage(self, *, stage2_dir: Path) -> dict[str, Any]:
+        stage_key = "large_eval"
+        stage_name = "eval_large"
+        if not bool(self.downstream_cfg.get("run_large_eval", False)):
+            return self._write_stage_payload(
+                stage_key,
+                self._stage_disabled_payload(
+                    stage_key=stage_key,
+                    stage_name=stage_name,
+                    message="large_eval is disabled by downstream_eval.run_large_eval.",
+                ),
+            )
+
+        missing_assets = self._missing_assets(
+            {
+                "model_root": self.thesis_config.resolve_path(self.downstream_cfg.get("model_root", "thesis_platform/open_model")),
+                "llama2_7b_path": self.thesis_config.resolve_path(
+                    self.downstream_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")
+                ),
+            }
+        )
+        output_dir = ensure_dir(self.output_dir / "pretext_large_eval")
+        if missing_assets:
+            return self._write_stage_payload(
+                stage_key,
+                {
+                    "schema_version": ARTIFACT_SCHEMA_VERSION,
+                    "artifact_type": f"downstream_eval_{stage_key}_summary",
+                    "experiment_id": self.experiment_id,
+                    "stage_key": stage_key,
+                    "stage_name": stage_name,
+                    "enabled": True,
+                    "status": "blocked_missing_asset",
+                    "message": "large_eval cannot run because required assets are missing.",
+                    "output_dir": str(output_dir),
+                    "metrics": {},
+                    "artifacts": {},
+                    "missing_assets": missing_assets,
+                },
+            )
+
+        try:
+            raw_summary = run_pretext_large_eval(self.thesis_config, stage2_dir=stage2_dir, output_dir=output_dir)
+            return self._write_stage_payload(
+                stage_key,
+                {
+                    "schema_version": ARTIFACT_SCHEMA_VERSION,
+                    "artifact_type": f"downstream_eval_{stage_key}_summary",
+                    "experiment_id": self.experiment_id,
+                    "stage_key": stage_key,
+                    "stage_name": raw_summary.get("stage_name", stage_name),
+                    "enabled": True,
+                    "status": "completed",
+                    "message": raw_summary.get("message", ""),
+                    "output_dir": str(output_dir),
+                    "metrics": raw_summary.get("metrics", {}),
+                    "artifacts": raw_summary.get("artifacts", {}),
+                    "result": raw_summary,
+                    "missing_assets": [],
+                },
+            )
+        except Exception as exc:  # pragma: no cover - exercised through integration runs
+            return self._write_stage_payload(
+                stage_key,
+                {
+                    "schema_version": ARTIFACT_SCHEMA_VERSION,
+                    "artifact_type": f"downstream_eval_{stage_key}_summary",
+                    "experiment_id": self.experiment_id,
+                    "stage_key": stage_key,
+                    "stage_name": stage_name,
+                    "enabled": True,
+                    "status": "failed",
+                    "message": str(exc),
+                    "error_type": type(exc).__name__,
+                    "output_dir": str(output_dir),
+                    "metrics": {},
+                    "artifacts": {},
+                    "missing_assets": [],
+                },
+            )
+
+    def _run_small_stage(self, *, stage2_dir: Path) -> dict[str, Any]:
+        stage_key = "small_eval"
+        stage_name = "eval_small"
+        if not bool(self.downstream_cfg.get("run_small_eval", False)):
+            return self._write_stage_payload(
+                stage_key,
+                self._stage_disabled_payload(
+                    stage_key=stage_key,
+                    stage_name=stage_name,
+                    message="small_eval is disabled by downstream_eval.run_small_eval.",
+                ),
+            )
+
+        missing_assets = self._missing_assets(
+            {
+                "distilgpt2_path": self.thesis_config.resolve_path(
+                    self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
+                ),
+                "c4_checkpoint_path": self.thesis_config.resolve_path(self.downstream_cfg.get("c4_checkpoint_path")),
+            }
+        )
+        output_dir = ensure_dir(self.output_dir / "pretext_small_eval")
+        if missing_assets:
+            return self._write_stage_payload(
+                stage_key,
+                {
+                    "schema_version": ARTIFACT_SCHEMA_VERSION,
+                    "artifact_type": f"downstream_eval_{stage_key}_summary",
+                    "experiment_id": self.experiment_id,
+                    "stage_key": stage_key,
+                    "stage_name": stage_name,
+                    "enabled": True,
+                    "status": "blocked_missing_asset",
+                    "message": "small_eval cannot run because required assets are missing.",
+                    "output_dir": str(output_dir),
+                    "metrics": {},
+                    "artifacts": {},
+                    "missing_assets": missing_assets,
+                },
+            )
+
+        try:
+            raw_summary = run_pretext_small_eval(self.thesis_config, stage2_dir=stage2_dir, output_dir=output_dir)
+            return self._write_stage_payload(
+                stage_key,
+                {
+                    "schema_version": ARTIFACT_SCHEMA_VERSION,
+                    "artifact_type": f"downstream_eval_{stage_key}_summary",
+                    "experiment_id": self.experiment_id,
+                    "stage_key": stage_key,
+                    "stage_name": raw_summary.get("stage_name", stage_name),
+                    "enabled": True,
+                    "status": "completed",
+                    "message": raw_summary.get("message", ""),
+                    "output_dir": str(output_dir),
+                    "metrics": raw_summary.get("metrics", {}),
+                    "artifacts": raw_summary.get("artifacts", {}),
+                    "result": raw_summary,
+                    "missing_assets": [],
+                },
+            )
+        except Exception as exc:  # pragma: no cover - exercised through integration runs
+            return self._write_stage_payload(
+                stage_key,
+                {
+                    "schema_version": ARTIFACT_SCHEMA_VERSION,
+                    "artifact_type": f"downstream_eval_{stage_key}_summary",
+                    "experiment_id": self.experiment_id,
+                    "stage_key": stage_key,
+                    "stage_name": stage_name,
+                    "enabled": True,
+                    "status": "failed",
+                    "message": str(exc),
+                    "error_type": type(exc).__name__,
+                    "output_dir": str(output_dir),
+                    "metrics": {},
+                    "artifacts": {},
+                    "missing_assets": [],
+                },
+            )
+
+    def _write_pretext_alias(self, corpus_path: Path) -> Path:
+        alias_path = corpus_path.parent / "llama7b_text_syn.json"
+        if alias_path != corpus_path:
+            alias_path.write_text(corpus_path.read_text(encoding="utf-8"), encoding="utf-8")
+        return alias_path
+
+    def run(self, synthetic_texts: list[str]) -> dict[str, Any]:
+        """Run downstream export, optional pretext eval stages, and baseline collection."""
+
+        stage2_dir = ensure_dir(self.output_dir / "stage2")
+        corpus_path = export_synthetic_corpus(
+            synthetic_texts,
+            output_dir=stage2_dir,
+            filename=str(self.downstream_cfg.get("export_filename", "llama7b_text_syn.json")),
+        )
+        canonical_corpus_path = self._write_pretext_alias(corpus_path)
+        large_stage = self._run_large_stage(stage2_dir=stage2_dir)
+        small_stage = self._run_small_stage(stage2_dir=stage2_dir)
+        baseline_paths = list(self.downstream_cfg.get("baseline_summary_paths", []))
+        baseline_summaries = collect_baseline_summaries(self.repo_root, baseline_paths, output_dir=self.output_dir)
+        baseline_summaries_path = self.output_dir / "baseline_summaries.json"
+
+        stage_statuses = [large_stage.get("status"), small_stage.get("status")]
+        if "failed" in stage_statuses:
+            overall_status = "failed"
+        elif "blocked_missing_asset" in stage_statuses:
+            overall_status = "completed_with_blocked_stages"
+        else:
+            overall_status = "completed"
+
+        primary_stage = large_stage if large_stage.get("status") == "completed" else small_stage
+        summary = {
+            "schema_version": ARTIFACT_SCHEMA_VERSION,
+            "artifact_type": "downstream_eval_summary",
+            "experiment_id": self.experiment_id,
+            "enabled": True,
+            "kind": self.downstream_cfg.get("kind", "none"),
+            "status": overall_status,
+            "stage_name": primary_stage.get("stage_name", ""),
+            "metrics": primary_stage.get("metrics", {}),
+            "synthetic_corpus_path": str(corpus_path),
+            "canonical_synthetic_corpus_path": str(canonical_corpus_path),
+            "stage2_dir": str(stage2_dir),
+            "stages": {
+                "large_eval": large_stage,
+                "small_eval": small_stage,
+            },
+            "baseline_summaries": baseline_summaries,
+            "baseline_summaries_path": str(baseline_summaries_path),
+        }
+        summary_path = self.output_dir / "downstream_eval_summary.json"
+        summary["summary_path"] = str(summary_path)
+        write_json(summary_path, summary)
+        return summary

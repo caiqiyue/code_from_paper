@@ -22,7 +22,29 @@
       "Bash(cmd /c \"dir D:\\\\anaconda\\\\envs\\\\RecommendSystem\\\\python.exe\")",
       "Bash(where python:*)",
       "Bash(conda run:*)",
-      "Bash(python -c \"import thesis_platform.dataset_downloaders.pretext_utils\")"
+      "Bash(python -c \"import thesis_platform.dataset_downloaders.pretext_utils\")",
+      "Bash(python -c \"import thesis_platform.dataset_downloaders.pretext_utils; print\\(''OK''\\)\")",
+      "Bash(find D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/open_model/flan_t5_3b/.cache -name *.incomplete)",
+      "WebSearch",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(systeminfo)",
+      "Bash(findstr '/C:Total Physical Memory' '/C:Available Physical Memory' '/C:Virtual Memory' /C:Display)",
+      "Bash(nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv)",
+      "Bash(dir \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\datasets\" /b)",
+      "Bash(dir \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\open_model\" /b)",
+      "Bash(dir \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\datasets\\\\pretext_jobs\\\\formatted\")",
+      "Bash(dir \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\datasets\\\\pretext_initialization_c4_en\\\\formatted\")",
+      "Bash(wmic OS get TotalVisibleMemorySize,FreePhysicalMemory /value)",
+      "Bash(dir \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\datasets\\\\pretext_jobs\" /b /a)",
+      "Bash(pip install:*)",
+      "Bash(set PYTHONPATH=D:/学习记录/导师项目/研究/caiqiyue_file)",
+      "Bash(python -m thesis_platform.dataset_downloaders.controller --download --names congressional,bioarxiv --include-optional)",
+      "Bash(python -c \":*)",
+      "Read(//d/tmp/**)",
+      "Bash(pip show:*)",
+      "Bash(/d/python311/python -c \"import datasets; print\\(datasets.__path__\\)\")",
+      "Bash(PYTHONPATH=\"D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform\" python -c \":*)"
     ]
   }
 }

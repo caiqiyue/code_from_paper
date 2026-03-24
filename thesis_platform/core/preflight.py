@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+from thesis_platform.core.privacy import PrivacyPolicy
+
 
 def _module_available(module_name: str) -> bool:
     """Return true when one Python module can be imported in the active environment."""
@@ -24,6 +26,12 @@ def validate_preflight(config) -> None:
     prototype_name = str(config.prototype.get("name", "")).lower()
     routing_enabled = bool(config.routing.get("enabled", False))
     downstream_eval = config.downstream_eval
+    privacy_policy = PrivacyPolicy.from_config(config.privacy)
+
+    try:
+        privacy_policy.validate()
+    except ValueError as exc:
+        asset_errors.append(str(exc))
 
     if scorer_name in {"datainf_real", "gradmm_real"}:
         for module_name, package_name in {
@@ -85,7 +93,8 @@ def validate_preflight(config) -> None:
         if model_path is None or not model_path.exists():
             asset_errors.append(f"missing {role} text backend model: {_display_path(model_path or Path('<unset>'))}")
 
-    if downstream_eval.get("enabled") and downstream_eval.get("kind") == "pretext_large_eval":
+    run_large_eval = bool(downstream_eval.get("enabled")) and bool(downstream_eval.get("run_large_eval"))
+    if run_large_eval:
         model_root = config.resolve_path(downstream_eval.get("model_root", "thesis_platform/open_model"))
         llama_path = config.resolve_path(
             downstream_eval.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")

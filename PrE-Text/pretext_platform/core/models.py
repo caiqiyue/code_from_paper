@@ -28,6 +28,9 @@ def resolve_model_paths(config: ExperimentConfig) -> ModelPaths:
         minilm=_resolve_model_dir(config, models_cfg.get("minilm_path"), "all_minilm_l6_v2"),
         roberta_large=_resolve_model_dir(config, models_cfg.get("roberta_large_path"), "roberta_large"),
         llama2_7b=_resolve_model_dir(config, models_cfg.get("llama2_7b_path"), "llama_2_7b_hf"),
+        llama_3_2_3b_instruct=_resolve_model_dir(
+            config, models_cfg.get("llama_3_2_3b_instruct_path"), "llama_3_2_3b_instruct"
+        ),
         distilgpt2=_resolve_model_dir(config, models_cfg.get("distilgpt2_path"), "distilgpt2"),
         c4_checkpoint=c4_checkpoint,
     )

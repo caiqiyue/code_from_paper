@@ -67,16 +67,38 @@ def run_eval_small(config: ExperimentConfig) -> StageSummary:
 
 
 def run_eval_large(config: ExperimentConfig) -> StageSummary:
-    """Run only the LLaMA2 downstream evaluation."""
+    """Run only the large-model downstream evaluation.
+
+    Supports two modes:
+    - "peft_lora": LLaMA-2-7B + PEFT LoRA (requires Linux for PEFT compatibility)
+    - "full_finetune": Llama-3.2-3B-Instruct full fine-tuning (Windows compatible)
+    """
 
     from pretext_platform.core.models import resolve_model_paths
     from pretext_platform.data.loaders import load_dataset_bundle
-    from pretext_platform.evaluation.llama2_eval import run_llama2_eval
 
     dataset_bundle = load_dataset_bundle(config)
     model_paths = resolve_model_paths(config)
     experiment_dir = _experiment_dir(config)
-    summary = run_llama2_eval(config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large")
+
+    eval_cfg = config.eval_large
+    eval_mode = eval_cfg.get("eval_mode", "peft_lora")
+
+    if eval_mode == "full_finetune":
+        # Llama-3.2-3B-Instruct full fine-tuning (Windows compatible)
+        from pretext_platform.evaluation.llama32_eval import run_llama32_eval
+
+        summary = run_llama32_eval(
+            config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large"
+        )
+    else:
+        # LLaMA-2-7B + PEFT LoRA (Linux recommended)
+        from pretext_platform.evaluation.llama2_eval import run_llama2_eval
+
+        summary = run_llama2_eval(
+            config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large"
+        )
+
     _write_stage_summary(experiment_dir, "eval_large_summary.json", summary)
     write_json(experiment_dir / "resolved_config.json", config.raw)
     return summary

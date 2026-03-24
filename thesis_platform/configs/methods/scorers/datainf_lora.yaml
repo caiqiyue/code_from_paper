@@ -1,0 +1,39 @@
+# DataInf LoRA-based Scorer Configuration
+# Uses real LoRA gradients for influence computation
+
+scorer:
+  name: datainf_lora
+  score_direction: larger_is_worse
+  
+  # HVP computation method
+  # - proposed: Closed-form DataInf approximation (recommended, fastest)
+  # - lissa: LiSSA recursion (more accurate but slower)
+  # - accurate: Eigenvalue decomposition (most accurate but very slow)
+  hvp_method: proposed
+  
+  # Lambda damping parameter for HVP computation
+  # Higher values = more stable but less accurate
+  lambda_const_param: 10.0
+  
+  # LiSSA iterations (only used when hvp_method=lissa)
+  lissa_iterations: 10
+  
+  # LoRA configuration
+  model_name: microsoft/phi-1_5  # Base model path
+  lora_rank: 8  # LoRA rank (r parameter)
+  target_modules:  # Modules to apply LoRA to
+    - q_proj
+    - v_proj
+  
+  # Device configuration
+  device: auto  # auto, cuda, or cpu
+  
+  # Gradient computation mode
+  # - true: Use real LoRA gradients (requires peft library)
+  # - false: Fall back to feature-based approximation
+  use_real_gradients: true
+  
+  # Fallback feature encoder (when use_real_gradients=false)
+  feature_model: thesis_platform/open_model/roberta_large
+  allow_hashing_fallback: false
+  max_length: 256

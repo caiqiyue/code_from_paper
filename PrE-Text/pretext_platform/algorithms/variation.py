@@ -10,6 +10,13 @@ from torch.utils.data import DataLoader
 from pretext_platform.algorithms.datasets import MatrixDataset
 
 
+def _variation_collate_fn(variation_deg, tokenizer):
+    """Create a picklable collate function for variation. Returns a function that can be pickled on Windows."""
+    def collate_fn(x):
+        return Variation.collate_fn_tokenizer(x, variation_deg, tokenizer)
+    return collate_fn
+
+
 def top_k_top_p_filtering(
     logits: Tensor,
     top_k: int = 0,
@@ -117,7 +124,7 @@ class Variation:
                 parent_dataset,
                 batch_size=config["batch_size"],
                 num_workers=config["num_workers"],
-                collate_fn=lambda x: Variation.collate_fn_tokenizer(x, variation_deg, tokenizer),
+                collate_fn=_variation_collate_fn(variation_deg, tokenizer),
             )
             population_dataloader = accelerator.prepare(population_dataloader)
             offspring = []

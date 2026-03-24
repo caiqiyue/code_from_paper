@@ -1,0 +1,38 @@
+# GRADMM LoRA-based Scorer Configuration
+# Uses real LoRA gradients for gradient mismatch computation
+
+scorer:
+  name: gradmm_lora
+  score_direction: larger_is_worse
+  
+  # Gradient distance metric
+  # - cos: Cosine distance (1 - cosine_similarity) - recommended
+  # - euclidean: Euclidean distance (L2 norm)
+  # - l1: L1 distance (Manhattan distance)
+  metric: cos
+  
+  # Gradient clipping method
+  # - "": No clipping (default)
+  # - elem: Element-wise clipping to [-1, 1]
+  # - norm: Norm-based clipping
+  grad_clip: ""
+  
+  # LoRA configuration
+  model_name: microsoft/phi-1_5  # Base model path
+  lora_rank: 8  # LoRA rank (r parameter)
+  target_modules:  # Modules to apply LoRA to
+    - q_proj
+    - v_proj
+  
+  # Device configuration
+  device: auto  # auto, cuda, or cpu
+  
+  # Gradient computation mode
+  # - true: Use real LoRA gradients (requires peft library)
+  # - false: Fall back to feature-based approximation
+  use_real_gradients: true
+  
+  # Fallback feature encoder (when use_real_gradients=false)
+  feature_model: thesis_platform/open_model/roberta_large
+  allow_hashing_fallback: false
+  max_length: 256

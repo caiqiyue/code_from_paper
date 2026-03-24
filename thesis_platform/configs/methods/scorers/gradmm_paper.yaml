@@ -1,0 +1,23 @@
+# Paper-grade GRADMM scorer configuration
+# Uses real gradient matching from GRADMM paper
+
+scorer:
+  name: gradmm_paper
+  score_direction: larger_is_worse
+  # Gradient distance metric: cos (cosine distance), dlg (DLG), tag (TAG)
+  metric: cos
+  # Gradient clipping: "", "elem" (element-wise), or "norm" (norm-based)
+  grad_clip: ""
+  # Model configuration
+  model_name: microsoft/phi-1_5
+  lora_checkpoint: null  # Path to LoRA checkpoint
+  # Whether to use real gradients (requires LoRA model)
+  use_real_gradients: false  # Set to true when LoRA model available
+  # Fallback feature encoder (when use_real_gradients=false)
+  feature_model: thesis_platform/open_model/roberta_large
+  allow_hashing_fallback: false
+  max_length: 256
+  device: auto
+  # Optional: Use greedy selection instead of individual scoring
+  use_greedy_selection: false
+  top_k: 10

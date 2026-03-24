@@ -1,4 +1,6 @@
-"""LLaMA 2 downstream evaluation on synthetic data."""
+"""GPT-2 downstream evaluation on synthetic data - Windows compatible version.
+Uses base GPT-2 from HuggingFace without requiring c4_checkpoint.pth.
+"""
 
 from __future__ import annotations
 
@@ -36,13 +38,6 @@ def evaluate(model, eval_loader, accelerator, xent_loss):
     total_evaluated_tokens = 0
     with torch.no_grad():
         for batch in eval_loader:
-            # Cast batch to model's dtype for fp16 compatibility
-            # input_ids must be int64, other tensors can be fp16
-            batch = {
-                k: (v.to(model.device) if k == 'input_ids' else v.to(model.device).half())
-                if v.dtype == torch.float32 else v.to(model.device)
-                for k, v in batch.items()
-            }
             outputs = model(**batch)
             logits = outputs.logits
             labels = batch["labels"]
@@ -86,55 +81,50 @@ def save_checkpoint(model, optimizer, accelerator, epoch, filename="checkpoint.p
     accelerator.save(checkpoint, filename)
 
 
-def run_llama2_eval(
+def run_gpt2_eval(
     config: ExperimentConfig,
     dataset_bundle: DatasetBundle,
     model_paths: ModelPaths,
     stage2_dir: Path,
     output_dir: Path,
 ) -> StageSummary:
-    """Fine-tune LLaMA2 with LoRA adapters on synthetic data and evaluate it."""
+    """Fine-tune GPT-2 on synthetic data and evaluate next-token prediction.
+    Windows compatible version that uses base GPT-2 from HuggingFace.
+    """
+
+    eval_cfg = config.eval_small
 
     import datasets
     import torch
     import torch.nn as nn
     from accelerate import Accelerator
     from datasets import Dataset
-    from peft import LoraConfig, get_peft_model
     from torch.optim import AdamW
     from torch.utils.data import DataLoader
-    from transformers import AutoModelForCausalLM, LlamaTokenizer
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    eval_cfg = config.eval_large
     output_dir = ensure_dir(output_dir)
-    log_dir = ensure_dir(output_dir / "llama2_models_and_accuracies")
+    log_dir = ensure_dir(output_dir / "log_models_and_accuracies")
     accelerator = Accelerator()
 
-    tokenizer = LlamaTokenizer.from_pretrained(str(model_paths.llama2_7b), local_files_only=True)
-    # Load model in float16 for memory efficiency (required for Windows + safetensors)
-    model = AutoModelForCausalLM.from_pretrained(
-        str(model_paths.llama2_7b),
-        local_files_only=True,
-        use_safetensors=True,
-        torch_dtype=torch.float16,
-    )
-    vocab_size = tokenizer.vocab_size
-    cached_embedding = model.model.embed_tokens.weight[:vocab_size]
-    model_dtype = cached_embedding.dtype  # fp16
-    dim = model.model.embed_tokens.weight.shape[1]
-    pad_idx = vocab_size
-    extended_embedding = nn.Embedding(vocab_size + 1, dim, padding_idx=pad_idx)
-    # Use same dtype as model to avoid dtype mismatch
-    extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=model_dtype)])
-    extended_embedding.load_state_dict({"weight": extended_weight})
-    model.model.embed_tokens = extended_embedding
-    tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+    # Use GPT-2 from HuggingFace (downloads automatically if not cached)
+    gpt2_path = str(model_paths.distilgpt2) if model_paths.distilgpt2 else "openai-community/gpt2"
+
+    tokenizer = AutoTokenizer.from_pretrained(gpt2_path, local_files_only=False)
+    model = AutoModelForCausalLM.from_pretrained(gpt2_path, local_files_only=False)
+
+    # Move model to accelerator device
+    model = model.to(accelerator.device)
+
+    # Handle padding token
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
     cutoff_len = int(eval_cfg.get("cutoff_len", 64))
-    grad_accum_steps = int(eval_cfg.get("grad_accum_steps", 16))
-    total_epochs = int(eval_cfg.get("epochs", 1))
-    batch_size = int(eval_cfg.get("batch_size", 8))
-    eval_batch_size = int(eval_cfg.get("eval_batch_size", 2))
+    grad_accum_steps = int(eval_cfg.get("grad_accum_steps", 64))
+    total_epochs = int(eval_cfg.get("epochs", 20))
+    batch_size = int(eval_cfg.get("batch_size", 32))  # Smaller batch for Windows
+    eval_batch_size = int(eval_cfg.get("eval_batch_size", 8))
     learning_rate = float(eval_cfg.get("learning_rate", 0.0002))
     map_num_proc = int(eval_cfg.get("num_proc", 1))
     datasets.disable_progress_bars()
@@ -142,7 +132,6 @@ def run_llama2_eval(
 
     def tokenize(example):
         sent = example["text"]
-        # Use tokenizer.__call__ directly instead of encode_plus (LlamaTokenizer compatibility)
         encoded_dict = tokenizer(
             sent,
             max_length=cutoff_len,
@@ -169,21 +158,8 @@ def run_llama2_eval(
     train_loader = DataLoader(train_tokenized, batch_size=batch_size, num_workers=0)
     eval_loader = DataLoader(eval_tokenized, batch_size=eval_batch_size, shuffle=False)
 
-    peft_config = LoraConfig(
-        r=int(eval_cfg.get("lora_rank", 4)),
-        lora_alpha=int(eval_cfg.get("lora_alpha", 8)),
-        lora_dropout=float(eval_cfg.get("lora_dropout", 0.0)),
-        target_modules=["q_proj", "o_proj", "v_proj", "k_proj", "gate_proj", "up_proj", "down_proj"],
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
-    model = get_peft_model(model, peft_config)
-
-    # Manually move model to device and prepare dataloaders
-    # Don't use accelerator.prepare() for model to avoid dtype conversion issues on Windows
-    device = accelerator.device
-    model = model.to(device)
     optimizer = AdamW(model.parameters(), lr=learning_rate)
+    # Prepare dataloaders only (model is already on correct device)
     train_loader, eval_loader = accelerator.prepare(train_loader, eval_loader)
 
     cross_entropy_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction="sum")
@@ -200,12 +176,6 @@ def run_llama2_eval(
         model.train()
         total_loss = 0.0
         for step, batch in enumerate(train_loader):
-            # Cast batch to model's dtype for fp16 compatibility
-            batch = {
-                k: (v.to(model.device) if k == 'input_ids' else v.to(model.device).half())
-                if v.dtype == torch.float32 else v.to(model.device)
-                for k, v in batch.items()
-            }
             outputs = model(**batch)
             loss = outputs.loss / grad_accum_steps
             accelerator.backward(loss)
@@ -232,7 +202,7 @@ def run_llama2_eval(
             json.dump(best_dict, handle)
 
     return StageSummary(
-        stage_name="eval_large",
+        stage_name="eval_small",
         output_dir=output_dir,
         artifacts={"stats_dir": str(log_dir), "synthetic_train_count": len(train_texts)},
         metrics={

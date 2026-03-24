@@ -78,6 +78,8 @@ llm:
             train_path = tmp_root / "train.json"
             seed_path = tmp_root / "seed.json"
             eval_path = tmp_root / "eval.json"
+            (tmp_root / "thesis_platform" / "open_model" / "llama_2_7b_hf").mkdir(parents=True, exist_ok=True)
+            (tmp_root / "thesis_platform" / "open_model").mkdir(parents=True, exist_ok=True)
             train_path.write_text(
                 json.dumps(
                     {
@@ -165,20 +167,39 @@ downstream_eval:
             )
 
             config = load_experiment_config(config_path)
-            fake_eval_summary = {"stage_name": "eval_large", "metrics": {"best_top1": 0.42}}
+            fake_eval_summary = {
+                "stage_name": "eval_large",
+                "metrics": {"best_top1": 0.42},
+                "artifacts": {"stats_dir": str(tmp_root / "fake_stats")},
+            }
             with patch("thesis_platform.core.experiment_runner.validate_preflight", return_value=None), patch(
-                "thesis_platform.core.experiment_runner.run_pretext_large_eval",
+                "thesis_platform.evaluation.downstream_eval.run_pretext_large_eval",
                 return_value=fake_eval_summary,
             ):
                 summary = ExperimentRunner(config).run()
 
             exp_dir = tmp_root / "out" / "tmp_v3"
             round_1 = exp_dir / "round_001"
+            with (round_1 / "round_metrics.json").open("r", encoding="utf-8") as handle:
+                round_metrics = json.load(handle)
+            with (round_1 / "routing_summary.json").open("r", encoding="utf-8") as handle:
+                routing_summary = json.load(handle)
+            with (exp_dir / "artifact_manifest.json").open("r", encoding="utf-8") as handle:
+                manifest = json.load(handle)
             self.assertTrue((round_1 / "client_prototypes.jsonl").exists())
             self.assertTrue((round_1 / "cluster_assignments.json").exists())
             self.assertTrue((round_1 / "cluster_prompts.json").exists())
             self.assertTrue((round_1 / "routing_summary.json").exists())
             self.assertTrue((exp_dir / "downstream_eval" / "stage2" / "llama7b_text_syn.json").exists())
+            self.assertTrue((exp_dir / "downstream_eval" / "downstream_eval_summary.json").exists())
+            self.assertTrue((exp_dir / "downstream_eval" / "pretext_large_eval_summary.json").exists())
+            self.assertTrue((exp_dir / "downstream_eval" / "pretext_small_eval_summary.json").exists())
+            self.assertTrue((exp_dir / "privacy_ledger.json").exists())
+            self.assertEqual(round_metrics["artifact_type"], "round_metrics")
+            self.assertEqual(routing_summary["artifact_type"], "routing_summary")
+            self.assertEqual(round_metrics["schema_version"], "thesis_platform.runtime.v1")
+            self.assertEqual(manifest["artifact_type"], "experiment_manifest")
+            self.assertEqual(len(manifest["rounds"]), 2)
             self.assertEqual(summary["downstream_eval"]["metrics"]["best_top1"], 0.42)
 
 

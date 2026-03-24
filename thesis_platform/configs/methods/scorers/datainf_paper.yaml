@@ -1,0 +1,20 @@
+# Paper-grade DataInf scorer configuration
+# Uses LoRA gradients and HVP computation when available
+
+scorer:
+  name: datainf_paper
+  score_direction: larger_is_worse
+  # HVP method: proposed (closed-form), lissa, or accurate
+  hvp_method: proposed
+  # Lambda damping parameter for HVP computation
+  lambda_const_param: 10.0
+  # LiSSA iterations (only used when hvp_method=lissa)
+  lissa_iterations: 10
+  # Whether to use real gradients from LoRA model
+  # If false, falls back to feature-based approximation
+  use_real_gradients: false
+  # Feature model for fallback (when use_real_gradients=false)
+  feature_model: thesis_platform/open_model/roberta_large
+  allow_hashing_fallback: false
+  max_length: 256
+  device: auto

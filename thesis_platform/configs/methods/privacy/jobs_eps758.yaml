@@ -1,7 +1,7 @@
 privacy:
   enabled: true
   mode: sample_critique_upload_proxy
-  epsilon: 1.29
+  epsilon: 7.58
   delta: 3e-6
   sample_cost: 0.0005
   critique_cost: 0.005

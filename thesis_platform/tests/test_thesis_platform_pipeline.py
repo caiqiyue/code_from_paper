@@ -69,6 +69,9 @@ aggregator:
             round_dir = exp_dir / "round_000"
             self.assertEqual(summary["experiment_id"], "tmp_smoke")
             self.assertTrue((exp_dir / "metrics_summary.json").exists())
+            self.assertTrue((exp_dir / "resolved_config.json").exists())
+            self.assertTrue((exp_dir / "privacy_ledger.json").exists())
+            self.assertTrue((exp_dir / "artifact_manifest.json").exists())
             self.assertTrue((exp_dir / "config.yaml").exists())
             self.assertTrue((round_dir / "generated_samples.jsonl").exists())
             self.assertTrue((round_dir / "scored_samples.jsonl").exists())

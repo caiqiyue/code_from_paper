@@ -5,7 +5,7 @@ inherits:
   - ../templates/noise_eps758.yaml
 
 meta:
-  experiment_id: validate_jobs_tiny_thesis_platform_eps758
+  experiment_id: validate_tiny_complete_test_windows
   seed: 42
 
 paths:
@@ -17,40 +17,47 @@ data:
   train_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
   eval_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
   initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
-  max_samples_per_client: 8
+  max_samples_per_client: 4
   initialization_min_words: 20
-  train_limit: 64
-  eval_limit: 32
-  initialization_limit: 512
+  train_limit: 32
+  eval_limit: 16
+  initialization_limit: 256
 
 stage1:
   rounds: 2
   lookahead: 1
   multiplier: 1
-  batch_size: 32
-  embed_batch_size: 64
+  batch_size: 16
+  embed_batch_size: 32
   nearest_neighbors_print: 1
   sensitivity: 8
   num_workers: 0  # Windows fix: disable multiprocessing
 
 bootstrap:
   enabled: true
-  num_prompts: 32
+  num_prompts: 16  # Very small for quick test
   generator_backend: huggingface  # Use HuggingFace on Windows (vLLM not available)
   batch_size: 1  # Small batch size to avoid OOM with 7B model
-  max_tokens: 85
+  max_tokens: 64
   temperature: 1.0
   top_p: 1.0
   max_model_len: 512
 
 eval_small:
-  enabled: false
+  enabled: true  # Now uses GPT-2 from HuggingFace (no c4_checkpoint.pth needed)
+  cutoff_len: 64
+  grad_accum_steps: 16
+  epochs: 5  # Reduced for quick test
+  batch_size: 16  # Smaller batch for Windows
+  eval_batch_size: 8
+  learning_rate: 0.0002
 
 eval_large:
   enabled: true
-  batch_size: 1      # Reduced for Windows 16GB GPU (LLaMA-2-7B is large)
-  eval_batch_size: 1
+  eval_mode: full_finetune  # full_finetune: Llama-3.2-3B (Windows兼容) | peft_lora: LLaMA-2-7B (Linux推荐)
   cutoff_len: 64
-  grad_accum_steps: 16
+  grad_accum_steps: 32
+  epochs: 3  # Reduced for quick test
+  batch_size: 1  # Minimal batch for 3B model
+  eval_batch_size: 1
   learning_rate: 0.0002
-  lora_rank: 4
