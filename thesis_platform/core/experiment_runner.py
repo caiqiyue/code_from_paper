@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,7 @@ from thesis_platform.core.checkpoint import CheckpointManager
 from thesis_platform.core.config import ExperimentConfig
 from thesis_platform.core.context import ClientContext, ServerContext
 from thesis_platform.core.io_utils import ensure_dir, write_json, write_text
-from thesis_platform.core.logging_utils import get_logger
+from thesis_platform.core.logging_utils import get_logger, setup_experiment_file_logger
 from thesis_platform.core.preflight import validate_preflight
 from thesis_platform.core.privacy import PrivacyLedger, PrivacyPolicy
 from thesis_platform.core.registry import create
@@ -44,7 +45,12 @@ class ExperimentRunner:
         self.repo_root = config.repo_root()
         self.output_root = ensure_dir(config.output_root())
         self.experiment_id = str(config.meta.get("experiment_id", config.path.stem))
-        self.experiment_dir = ensure_dir(self.output_root / self.experiment_id)
+        # Append timestamp to experiment directory name for uniqueness
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        self.experiment_dir = ensure_dir(self.output_root / f"{self.experiment_id}_{timestamp}")
+        # Set up file logging for this experiment
+        setup_experiment_file_logger(self.experiment_dir, name="thesis_platform")
+        self.logger.info("Experiment output directory: %s", self.experiment_dir)
 
     def _build_text_backends(self) -> tuple[Any, Any]:
         """Build shared client/server text backends when configured."""

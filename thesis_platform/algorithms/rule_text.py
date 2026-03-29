@@ -130,6 +130,30 @@ _CONTEXTUAL_ANCHOR_TOKENS = {
     "tone",
 }
 
+# Patterns that signal a narrow lexical substitution rule instead of abstract guidance.
+# These are too specific to be useful as general prompt improvement rules.
+_NARROW_LEXICAL_SUBSTITUTION_PATTERNS = (
+    re.compile(r"^use\s+the\s+word\s+['\"]", re.IGNORECASE),
+    re.compile(r"^use\s+['\"][^'\"]+['\"]?\s+in\s+place\s+of\s+['\"]", re.IGNORECASE),
+    re.compile(r"^replace\s+the\s+(current|existing)\s+(\w+\s+)?with\s+(a\s+better|another)", re.IGNORECASE),
+    re.compile(r"^replace\s+\w+\s+with\s+(a\s+better|another)", re.IGNORECASE),
+)
+
+
+def looks_like_lexical_substitution(text: str) -> bool:
+    """Return True when a rule describes a narrow word/phrase substitution.
+
+    These rules (e.g. \"Use the word 'trans' in place of 'transforce'.\") are
+    too lexical and case-specific to serve as abstract prompt guidance.  They
+    should be rejected in both the critique stage and the memory aggregation
+    stage.
+    """
+    normalized = re.sub(r"\s+", " ", text.strip())
+    for pattern in _NARROW_LEXICAL_SUBSTITUTION_PATTERNS:
+        if pattern.match(normalized):
+            return True
+    return False
+
 
 def strip_code_fences(text: str) -> str:
     """Remove markdown code fence tokens while keeping inner content."""

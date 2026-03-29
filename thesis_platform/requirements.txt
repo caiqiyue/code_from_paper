@@ -8,23 +8,26 @@
 # - Full DataInf training/influence-analysis dependencies are intentionally not
 #   merged here; use `DataInf/requirements.txt` separately for that workflow.
 # - `opacus` and `peft` are required by the real paper-aligned evaluation path.
-# - `vllm` is included for PrE-Text-style bootstrap compatibility on supported
-#   platforms, but is not required by the first-stage Jobs large-eval path.
+# - `bitsandbytes` is required for quantized model loading support.
+# - `faiss-cpu` is required for vector similarity search.
+# - `tiktoken` is required for OpenAI-style tokenization.
 
 PyYAML>=6.0
-accelerate>=0.28
-datasets>=2.20
-huggingface_hub>=0.24
-numpy>=1.26
-pandas>=2.0
-scikit-learn>=1.4
-scipy>=1.12
-safetensors>=0.4
-sentence-transformers>=2.2
+accelerate>=1.13
+datasets>=4.7
+faiss-cpu>=1.13
+huggingface_hub>=1.6
+numpy>=2.4
+pandas>=3.0
+scikit-learn>=1.8
+scipy>=1.17
+safetensors>=0.7
+sentence-transformers>=5.2
 sentencepiece>=0.2
-opacus>=1.4
-peft>=0.10
-torch>=2.1
-transformers>=4.38
-tqdm>=4.66
-vllm>=0.3.3; platform_system != "Windows"
+opacus>=1.5
+peft>=0.18
+bitsandbytes>=0.49
+tiktoken>=0.12
+torch>=2.7
+transformers>=5.3
+tqdm>=4.67

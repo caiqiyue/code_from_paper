@@ -8,8 +8,11 @@
 # Data, models, outputs, and config/assets directories
 **/datasets/
 **/models/
-**/outputs/
+!thesis_platform/models/
 thesis_platform/open_model/
+thesis_platform/outputs/
+outputs/
+test/
 thesis_platform/docs/
 **/conf/
 **/assests/

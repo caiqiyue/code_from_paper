@@ -11,6 +11,7 @@ from thesis_platform.algorithms.rule_text import (
     is_actionable_guidance,
     looks_generic_instruction,
     looks_like_content_span,
+    looks_like_lexical_substitution,
 )
 from thesis_platform.core.schemas import Critique, PairedSample
 from thesis_platform.core.llm_utils import safe_llm_generate
@@ -49,6 +50,8 @@ def _is_usable_rule(rule: str, pair: PairedSample) -> bool:
     if looks_like_content_span(rule):
         return False
     if looks_generic_instruction(rule):
+        return False
+    if looks_like_lexical_substitution(rule):
         return False
     if not is_actionable_guidance(rule):
         return False

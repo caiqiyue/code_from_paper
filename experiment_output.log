@@ -1,4 +1,0 @@
-2026-03-26 17:36:05,787 | INFO | Experiment windows_real_test_minimal | starting with config D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\configs\experiments\validation\windows_real_test_minimal.yaml
-`torch_dtype` is deprecated! Use `dtype` instead!
-
-ERROR conda.cli.main_run:execute(49): `conda run python run_minimal_experiment.py` failed. (See above for error)

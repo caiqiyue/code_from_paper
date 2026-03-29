@@ -11,6 +11,8 @@ from . import (
     llama_3_1_8b_instruct,
     llama_3_2_11b_vision_instruct,
     llama_3_2_3b_instruct,
+    meta_llama_2_7b_chat_hf,
+    meta_llama_3_8b,
     opt_1_3b,
     opt_125m,
     opt_350m,

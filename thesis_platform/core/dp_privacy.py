@@ -291,9 +291,9 @@ class DPPrivatizer:
         clip_coeff = min(clip_norm / (vector_norm + 1e-6), 1.0)
         clipped = vector * clip_coeff
 
-        # Add noise
+        # Add noise on the same device as the input vector
         sigma = self.config.noise_multiplier * clip_norm
-        noise = torch.randn_like(clipped, device=self.device) * sigma
+        noise = torch.randn_like(clipped) * sigma
 
         return clipped + noise
 
