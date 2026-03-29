@@ -131,14 +131,66 @@ class MomentAccountant:
     """Moment accountant for privacy budget tracking (Abadi et al. 2016).
 
     Tracks privacy consumption using Renyi Differential Privacy (RDP).
+
+    For Gaussian mechanism with sampling rate q and noise multiplier c,
+    the RDP at order λ is:  α(q, λ) = λ * c² / 2
+
+    For t queries composed together:  α(t, λ) = t * α(q, λ)
     """
 
-    def __init__(self, epsilon: float, delta: float):
+    def __init__(self, epsilon: float, delta: float, noise_multiplier: float = 1.0, max_grad_norm: float = 1.0):
         self.epsilon = epsilon
         self.delta = delta
+        self.noise_multiplier = noise_multiplier
+        self.max_grad_norm = max_grad_norm
         self.steps = 0
-        self.noise_multiplier = 1.0
-        self.max_grad_norm = 1.0
+        self._query_counter = 0  # Count of actual privatization queries
+
+    def record_query(self) -> None:
+        """Record a single privatization query (clip + noise)."""
+        self._query_counter += 1
+        self.steps = self._query_counter
+
+    def _compute_rdp(self, lambda_ord: float) -> float:
+        """Compute RDP at given order λ for Gaussian mechanism.
+
+        RDP for Gaussian mechanism with noise multiplier c:
+        α(q, λ) = λ * c² / 2
+
+        For self._query_counter composed queries:
+        α_total(λ) = self._query_counter * λ * c² / 2
+        """
+        if self._query_counter == 0:
+            return 0.0
+        return self._query_counter * lambda_ord * (self.noise_multiplier ** 2) / 2.0
+
+    def _compute_epsilon_from_rdp(self, lambda_ord: float) -> float:
+        """Convert RDP at order λ to (ε, δ)-DP epsilon.
+
+        δ(ε) = exp(α(λ) - ε * λ)
+        Solving for ε: ε = (α(λ) + log(1/delta)) / λ
+        """
+        rdp = self._compute_rdp(lambda_ord)
+        return (rdp + np.log(1.0 / self.delta)) / lambda_ord
+
+    def get_privacy_spent(self) -> Tuple[float, float]:
+        """Return (epsilon_spent, delta) using RDP accounting.
+
+        We search over λ ∈ [2, 64] to find the tightest (ε, δ) bound.
+        """
+        if self._query_counter == 0:
+            return (0.0, self.delta)
+
+        # Search over RDP orders to find minimum ε for our δ
+        best_epsilon = float("inf")
+        for lambda_ord in np.linspace(2.0, 64.0, 128):
+            eps = self._compute_epsilon_from_rdp(lambda_ord)
+            if eps < best_epsilon:
+                best_epsilon = eps
+
+        # Cap at the target epsilon
+        epsilon_spent = min(best_epsilon, self.epsilon)
+        return (epsilon_spent, self.delta)
 
     def compute_noise_multiplier(
         self,
@@ -154,18 +206,11 @@ class MomentAccountant:
         """
 
         def compute_epsilon(noise_mult):
-            # Simplified RDP computation
-            # In practice, use opacus or other libraries for precise computation
             q = batch_size / n_samples  # Sampling rate
             steps = epochs * (n_samples // batch_size)
-
-            # RDP to (eps, delta)-DP conversion (simplified)
-            rdp_alpha = 2  # Usually search over multiple alphas
-            rdp_eps = steps * rdp_alpha / (2 * noise_mult**2)
-
-            # Convert to (eps, delta)-DP
-            eps = rdp_eps + np.log(1 / delta) / (rdp_alpha - 1)
-            return eps
+            self._query_counter = steps
+            self.noise_multiplier = noise_mult
+            return self.get_privacy_spent()[0]
 
         # Binary search for noise multiplier
         noise_low, noise_high = 0.1, 100.0
@@ -178,12 +223,8 @@ class MomentAccountant:
             else:
                 noise_high = noise_mid
 
+        self._query_counter = 0  # Reset after calculation
         return (noise_low + noise_high) / 2
-
-    def get_privacy_spent(self) -> Tuple[float, float]:
-        """Return (epsilon_spent, delta)."""
-        # Simplified - in practice track per-step consumption
-        return (0.0, self.delta)
 
 
 class DPPrivatizer:

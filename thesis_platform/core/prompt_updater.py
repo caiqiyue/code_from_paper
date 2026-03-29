@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from thesis_platform.algorithms.rule_text import normalize_rule_candidate
 from thesis_platform.core.schemas import PromptUpdate
 
 BASE_HEADER = "### Base Instruction"
@@ -32,8 +33,21 @@ def build_prompt_text(
 ) -> str:
     """Render one prompt from base/global/local guidance sections."""
 
-    memory_rules = memory_rules or []
-    local_rules = local_rules or []
+    memory_rules = [
+        cleaned
+        for cleaned in (normalize_rule_candidate(rule) for rule in (memory_rules or []))
+        if cleaned
+    ]
+    local_rules = [
+        cleaned
+        for cleaned in (normalize_rule_candidate(rule) for rule in (local_rules or []))
+        if cleaned
+    ]
+    global_rules = [
+        cleaned
+        for cleaned in (normalize_rule_candidate(rule) for rule in global_rules)
+        if cleaned
+    ]
     sections = [
         BASE_HEADER,
         str(base_prompt).strip(),

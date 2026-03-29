@@ -1,17 +1,29 @@
 from __future__ import annotations
 
 from collections import Counter
-import json
 import re
 from typing import Any
 
 import numpy as np
 
 from thesis_platform.algorithms.math_utils import cosine_similarity
+from thesis_platform.algorithms.rule_text import (
+    extract_memory_summary,
+    extract_rules_from_text,
+    guidance_tokens,
+    is_actionable_guidance,
+    looks_generic_instruction,
+    looks_like_content_span,
+    normalize_rule_candidate,
+)
 from thesis_platform.core.schemas import Critique, PromptUpdate, PrototypeFeedback
 
-JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
-
+# Optional GMM import
+try:
+    from sklearn.mixture import GaussianMixture
+    GMM_AVAILABLE = True
+except ImportError:
+    GMM_AVAILABLE = False
 
 def _normalize_rule(rule: str) -> str:
     return re.sub(r"\s+", " ", rule.strip().lower())
@@ -20,27 +32,46 @@ def _normalize_rule(rule: str) -> str:
 def _parse_summary_rules(
     raw_text: str, *, fallback_rules: list[str], max_rules: int
 ) -> tuple[list[str], str]:
-    match = JSON_RE.search(raw_text)
-    if match:
-        try:
-            payload = json.loads(match.group(0))
-            rules = payload.get("rules", []) if isinstance(payload, dict) else []
-            memory_summary = (
-                str(payload.get("memory_summary", "")).strip()
-                if isinstance(payload, dict)
-                else ""
-            )
-            parsed_rules = [str(rule).strip() for rule in rules if str(rule).strip()]
-            if parsed_rules:
-                return parsed_rules[:max_rules], memory_summary
-        except json.JSONDecodeError:
-            pass
-    lines = []
-    for line in raw_text.splitlines():
-        cleaned = line.strip().lstrip("-*0123456789. ").strip()
-        if cleaned:
-            lines.append(cleaned)
-    return (lines[:max_rules] or fallback_rules[:max_rules]), ""
+    parsed_rules = [
+        rule
+        for rule in extract_rules_from_text(raw_text, max_rules=max_rules * 2)
+        if _is_usable_summary_rule(rule)
+    ][:max_rules]
+    memory_summary = extract_memory_summary(raw_text)
+    fallback = [
+        normalized
+        for normalized in (
+            normalize_rule_candidate(rule) for rule in fallback_rules[:max_rules]
+        )
+        if normalized and _is_usable_summary_rule(normalized)
+    ]
+    if parsed_rules and fallback:
+        parsed_lengths = [len(rule.split()) for rule in parsed_rules]
+        fallback_lengths = [len(rule.split()) for rule in fallback]
+        if max(parsed_lengths, default=0) <= 3 and max(fallback_lengths, default=0) >= 6:
+            return fallback[:max_rules], memory_summary
+    if parsed_rules:
+        return parsed_rules[:max_rules], memory_summary
+    return fallback, memory_summary
+
+
+def _is_usable_summary_rule(rule: str) -> bool:
+    """Reject summary outputs that drift back into copied sample content."""
+
+    tokens = guidance_tokens(rule)
+    if not tokens:
+        return False
+    if len(tokens) < 4:
+        return False
+    if len(tokens) > 24:
+        return False
+    if looks_like_content_span(rule):
+        return False
+    if looks_generic_instruction(rule):
+        return False
+    if not is_actionable_guidance(rule):
+        return False
+    return True
 
 
 def _cluster_rule_entries(
@@ -91,6 +122,7 @@ def _cluster_client_prototypes(
     *,
     eps: float,
     min_samples: int,
+    method: str = "dbscan",
 ) -> tuple[dict[str, str], list[dict[str, Any]]]:
     """Cluster client prototypes for personalized routing."""
 
@@ -117,14 +149,47 @@ def _cluster_client_prototypes(
         ]
         return mapping, payload
 
-    from sklearn.cluster import DBSCAN
-
     vectors = np.asarray(
         [feedback.prototype_vector for feedback in usable_feedbacks], dtype=np.float64
     )
-    labels = DBSCAN(eps=eps, min_samples=min_samples, metric="cosine").fit_predict(
-        vectors
-    )
+
+    # Normalize for cosine-based clustering
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    normalized_vectors = vectors / norms
+
+    if method == "gmm" and GMM_AVAILABLE:
+        # GMM clustering: use BIC to select optimal n_components
+        n_samples = len(usable_feedbacks)
+        max_components = min(n_samples, 5)
+        best_bic = float("inf")
+        best_n = 1
+        for n_comp in range(1, max_components + 1):
+            gmm = GaussianMixture(
+                n_components=n_comp,
+                covariance_type="full",
+                random_state=42,
+                n_init=3,
+            )
+            gmm.fit(normalized_vectors)
+            bic = gmm.bic(normalized_vectors)
+            if bic < best_bic:
+                best_bic = bic
+                best_n = n_comp
+
+        gmm = GaussianMixture(
+            n_components=best_n,
+            covariance_type="full",
+            random_state=42,
+            n_init=3,
+        )
+        labels = gmm.fit_predict(normalized_vectors)
+    else:
+        # Default: DBSCAN clustering
+        from sklearn.cluster import DBSCAN
+        labels = DBSCAN(eps=eps, min_samples=min_samples, metric="cosine").fit_predict(
+            vectors
+        )
     mapping: dict[str, str] = {}
     grouped: dict[str, list[PrototypeFeedback]] = {}
     noise_index = 0
@@ -370,12 +435,13 @@ def _build_rule_entries(
             critique.client_id, 0.5
         )  # default 0.5 if not found
         for rule in critique.rules:
-            normalized = _normalize_rule(rule)
-            if not normalized:
+            cleaned_rule = normalize_rule_candidate(rule)
+            normalized = _normalize_rule(cleaned_rule)
+            if not normalized or not _is_usable_summary_rule(cleaned_rule):
                 continue
             rule_entries.append(
                 {
-                    "rule": rule.strip(),
+                    "rule": cleaned_rule,
                     "normalized": normalized,
                     "source_score": float(critique.meta.get("source_score", 0.0)),
                     "client_id": critique.client_id,
@@ -404,13 +470,16 @@ def _summarize_cluster_local_rules(
         embedder.embed_texts([entry["rule"] for entry in rule_entries]),
         dtype=np.float64,
     )
-    local_rules = _svd_rank_rule_entries(rule_entries, vectors, max_rules=max_rules * 2)
+    candidate_local_rules = _svd_rank_rule_entries(
+        rule_entries, vectors, max_rules=max_rules * 2
+    )
     ranked_clusters = _rank_clusters(
         _cluster_rule_entries(rule_entries, vectors, eps=eps, min_samples=min_samples)
     )
-    if text_backend is not None and local_rules:
+    local_rules = candidate_local_rules[:max_rules]
+    if text_backend is not None and len(candidate_local_rules) > max_rules:
         local_rules, _ = summarize_rules_with_llm(
-            local_rules, text_backend=text_backend, max_rules=max_rules
+            candidate_local_rules, text_backend=text_backend, max_rules=max_rules
         )
     return local_rules[:max_rules], {
         "rule_count": len(rule_entries),
@@ -503,6 +572,10 @@ def summarize_rules_with_llm(
         "You are the server aggregation model for federated prompt optimization.\n"
         "Return JSON with keys `rules` and `memory_summary`.\n"
         "Compress the candidate guidance below into a dense, non-redundant summary.\n"
+        "Each rule must stay abstract and actionable.\n"
+        "Each rule must start with an imperative edit verb such as Add, Use, Remove, Focus, Clarify, Keep, Replace, or Reduce.\n"
+        "Do not copy sample-specific facts, dates, names, or long content spans.\n"
+        "Reject any candidate that reads like a fact, definition, or named entity statement.\n"
         f"Keep at most {max_rules} rules.\n\n"
         + "\n".join(f"- {rule}" for rule in rules)
     )
@@ -512,7 +585,7 @@ def summarize_rules_with_llm(
         backend=text_backend,
         prompt=prompt,
         max_new_tokens=220,
-        temperature=0.7,
+        temperature=0.2,
         max_retries=max_retries,
         fallback_response="",  # Use fallback rules on failure
     )
@@ -549,6 +622,7 @@ def aggregate_dbscan_critiques(
     base_prompt: str | None = None,
     prototype_feedbacks: list[PrototypeFeedback] | None = None,
     personalized_mix_ratio: float | None = None,
+    prototype_cluster_method: str = "dbscan",
 ) -> tuple[PromptUpdate | None, dict[str, Any]]:
     """Cluster, rank, and summarize critique rules into a prompt update."""
 
@@ -586,9 +660,9 @@ def aggregate_dbscan_critiques(
     ]
     final_rules = representative_rules[:max_rules]
     memory_summary = ""
-    if text_backend is not None and final_rules:
+    if text_backend is not None and len(representative_rules) > max_rules:
         final_rules, memory_summary = summarize_rules_with_llm(
-            final_rules, text_backend=text_backend, max_rules=max_rules
+            representative_rules, text_backend=text_backend, max_rules=max_rules
         )
     if not final_rules:
         return None, updated_memory
@@ -603,6 +677,7 @@ def aggregate_dbscan_critiques(
             prototype_feedbacks,
             eps=eps,
             min_samples=min_samples,
+            method=prototype_cluster_method,
         )
         critiques_by_cluster: dict[str, list[Critique]] = {}
         for critique in critiques:
@@ -647,6 +722,7 @@ def aggregate_dbscan_critiques(
             "memory_summary": memory_summary,
             "source_critique_count": len(critiques),
             "base_prompt": base_prompt or "",
+            "prototype_cluster_method": prototype_cluster_method,
         },
     )
     return prompt_update, updated_memory

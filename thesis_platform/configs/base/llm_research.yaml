@@ -1,17 +1,19 @@
 llm:
   client:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/llama_3_2_3b_instruct
+    model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
     device: auto
     dtype: auto
     temperature: 0.0
     max_new_tokens: 196
-    use_chat_template: true
+    use_chat_template: false
+    use_fast: false
   server:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/llama_3_1_8b_instruct
+    model_name_or_path: thesis_platform/open_model/llama_2_13b_chat_hf
     device: auto
     dtype: auto
     temperature: 0.2
     max_new_tokens: 220
     use_chat_template: true
+    use_fast: false

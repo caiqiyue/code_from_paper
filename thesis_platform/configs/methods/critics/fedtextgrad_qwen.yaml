@@ -1,5 +1,6 @@
 critic:
-  name: fedtextgrad_qwen
-  engine: heuristic
+  name: fedtextgrad_qwen_model
+  engine: model
   compress_to_n_rules: 2
   redact_enable: true
+  model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct

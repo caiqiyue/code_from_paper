@@ -32,5 +32,6 @@ def resolve_model_paths(config: ExperimentConfig) -> ModelPaths:
             config, models_cfg.get("llama_3_2_3b_instruct_path"), "llama_3_2_3b_instruct"
         ),
         distilgpt2=_resolve_model_dir(config, models_cfg.get("distilgpt2_path"), "distilgpt2"),
+        gpt2_xl=_resolve_model_dir(config, models_cfg.get("gpt2_xl_path"), "gpt2_xl"),
         c4_checkpoint=c4_checkpoint,
     )

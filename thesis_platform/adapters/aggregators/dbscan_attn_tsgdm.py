@@ -14,6 +14,7 @@ class DBSCANAttnTSGDMAggregator:
         self.cluster_eps = float(config.get("cluster_eps", 0.35))
         self.cluster_min_samples = int(config.get("cluster_min_samples", 2))
         self.momentum_beta = float(config.get("momentum_beta", 0.7))
+        self.prototype_cluster_method = config.get("prototype_cluster_method", "dbscan")
         embedding_model = config.get("embedding_model")
         if not embedding_model:
             raise ValueError("dbscan_attn_tsgdm requires aggregator.embedding_model.")
@@ -40,6 +41,7 @@ class DBSCANAttnTSGDMAggregator:
             base_prompt=server_ctx.base_prompt,
             prototype_feedbacks=list(server_ctx.prototype_feedbacks),
             personalized_mix_ratio=server_ctx.routing_state.get("personalized_mix_ratio"),
+            prototype_cluster_method=self.prototype_cluster_method,
         )
         server_ctx.aggregation_memory = updated_memory
         return prompt_update

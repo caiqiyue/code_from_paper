@@ -1,0 +1,112 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/scorers/datainf_real.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+  - ../../methods/prototypes/minilm_mean.yaml
+  - ../../methods/routing/personalized_v3.yaml
+  - ../../methods/privacy/jobs_eps129.yaml
+
+meta:
+  experiment_id: windows_real_qwen_e2e
+  stage: validation_real
+  seed: 42
+
+runtime:
+  device: cuda
+  log_level: info
+
+data:
+  dataset_name: jobs
+  task_type: instruction_tuning
+  sample_format: raw_text
+  partition_strategy: preserve_buckets
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  public_seed_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  max_public_seed_samples: 8
+  num_clients: 4
+  max_samples_per_client: 4
+  validation_ratio: 0.25
+  train_limit: 32
+  eval_limit: 8
+  initialization_limit: 8
+  initialization_min_words: 20
+
+llm:
+  client:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.0
+    max_new_tokens: 64
+    use_chat_template: true
+  server:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.2
+    max_new_tokens: 96
+    use_chat_template: true
+
+generator:
+  name: pretext_prompt_llm
+  generated_per_round: 8
+  exemplars_per_prompt: 2
+  max_new_tokens: 96
+  temperature: 0.2
+  initial_prompt: "Generate concise job-related text that matches private-domain style without copying specific entities."
+
+critic:
+  name: fedtextgrad_llm
+  compress_to_n_rules: 2
+  redact_enable: true
+
+scorer:
+  allow_hashing_fallback: false
+
+retriever:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+  top_k: 1
+
+aggregator:
+  allow_hashing_fallback: false
+  cluster_eps: 0.35
+  cluster_min_samples: 1
+  momentum_beta: 0.6
+
+federation:
+  rounds: 2
+  top_k_bad: 1
+
+downstream_eval:
+  enabled: true
+  kind: pretext_large_eval
+  export_filename: llama7b_text_syn.json
+  run_large_eval: true
+  run_small_eval: false
+  large_eval_mode: gpt2_xl
+  small_eval_mode: gpt2
+  dataset_root: thesis_platform/datasets
+  model_root: thesis_platform/open_model
+  llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
+  llama_3_2_3b_instruct_path: thesis_platform/open_model/llama_3_2_3b_instruct
+  minilm_path: thesis_platform/open_model/all_minilm_l6_v2
+  roberta_large_path: thesis_platform/open_model/roberta_large
+  distilgpt2_path: thesis_platform/open_model/distilgpt2
+  gpt2_xl_path: thesis_platform/open_model/gpt2_xl
+  cutoff_len: 48
+  grad_accum_steps: 1
+  epochs: 1
+  batch_size: 2
+  eval_batch_size: 2
+  learning_rate: 0.0002
+  num_proc: 1
+  lora_rank: 4
+  lora_alpha: 8
+  lora_dropout: 0.0

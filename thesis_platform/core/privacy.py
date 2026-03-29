@@ -1,7 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, Optional
+
+try:
+    from thesis_platform.core.dp_privacy import (
+        DPConfig,
+        DPPrivatizer,
+        create_dp_config_from_dict,
+    )
+    DP_PRIVACY_AVAILABLE = True
+except ImportError:
+    DP_PRIVACY_AVAILABLE = False
+    DPPrivatizer = None
+    create_dp_config_from_dict = None
 
 
 @dataclass(slots=True)
@@ -16,6 +28,10 @@ class PrivacyPolicy:
     critique_cost: float
     upload_token_cost: float
     enforce_budget: bool = False
+    # Real DP configuration (when mode includes "real_dp")
+    max_grad_norm: float = 1.0
+    noise_multiplier: float = 1.0
+    dp_enabled: bool = False
 
     @classmethod
     def from_config(cls, privacy_cfg: dict[str, Any]) -> "PrivacyPolicy":
@@ -31,6 +47,11 @@ class PrivacyPolicy:
         upload_token_cost = float(privacy_cfg.get("upload_token_cost", 0.0))
         mode = str(privacy_cfg.get("mode", "disabled" if not enabled else "sample_critique_upload_proxy"))
         enforce_budget = bool(privacy_cfg.get("enforce_budget", False))
+        max_grad_norm = float(privacy_cfg.get("max_grad_norm", 1.0))
+        noise_multiplier = float(privacy_cfg.get("noise_multiplier", 1.0))
+        # Check if real DP should be enabled
+        dp_enabled = enabled and bool(privacy_cfg.get("enable_real_dp", False))
+
         return cls(
             enabled=enabled,
             mode=mode,
@@ -40,6 +61,9 @@ class PrivacyPolicy:
             critique_cost=critique_cost,
             upload_token_cost=upload_token_cost,
             enforce_budget=enforce_budget,
+            max_grad_norm=max_grad_norm,
+            noise_multiplier=noise_multiplier,
+            dp_enabled=dp_enabled,
         )
 
     def validate(self) -> None:
@@ -57,6 +81,11 @@ class PrivacyPolicy:
         }.items():
             if value < 0:
                 raise ValueError(f"{field_name} must be non-negative.")
+        if self.dp_enabled:
+            if self.max_grad_norm <= 0:
+                raise ValueError("privacy.max_grad_norm must be positive when real DP is enabled.")
+            if self.noise_multiplier <= 0:
+                raise ValueError("privacy.noise_multiplier must be positive when real DP is enabled.")
 
     def snapshot(self) -> dict[str, Any]:
         """Return the stable public config snapshot for reports and manifests."""
@@ -70,16 +99,49 @@ class PrivacyPolicy:
             "critique_cost": self.critique_cost,
             "upload_token_cost": self.upload_token_cost,
             "enforce_budget": self.enforce_budget,
+            "max_grad_norm": self.max_grad_norm,
+            "noise_multiplier": self.noise_multiplier,
+            "dp_enabled": self.dp_enabled,
         }
+
+    def to_dp_config(self) -> Optional["DPConfig"]:
+        """Convert to DPConfig for real DP operations."""
+        if not DP_PRIVACY_AVAILABLE or not self.dp_enabled:
+            return None
+        return create_dp_config_from_dict({
+            "enabled": self.dp_enabled,
+            "epsilon": self.epsilon,
+            "delta": self.delta,
+            "max_grad_norm": self.max_grad_norm,
+            "noise_multiplier": self.noise_multiplier,
+        })
 
 
 @dataclass(slots=True)
 class PrivacyLedger:
-    """Accumulate proxy privacy spend across experiment rounds."""
+    """Accumulate proxy privacy spend across experiment rounds.
+
+    When real DP is enabled via policy.dp_enabled, this ledger also manages
+    gradient privatization using DPPrivatizer.
+    """
 
     policy: PrivacyPolicy
     entries: list[dict[str, Any]] = field(default_factory=list)
     cumulative_spent: float = 0.0
+    _dp_privatizer: Optional["DPPrivatizer"] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Initialize DP privatizer if real DP is enabled."""
+        if self.policy.dp_enabled and DP_PRIVACY_AVAILABLE:
+            dp_config = self.policy.to_dp_config()
+            if dp_config is not None:
+                try:
+                    import torch
+
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                except Exception:
+                    device = "cpu"
+                self._dp_privatizer = DPPrivatizer(dp_config, device=device)
 
     def record_round(
         self,
@@ -141,6 +203,7 @@ class PrivacyLedger:
             "privacy_spent_cumulative": self.cumulative_spent,
             "privacy_budget_left": budget_left,
             "privacy_budget_exceeded": exceeded,
+            "real_dp_enabled": self.policy.dp_enabled,
             "privacy_event_counts": {
                 "sample_count": int(sample_count),
                 "critique_count": int(critique_count),
@@ -150,6 +213,111 @@ class PrivacyLedger:
         }
         self.entries.append(summary)
         return summary
+
+    def privatize_gradients(
+        self,
+        grad_dict: Dict[str, torch.Tensor],
+        sample_rate: Optional[float] = None,
+    ) -> Dict[str, torch.Tensor]:
+        """Apply real DP privatization to gradients if enabled.
+
+        Args:
+            grad_dict: Dictionary of gradients to privatize
+            sample_rate: Sampling rate for DP accountant
+
+        Returns:
+            Privatized gradients (unchanged if DP is disabled)
+        """
+        if self._dp_privatizer is None:
+            return grad_dict
+        return self._dp_privatizer.privatize_gradients(grad_dict, sample_rate)
+
+    def privatize_vector(
+        self,
+        vector: torch.Tensor,
+        clip_norm: Optional[float] = None,
+    ) -> torch.Tensor:
+        """Apply real DP privatization to a vector if enabled.
+
+        Args:
+            vector: Vector to privatize
+            clip_norm: Optional clip norm override
+
+        Returns:
+            Privatized vector (unchanged if DP is disabled)
+        """
+        if self._dp_privatizer is None:
+            return vector
+        return self._dp_privatizer.privatize_vector(vector, clip_norm)
+
+    def privatize_scores(
+        self,
+        scores: list[float],
+        clip_bound: Optional[float] = None,
+    ) -> list[float]:
+        """Apply real DP privatization to a list of scalar scores if enabled.
+
+        This is used for influence scores and other numeric signals that leak
+        information about client private data when sent to the server.
+
+        Algorithm:
+        1. Clip each score to [-clip_bound, clip_bound]
+        2. Add Gaussian noise with sigma = noise_multiplier * clip_bound
+
+        Args:
+            scores: List of scalar scores to privatize
+            clip_bound: Clip bound (defaults to max_grad_norm from policy)
+
+        Returns:
+            Privatized scores (unchanged if DP is disabled)
+        """
+        if self._dp_privatizer is None:
+            return scores
+
+        import random
+
+        clip_bound = clip_bound or self.policy.max_grad_norm
+        sigma = self.policy.noise_multiplier * clip_bound
+
+        clipped = [max(-clip_bound, min(clip_bound, s)) for s in scores]
+        noise = [random.gauss(0.0, 1.0) for _ in scores]
+        return [c + sigma * n for c, n in zip(clipped, noise)]
+
+    def privatize_scalar(
+        self,
+        value: float,
+        clip_bound: Optional[float] = None,
+    ) -> float:
+        """Apply real DP privatization to a single scalar value if enabled.
+
+        Args:
+            value: Scalar value to privatize
+            clip_bound: Clip bound (defaults to max_grad_norm from policy)
+
+        Returns:
+            Privatized scalar (unchanged if DP is disabled)
+        """
+        if self._dp_privatizer is None:
+            return value
+        return self.privatize_scores([value], clip_bound)[0]
+
+    def get_privacy_budget_status(self) -> dict[str, Any]:
+        """Get current privacy budget status.
+
+        Returns:
+            Dictionary with privacy budget information
+        """
+        if self._dp_privatizer is None:
+            return {
+                "enabled": False,
+                "real_dp_enabled": False,
+                "epsilon_budget": self.policy.epsilon,
+                "epsilon_spent": self.cumulative_spent if self.policy.enabled else 0.0,
+                "delta": self.policy.delta,
+                "budget_left": self.policy.epsilon - self.cumulative_spent if self.policy.enabled and self.policy.epsilon else None,
+                "budget_exceeded": self.cumulative_spent > self.policy.epsilon if self.policy.enabled and self.policy.epsilon else False,
+            }
+        return self._dp_privatizer.get_privacy_budget_status()
 
     def summary(self) -> dict[str, Any]:
         """Return the experiment-level privacy summary."""
@@ -163,6 +331,7 @@ class PrivacyLedger:
             "spent_total": self.cumulative_spent if self.policy.enabled else 0.0,
             "budget_left": latest.get("privacy_budget_left"),
             "budget_exceeded": bool(latest.get("privacy_budget_exceeded", False)),
+            "real_dp_enabled": self.policy.dp_enabled,
             "round_count": len(self.entries),
         }
 
@@ -172,5 +341,22 @@ class PrivacyLedger:
         return {
             "policy": self.policy.snapshot(),
             "summary": self.summary(),
+            "cumulative_spent": self.cumulative_spent,
             "entries": list(self.entries),
         }
+
+    @classmethod
+    def restore_from_report(cls, report_data: dict[str, Any]) -> "PrivacyLedger":
+        """Restore a PrivacyLedger from a checkpoint report.
+
+        Args:
+            report_data: The data previously returned by report()
+
+        Returns:
+            A new PrivacyLedger with restored state
+        """
+        policy = PrivacyPolicy.from_config(report_data["policy"])
+        ledger = cls(policy=policy)
+        ledger.cumulative_spent = report_data.get("cumulative_spent", 0.0)
+        ledger.entries = list(report_data.get("entries", []))
+        return ledger

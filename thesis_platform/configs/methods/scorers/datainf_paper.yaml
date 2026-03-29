@@ -11,8 +11,8 @@ scorer:
   # LiSSA iterations (only used when hvp_method=lissa)
   lissa_iterations: 10
   # Whether to use real gradients from LoRA model
-  # If false, falls back to feature-based approximation
-  use_real_gradients: false
+  # If unavailable, scorer falls back to feature-based approximation
+  use_real_gradients: true
   # Feature model for fallback (when use_real_gradients=false)
   feature_model: thesis_platform/open_model/roberta_large
   allow_hashing_fallback: false

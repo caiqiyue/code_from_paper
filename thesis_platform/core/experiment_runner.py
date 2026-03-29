@@ -226,18 +226,30 @@ class ExperimentRunner:
 
         # Try to resume from checkpoint
         start_round = 0
+        checkpoint_data = None
+        restored_experiment_state = None
+        privacy_ledger_data = None
         if resume:
             checkpoint = checkpoint_mgr.load_checkpoint()
             if checkpoint:
                 start_round = checkpoint.get("round_id", -1) + 1
+                checkpoint_data = checkpoint.get("server_ctx_data")
+                restored_experiment_state = checkpoint.get("experiment_state", {})
+                privacy_ledger_data = checkpoint.get("privacy_ledger_data")
                 self.logger.info(
                     "Resuming experiment %s from round %d",
                     self.experiment_id,
                     start_round,
                 )
-                # TODO: Restore server_ctx and other state from checkpoint
             else:
                 self.logger.info("No checkpoint found, starting from round 0")
+
+        # Restore privacy ledger from checkpoint or create fresh
+        if privacy_ledger_data is not None:
+            privacy_ledger = PrivacyLedger.restore_from_report(privacy_ledger_data)
+            self.logger.info("PrivacyLedger restored from checkpoint")
+        else:
+            privacy_ledger = PrivacyLedger(policy=privacy_policy)
 
         generator = create(
             "generator",
@@ -292,31 +304,62 @@ class ExperimentRunner:
                 f"Generate text consistent with dataset {self.config.data.get('dataset_name', 'dataset')}.",
             )
         )
-        server_ctx = ServerContext(
-            experiment_id=self.experiment_id,
-            prompt_text=initial_prompt,
-            prompt_history=[initial_prompt],
-            config=self.config.raw,
-            output_dir=self.experiment_dir,
-            text_backend=server_backend,
-            base_prompt=initial_prompt,
-        )
+
+        # Restore from checkpoint if resuming
+        if checkpoint_data is not None:
+            server_ctx = ServerContext.restore_from_checkpoint(
+                checkpoint_data=checkpoint_data,
+                config=self.config.raw,
+                output_dir=self.experiment_dir,
+                text_backend=server_backend,
+            )
+            self.logger.info("ServerContext restored from checkpoint")
+        else:
+            server_ctx = ServerContext(
+                experiment_id=self.experiment_id,
+                prompt_text=initial_prompt,
+                prompt_history=[initial_prompt],
+                config=self.config.raw,
+                output_dir=self.experiment_dir,
+                text_backend=server_backend,
+                base_prompt=initial_prompt,
+            )
 
         rounds = int(self.config.federation.get("rounds", 1))
-        all_round_metrics: list[dict[str, Any]] = []
-        round_manifests: list[dict[str, Any]] = []
+
+        # Restore completed round data if resuming
+        if restored_experiment_state is not None:
+            all_round_metrics = list(restored_experiment_state.get("round_metrics", []))
+            round_manifests = list(restored_experiment_state.get("round_manifests", []))
+            self.logger.info(
+                "Restored %d completed rounds from checkpoint",
+                len(all_round_metrics),
+            )
+        else:
+            all_round_metrics = []
+            round_manifests = []
+
         last_artifacts = None
         self.logger.info(
-            "Experiment %s | executing %d rounds", self.experiment_id, rounds
+            "Experiment %s | executing rounds %d to %d (of %d total)",
+            self.experiment_id,
+            start_round,
+            rounds - 1,
+            rounds,
         )
+        # Build the round range - skip already completed rounds when resuming
+        remaining_rounds = rounds - start_round
         progress = (
             tqdm(
-                range(rounds), total=rounds, desc=f"{self.experiment_id}", unit="round"
+                range(remaining_rounds),
+                total=remaining_rounds,
+                desc=f"{self.experiment_id} (resumed from r{start_round})" if start_round > 0 else f"{self.experiment_id}",
+                unit="round",
             )
             if tqdm is not None
             else None
         )
-        round_iter = progress if progress is not None else range(rounds)
+        round_iter = range(start_round, rounds)
         for round_id in round_iter:
             self.logger.info("Round %d/%d | start", round_id + 1, rounds)
             round_dir = ensure_dir(self.experiment_dir / f"round_{round_id:03d}")

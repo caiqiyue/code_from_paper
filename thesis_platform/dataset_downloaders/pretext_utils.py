@@ -226,9 +226,11 @@ def ensure_pretext_c4_cache(
             streaming=False,
             download_mode="reuse_cache_if_exists",
         )
-        # Convert to iterable list so we can iterate without network I/O
-        all_rows = list(full_dataset)
-        print(f"PrE-Text C4 cache | loaded {len(all_rows)} rows from cache, now filtering...")
+        row_count = len(full_dataset) if hasattr(full_dataset, "__len__") else None
+        if row_count is not None:
+            print(f"PrE-Text C4 cache | loaded {row_count} rows from cache, now filtering...")
+        else:
+            print("PrE-Text C4 cache | loaded cached dataset, now filtering...")
     except Exception as exc:
         raise RuntimeError(
             f"Failed to download/load C4 dataset. Error: {exc}. "
@@ -290,7 +292,7 @@ def ensure_pretext_c4_cache(
 
     # Iterate from local data (no network needed) - just filter and classify
     try:
-        for row in all_rows:
+        for row in full_dataset:
             text = _normalize_text(str(row.get("text") or ""))
             if not text or not _valid_text(text):
                 continue

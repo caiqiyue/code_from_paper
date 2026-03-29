@@ -27,7 +27,6 @@ from thesis_platform.core.lora_gradients import (
 )
 from thesis_platform.algorithms.scorers.gradmm_core import compute_gradmm_scores
 from thesis_platform.models.features import build_feature_encoder
-from thesis_platform.adapters.scorers.datainf_lora_scorer import DataInfRealScorer
 
 logger = logging.getLogger(__name__)
 

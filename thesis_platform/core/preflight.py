@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 
 from thesis_platform.core.privacy import PrivacyPolicy
+from thesis_platform.data.loaders import load_samples
+from thesis_platform.evaluation.downstream_eval import (
+    resolve_large_eval_mode,
+    resolve_small_eval_mode,
+)
 
 
 def _module_available(module_name: str) -> bool:
@@ -14,6 +20,52 @@ def _module_available(module_name: str) -> bool:
 
 def _display_path(path: Path) -> str:
     return str(path).replace("\\", "/")
+
+
+def _validate_partition_inputs(config, asset_errors: list[str]) -> None:
+    """Validate dataset partition assumptions before large models are loaded."""
+
+    strategy = str(config.data.get("partition_strategy", "shuffle_round_robin")).strip().lower()
+    if strategy != "preserve_buckets":
+        return
+
+    train_path = config.resolve_path(config.data.get("train_path"))
+    if train_path is None or not train_path.exists():
+        return
+
+    try:
+        samples = load_samples(
+            train_path,
+            dataset_name=str(config.data.get("dataset_name", "dataset")),
+            source="real",
+            task_type=str(config.data.get("task_type", "instruction_tuning")),
+            round_id=0,
+            client_id="raw",
+            prefix="preflight",
+            sample_format=str(config.data.get("sample_format", "raw_text")),
+            limit=(
+                int(config.data.get("train_limit"))
+                if config.data.get("train_limit") not in (None, "")
+                else None
+            ),
+        )
+    except Exception as exc:
+        asset_errors.append(f"failed to inspect training data for preserve_buckets: {exc}")
+        return
+
+    bucket_ids = {
+        str(sample.meta.get("bucket_id")).strip()
+        for sample in samples
+        if str(sample.meta.get("bucket_id", "")).strip()
+    }
+    required_clients = int(config.data.get("num_clients", 3))
+    if len(bucket_ids) < required_clients:
+        asset_errors.append(
+            "partition_strategy='preserve_buckets' requires at least "
+            f"{required_clients} distinct bucket_id/source_domain groups after dataset loading, "
+            f"but only found {len(bucket_ids)} in {_display_path(train_path)}. "
+            "Provide bucket metadata or keep the PrE-Text raw URL sidecar so source domains can be recovered."
+        )
 
 
 def validate_preflight(config) -> None:
@@ -32,6 +84,8 @@ def validate_preflight(config) -> None:
         privacy_policy.validate()
     except ValueError as exc:
         asset_errors.append(str(exc))
+
+    _validate_partition_inputs(config, asset_errors)
 
     if scorer_name in {"datainf_real", "gradmm_real"}:
         for module_name, package_name in {
@@ -95,14 +149,51 @@ def validate_preflight(config) -> None:
 
     run_large_eval = bool(downstream_eval.get("enabled")) and bool(downstream_eval.get("run_large_eval"))
     if run_large_eval:
+        large_eval_mode = resolve_large_eval_mode(downstream_eval, platform_name=sys.platform)
         model_root = config.resolve_path(downstream_eval.get("model_root", "thesis_platform/open_model"))
-        llama_path = config.resolve_path(
-            downstream_eval.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")
-        )
         if model_root is None or not model_root.exists():
             asset_errors.append(f"missing downstream eval model root: {_display_path(model_root or Path('<unset>'))}")
-        if llama_path is None or not llama_path.exists():
-            asset_errors.append(f"missing downstream eval llama2_7b model: {_display_path(llama_path or Path('<unset>'))}")
+        if large_eval_mode == "full_finetune":
+            llama32_path = config.resolve_path(
+                downstream_eval.get(
+                    "llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct"
+                )
+            )
+            if llama32_path is None or not llama32_path.exists():
+                asset_errors.append(
+                    f"missing downstream eval llama_3_2_3b_instruct model: {_display_path(llama32_path or Path('<unset>'))}"
+                )
+        elif large_eval_mode == "gpt2_xl":
+            gpt2_xl_path = config.resolve_path(downstream_eval.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl"))
+            distilgpt2_path = config.resolve_path(
+                downstream_eval.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
+            )
+            if (gpt2_xl_path is None or not gpt2_xl_path.exists()) and (
+                distilgpt2_path is None or not distilgpt2_path.exists()
+            ):
+                asset_errors.append(
+                    "missing downstream eval gpt2_xl model and distilgpt2 fallback: "
+                    f"{_display_path(gpt2_xl_path or Path('<unset>'))}, {_display_path(distilgpt2_path or Path('<unset>'))}"
+                )
+        else:
+            llama_path = config.resolve_path(
+                downstream_eval.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")
+            )
+            if llama_path is None or not llama_path.exists():
+                asset_errors.append(f"missing downstream eval llama2_7b model: {_display_path(llama_path or Path('<unset>'))}")
+
+    run_small_eval = bool(downstream_eval.get("enabled")) and bool(downstream_eval.get("run_small_eval"))
+    if run_small_eval:
+        small_eval_mode = resolve_small_eval_mode(downstream_eval, platform_name=sys.platform)
+        distilgpt2_path = config.resolve_path(
+            downstream_eval.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
+        )
+        if distilgpt2_path is None or not distilgpt2_path.exists():
+            asset_errors.append(f"missing downstream eval distilgpt2 model: {_display_path(distilgpt2_path or Path('<unset>'))}")
+        if small_eval_mode != "gpt2":
+            checkpoint_path = config.resolve_path(downstream_eval.get("c4_checkpoint_path"))
+            if checkpoint_path is None or not checkpoint_path.exists():
+                asset_errors.append(f"missing downstream eval c4 checkpoint: {_display_path(checkpoint_path or Path('<unset>'))}")
 
     if dependency_errors or asset_errors:
         message = ["Preflight validation failed."]

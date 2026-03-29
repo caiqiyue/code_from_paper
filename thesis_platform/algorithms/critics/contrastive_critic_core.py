@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 
+from thesis_platform.algorithms.redaction import redact_rule_text
 from thesis_platform.core.schemas import Critique, PairedSample
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
@@ -12,14 +13,6 @@ def _tokens(text: str) -> list[str]:
     """Tokenize critique inputs into simple lowercase lexical units."""
 
     return [token.lower() for token in TOKEN_RE.findall(text)]
-
-
-def _redact(text: str) -> str:
-    """Apply a light-weight redaction pass suitable for the MVP."""
-
-    text = re.sub(r"\b\d+\b", "<NUMBER>", text)
-    text = re.sub(r"\b[A-Z][a-z]{2,}\b", "<ENTITY>", text)
-    return text
 
 
 def build_critique(
@@ -43,17 +36,21 @@ def build_critique(
         if len(pair.bad_sample.text.split()) < avg_real_len * 0.7:
             rules.append("Add more concrete detail and domain-specific structure to match the retrieved real examples.")
     if missing:
-        rules.append(f"Add important domain terms and concepts that appear in real samples, such as: {', '.join(missing[:3])}.")
+        rules.append(
+            "Use more client-specific terminology and technical concepts reflected in the retrieved real examples."
+        )
     if extra:
-        rules.append(f"Reduce off-topic or overly generic wording that does not align with the real samples, such as: {', '.join(extra[:3])}.")
+        rules.append(
+            "Remove generic or off-domain wording so the text stays aligned with the retrieved real examples."
+        )
     if not rules:
         rules.append("Align the synthetic text more closely with the tone, specificity, and structure of the retrieved real samples.")
 
     rules = rules[:max_rules]
     text = " ".join(rules)
     if redact_enable:
-        rules = [_redact(rule) for rule in rules]
-        text = _redact(text)
+        rules = [redact_rule_text(rule) for rule in rules]
+        text = redact_rule_text(text)
 
     return Critique(
         critique_id=f"critique_{pair.pair_id}",

@@ -9,6 +9,33 @@ from thesis_platform.core.artifact_manifest import ARTIFACT_SCHEMA_VERSION
 from thesis_platform.core.io_utils import ensure_dir, to_jsonable, write_json
 
 
+def resolve_large_eval_mode(downstream_cfg: dict[str, Any], *, platform_name: str | None = None) -> str:
+    """Resolve the large-eval backend mode for the active platform."""
+
+    platform_name = (platform_name or sys.platform).lower()
+    requested = str(downstream_cfg.get("large_eval_mode", "auto")).strip().lower()
+    if requested and requested != "auto":
+        return requested
+    if platform_name.startswith("win"):
+        return str(downstream_cfg.get("windows_large_eval_mode", "gpt2_xl")).strip().lower()
+    return str(downstream_cfg.get("linux_large_eval_mode", "peft_lora")).strip().lower()
+
+
+def resolve_small_eval_mode(downstream_cfg: dict[str, Any], *, platform_name: str | None = None) -> str:
+    """Resolve the small-eval backend mode for the active platform."""
+
+    platform_name = (platform_name or sys.platform).lower()
+    requested = str(downstream_cfg.get("small_eval_mode", "auto")).strip().lower()
+    if requested and requested != "auto":
+        return requested
+    checkpoint = downstream_cfg.get("c4_checkpoint_path")
+    if platform_name.startswith("win"):
+        return str(downstream_cfg.get("windows_small_eval_mode", "gpt2")).strip().lower()
+    if checkpoint not in (None, ""):
+        return str(downstream_cfg.get("linux_small_eval_mode", "distilgpt2")).strip().lower()
+    return "gpt2"
+
+
 def export_synthetic_corpus(
     synthetic_texts: list[str],
     *,
@@ -46,6 +73,8 @@ def _build_pretext_raw(
 ) -> dict[str, Any]:
     downstream_cfg = thesis_config.downstream_eval
     repo_root = thesis_config.repo_root()
+    large_eval_mode = resolve_large_eval_mode(downstream_cfg)
+    small_eval_mode = resolve_small_eval_mode(downstream_cfg)
     return {
         "meta": {
             "experiment_id": f"{thesis_config.meta.get('experiment_id', 'experiment')}_pretext_eval",
@@ -99,8 +128,16 @@ def _build_pretext_raw(
             "llama2_7b_path": str(
                 thesis_config.resolve_path(downstream_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf"))
             ),
+            "llama_3_2_3b_instruct_path": str(
+                thesis_config.resolve_path(
+                    downstream_cfg.get("llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct")
+                )
+            ),
             "distilgpt2_path": str(
                 thesis_config.resolve_path(downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2"))
+            ),
+            "gpt2_xl_path": str(
+                thesis_config.resolve_path(downstream_cfg.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl"))
             ),
             "c4_checkpoint_path": downstream_cfg.get("c4_checkpoint_path", ""),
         },
@@ -108,6 +145,7 @@ def _build_pretext_raw(
         "bootstrap": {"enabled": False},
         "eval_small": {
             "enabled": enable_small_eval,
+            "eval_mode": small_eval_mode,
             "cutoff_len": int(downstream_cfg.get("small_cutoff_len", downstream_cfg.get("cutoff_len", 64))),
             "grad_accum_steps": int(downstream_cfg.get("small_grad_accum_steps", 64)),
             "epochs": int(downstream_cfg.get("small_epochs", 20)),
@@ -118,6 +156,7 @@ def _build_pretext_raw(
         },
         "eval_large": {
             "enabled": enable_large_eval,
+            "eval_mode": large_eval_mode,
             "cutoff_len": int(downstream_cfg.get("cutoff_len", 64)),
             "grad_accum_steps": int(downstream_cfg.get("grad_accum_steps", 16)),
             "epochs": int(downstream_cfg.get("epochs", 1)),
@@ -165,11 +204,19 @@ def run_pretext_large_eval(thesis_config, *, stage2_dir: Path, output_dir: Path)
 
     from pretext_platform.core.models import resolve_model_paths
     from pretext_platform.data.loaders import load_dataset_bundle
+    from pretext_platform.evaluation.gpt2_xl_eval import run_gpt2_xl_eval
     from pretext_platform.evaluation.llama2_eval import run_llama2_eval
+    from pretext_platform.evaluation.llama32_eval import run_llama32_eval
 
     dataset_bundle = load_dataset_bundle(pretext_config)
     model_paths = resolve_model_paths(pretext_config)
-    summary = run_llama2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
+    eval_mode = str(pretext_config.eval_large.get("eval_mode", "peft_lora")).strip().lower()
+    if eval_mode == "gpt2_xl":
+        summary = run_gpt2_xl_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
+    elif eval_mode == "full_finetune":
+        summary = run_llama32_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
+    else:
+        summary = run_llama2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
     return to_jsonable(summary)
 
 
@@ -186,10 +233,15 @@ def run_pretext_small_eval(thesis_config, *, stage2_dir: Path, output_dir: Path)
     from pretext_platform.core.models import resolve_model_paths
     from pretext_platform.data.loaders import load_dataset_bundle
     from pretext_platform.evaluation.distilgpt2_eval import run_distilgpt2_eval
+    from pretext_platform.evaluation.gpt2_eval import run_gpt2_eval
 
     dataset_bundle = load_dataset_bundle(pretext_config)
     model_paths = resolve_model_paths(pretext_config)
-    summary = run_distilgpt2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
+    eval_mode = str(pretext_config.eval_small.get("eval_mode", "distilgpt2")).strip().lower()
+    if eval_mode == "gpt2":
+        summary = run_gpt2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
+    else:
+        summary = run_distilgpt2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
     return to_jsonable(summary)
 
 
@@ -250,6 +302,31 @@ class DownstreamEvalManager:
         write_json(path, payload)
         return payload
 
+    def _stage_blocked_payload(
+        self,
+        *,
+        stage_key: str,
+        stage_name: str,
+        status: str,
+        message: str,
+        output_dir: Path,
+        missing_assets: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": ARTIFACT_SCHEMA_VERSION,
+            "artifact_type": f"downstream_eval_{stage_key}_summary",
+            "experiment_id": self.experiment_id,
+            "stage_key": stage_key,
+            "stage_name": stage_name,
+            "enabled": True,
+            "status": status,
+            "message": message,
+            "output_dir": str(output_dir),
+            "metrics": {},
+            "artifacts": {},
+            "missing_assets": missing_assets or [],
+        }
+
     def _run_large_stage(self, *, stage2_dir: Path) -> dict[str, Any]:
         stage_key = "large_eval"
         stage_name = "eval_large"
@@ -263,32 +340,42 @@ class DownstreamEvalManager:
                 ),
             )
 
-        missing_assets = self._missing_assets(
-            {
-                "model_root": self.thesis_config.resolve_path(self.downstream_cfg.get("model_root", "thesis_platform/open_model")),
-                "llama2_7b_path": self.thesis_config.resolve_path(
-                    self.downstream_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")
-                ),
-            }
-        )
         output_dir = ensure_dir(self.output_dir / "pretext_large_eval")
+        eval_mode = resolve_large_eval_mode(self.downstream_cfg)
+        if (
+            bool(self.downstream_cfg.get("guard_windows_llama2_large_eval", True))
+            and sys.platform.startswith("win")
+            and eval_mode == "peft_lora"
+        ):
+            return self._write_stage_payload(
+                stage_key,
+                self._stage_blocked_payload(
+                    stage_key=stage_key,
+                    stage_name=stage_name,
+                    status="blocked_unsupported_platform",
+                    message=(
+                        "large_eval is blocked on Windows because loading the local LLaMA2-7B checkpoint "
+                        "is known to terminate the process with an access violation in this environment. "
+                        "Run downstream large eval on Linux/WSL or disable downstream_eval.run_large_eval."
+                    ),
+                    output_dir=output_dir,
+                ),
+            )
+
+        missing_assets = self._missing_assets(
+            self._required_large_eval_assets(eval_mode)
+        )
         if missing_assets:
             return self._write_stage_payload(
                 stage_key,
-                {
-                    "schema_version": ARTIFACT_SCHEMA_VERSION,
-                    "artifact_type": f"downstream_eval_{stage_key}_summary",
-                    "experiment_id": self.experiment_id,
-                    "stage_key": stage_key,
-                    "stage_name": stage_name,
-                    "enabled": True,
-                    "status": "blocked_missing_asset",
-                    "message": "large_eval cannot run because required assets are missing.",
-                    "output_dir": str(output_dir),
-                    "metrics": {},
-                    "artifacts": {},
-                    "missing_assets": missing_assets,
-                },
+                self._stage_blocked_payload(
+                    stage_key=stage_key,
+                    stage_name=stage_name,
+                    status="blocked_missing_asset",
+                    message="large_eval cannot run because required assets are missing.",
+                    output_dir=output_dir,
+                    missing_assets=missing_assets,
+                ),
             )
 
         try:
@@ -345,31 +432,20 @@ class DownstreamEvalManager:
             )
 
         missing_assets = self._missing_assets(
-            {
-                "distilgpt2_path": self.thesis_config.resolve_path(
-                    self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
-                ),
-                "c4_checkpoint_path": self.thesis_config.resolve_path(self.downstream_cfg.get("c4_checkpoint_path")),
-            }
+            self._required_small_eval_assets(resolve_small_eval_mode(self.downstream_cfg))
         )
         output_dir = ensure_dir(self.output_dir / "pretext_small_eval")
         if missing_assets:
             return self._write_stage_payload(
                 stage_key,
-                {
-                    "schema_version": ARTIFACT_SCHEMA_VERSION,
-                    "artifact_type": f"downstream_eval_{stage_key}_summary",
-                    "experiment_id": self.experiment_id,
-                    "stage_key": stage_key,
-                    "stage_name": stage_name,
-                    "enabled": True,
-                    "status": "blocked_missing_asset",
-                    "message": "small_eval cannot run because required assets are missing.",
-                    "output_dir": str(output_dir),
-                    "metrics": {},
-                    "artifacts": {},
-                    "missing_assets": missing_assets,
-                },
+                self._stage_blocked_payload(
+                    stage_key=stage_key,
+                    stage_name=stage_name,
+                    status="blocked_missing_asset",
+                    message="small_eval cannot run because required assets are missing.",
+                    output_dir=output_dir,
+                    missing_assets=missing_assets,
+                ),
             )
 
         try:
@@ -435,19 +511,34 @@ class DownstreamEvalManager:
         baseline_summaries_path = self.output_dir / "baseline_summaries.json"
 
         stage_statuses = [large_stage.get("status"), small_stage.get("status")]
-        if "failed" in stage_statuses:
+        active_stage_statuses = [status for status in stage_statuses if status != "disabled"]
+        if not active_stage_statuses:
+            overall_status = "disabled"
+        elif "failed" in stage_statuses:
             overall_status = "failed"
+        elif any(str(status).startswith("blocked_") for status in stage_statuses):
+            if "completed" in stage_statuses:
+                overall_status = "completed_with_blocked_stages"
+            else:
+                overall_status = "blocked"
         elif "blocked_missing_asset" in stage_statuses:
             overall_status = "completed_with_blocked_stages"
         else:
             overall_status = "completed"
 
-        primary_stage = large_stage if large_stage.get("status") == "completed" else small_stage
+        primary_stage = next(
+            (
+                stage
+                for stage in (large_stage, small_stage)
+                if stage.get("status") not in {"disabled", None}
+            ),
+            small_stage,
+        )
         summary = {
             "schema_version": ARTIFACT_SCHEMA_VERSION,
             "artifact_type": "downstream_eval_summary",
             "experiment_id": self.experiment_id,
-            "enabled": True,
+            "enabled": bool(active_stage_statuses),
             "kind": self.downstream_cfg.get("kind", "none"),
             "status": overall_status,
             "stage_name": primary_stage.get("stage_name", ""),
@@ -459,6 +550,10 @@ class DownstreamEvalManager:
                 "large_eval": large_stage,
                 "small_eval": small_stage,
             },
+            "resolved_modes": {
+                "large_eval_mode": resolve_large_eval_mode(self.downstream_cfg),
+                "small_eval_mode": resolve_small_eval_mode(self.downstream_cfg),
+            },
             "baseline_summaries": baseline_summaries,
             "baseline_summaries_path": str(baseline_summaries_path),
         }
@@ -466,3 +561,52 @@ class DownstreamEvalManager:
         summary["summary_path"] = str(summary_path)
         write_json(summary_path, summary)
         return summary
+
+    def _required_large_eval_assets(self, eval_mode: str) -> dict[str, Path | None]:
+        """Resolve the asset set required by the chosen large-eval mode."""
+
+        assets: dict[str, Path | None] = {
+            "model_root": self.thesis_config.resolve_path(
+                self.downstream_cfg.get("model_root", "thesis_platform/open_model")
+            ),
+        }
+        if eval_mode == "full_finetune":
+            assets["llama_3_2_3b_instruct_path"] = self.thesis_config.resolve_path(
+                self.downstream_cfg.get(
+                    "llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct"
+                )
+            )
+        elif eval_mode == "gpt2_xl":
+            gpt2_xl_path = self.thesis_config.resolve_path(
+                self.downstream_cfg.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl")
+            )
+            distilgpt2_path = self.thesis_config.resolve_path(
+                self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
+            )
+            if (gpt2_xl_path is None or not gpt2_xl_path.exists()) and (
+                distilgpt2_path is not None and distilgpt2_path.exists()
+            ):
+                assets["distilgpt2_fallback_path"] = distilgpt2_path
+            else:
+                assets["gpt2_xl_path"] = gpt2_xl_path
+        else:
+            assets["llama2_7b_path"] = self.thesis_config.resolve_path(
+                self.downstream_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")
+            )
+        return assets
+
+    def _required_small_eval_assets(self, eval_mode: str) -> dict[str, Path | None]:
+        """Resolve the asset set required by the chosen small-eval mode."""
+
+        if eval_mode == "gpt2":
+            return {
+                "distilgpt2_path": self.thesis_config.resolve_path(
+                    self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
+                ),
+            }
+        return {
+            "distilgpt2_path": self.thesis_config.resolve_path(
+                self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
+            ),
+            "c4_checkpoint_path": self.thesis_config.resolve_path(self.downstream_cfg.get("c4_checkpoint_path")),
+        }

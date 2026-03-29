@@ -1,0 +1,5 @@
+Starting end-to-end experiment (CPU mode)...
+Config: thesis_platform/configs/experiments/validation/windows_real_test_minimal.yaml
+2026-03-26 18:54:16,017 | INFO | Experiment windows_real_test_minimal | starting with config D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\configs\experiments\validation\windows_real_test_minimal.yaml
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:   0%|          | 1/254 [00:00<00:44,  5.70it/s]Loading weights:  40%|████      | 102/254 [00:00<00:00, 422.20it/s]

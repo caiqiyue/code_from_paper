@@ -1,0 +1,28 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/generators/pretext_seed.yaml
+  - ../../methods/scorers/pretext_hist.yaml
+  - ../../methods/retrievers/none.yaml
+  - ../../methods/critics/none.yaml
+  - ../../methods/aggregators/none.yaml
+
+meta:
+  experiment_id: smoke_jobs_minimal
+  stage: smoke
+  seed: 42
+
+data:
+  dataset_name: jobs
+  task_type: instruction_tuning
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  public_seed_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  num_clients: 2
+  max_samples_per_client: 4
+  validation_ratio: 0.2
+
+federation:
+  rounds: 1
+  top_k_bad: 2

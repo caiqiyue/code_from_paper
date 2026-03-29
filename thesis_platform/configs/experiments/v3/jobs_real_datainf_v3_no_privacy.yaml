@@ -9,7 +9,7 @@ inherits:
   - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
   - ../../methods/prototypes/minilm_mean.yaml
   - ../../methods/routing/personalized_v3.yaml
-  - ../../methods/downstream_eval/pretext_large.yaml
+  - ../../methods/downstream_eval/pretext_large_off.yaml
 
 meta:
   experiment_id: jobs_real_datainf_v3_no_privacy

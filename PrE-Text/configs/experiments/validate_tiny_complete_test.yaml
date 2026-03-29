@@ -37,27 +37,34 @@ bootstrap:
   enabled: true
   num_prompts: 16  # Very small for quick test
   generator_backend: huggingface  # Use HuggingFace on Windows (vLLM not available)
-  batch_size: 1  # Small batch size to avoid OOM with 7B model
+  generator_model: llama_3_2_3b_instruct  # Use smaller 3B model for Windows compatibility
+  batch_size: 1  # Small batch size to avoid OOM
+  device: cuda  # Use GPU for 3B model
   max_tokens: 64
   temperature: 1.0
   top_p: 1.0
   max_model_len: 512
 
 eval_small:
-  enabled: true  # Now uses GPT-2 from HuggingFace (no c4_checkpoint.pth needed)
+  enabled: true
+  eval_mode: gpt2  # gpt2: HuggingFace base GPT-2 | distilgpt2: requires c4_checkpoint.pth
   cutoff_len: 64
   grad_accum_steps: 16
-  epochs: 5  # Reduced for quick test
-  batch_size: 16  # Smaller batch for Windows
+  epochs: 3
+  batch_size: 16
   eval_batch_size: 8
   learning_rate: 0.0002
 
+# eval_large model options:
+#   - gpt2_xl: GPT-2 XL (1.5B) full fine-tuning - Windows compatible, single-file model
+#   - full_finetune: Llama-3.2-3B full fine-tuning - may segfault on Windows (sharded safetensors)
+#   - peft_lora: LLaMA-2-7B + PEFT LoRA - Linux recommended
 eval_large:
   enabled: true
-  eval_mode: full_finetune  # full_finetune: Llama-3.2-3B (Windows兼容) | peft_lora: LLaMA-2-7B (Linux推荐)
+  eval_mode: gpt2_xl
   cutoff_len: 64
   grad_accum_steps: 32
-  epochs: 3  # Reduced for quick test
-  batch_size: 1  # Minimal batch for 3B model
+  epochs: 3
+  batch_size: 1
   eval_batch_size: 1
   learning_rate: 0.0002

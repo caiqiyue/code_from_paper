@@ -161,6 +161,7 @@ class RoundRunner:
         client_contexts: list[ClientContext],
         selected_bad_by_client: dict[str, list[ScoredSample]],
         retrieved_pairs: list[Any],
+        privatizer=None,
     ) -> list[PrototypeFeedback]:
         """Extract one prototype vector per client from retrieved real anchors."""
 
@@ -206,6 +207,7 @@ class RoundRunner:
                 samples=real_samples,
                 embedder=client_ctx.embedder,
                 weight=r_k_utility,
+                privatizer=privatizer,
             )
             client_ctx.prototype_vector = list(feedback.prototype_vector)
             client_ctx.prototype_weight = float(feedback.weight)
@@ -372,6 +374,7 @@ class RoundRunner:
                 client_contexts=client_contexts,
                 selected_bad_by_client=selected_bad_by_client,
                 retrieved_pairs=retrieved_pairs,
+                privatizer=privacy_ledger,
             )
         server_ctx.prototype_feedbacks = prototype_feedbacks
 
@@ -493,6 +496,7 @@ class RoundRunner:
             "prototype_count": len(prototype_feedbacks),
             "client_cluster_map": dict(server_ctx.client_cluster_map),
             "cluster_prompt_count": len(cluster_prompts),
+            "dp_protected": any(fb.meta.get("dp_applied", False) for fb in prototype_feedbacks),
         }
         round_metrics_payload = {
             "schema_version": ARTIFACT_SCHEMA_VERSION,

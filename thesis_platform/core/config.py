@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import re
 from typing import Any
@@ -117,6 +118,18 @@ def _load_with_includes(path: Path) -> dict[str, Any]:
         include_path = (path.parent / include).resolve()
         merged = _deep_merge(merged, _load_with_includes(include_path))
     return _deep_merge(merged, data)
+
+
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def _normalize_config_path(value: str | Path) -> str:
+    """Normalize user-configured paths so the same config works on Windows and Linux."""
+
+    raw = os.path.expandvars(os.path.expanduser(str(value).strip()))
+    if _WINDOWS_DRIVE_RE.match(raw) or raw.startswith("\\\\"):
+        return raw
+    return raw.replace("\\", "/")
 
 
 @dataclass(slots=True)
@@ -236,6 +249,12 @@ class ExperimentConfig:
                 "export_filename": "llama7b_text_syn.json",
                 "run_large_eval": False,
                 "run_small_eval": False,
+                "large_eval_mode": "auto",
+                "windows_large_eval_mode": "full_finetune",
+                "linux_large_eval_mode": "peft_lora",
+                "small_eval_mode": "auto",
+                "windows_small_eval_mode": "gpt2",
+                "linux_small_eval_mode": "distilgpt2",
                 "baseline_summary_paths": [],
             },
             self.raw.get("downstream_eval", {}),
@@ -265,7 +284,7 @@ class ExperimentConfig:
     def repo_root(self) -> Path:
         """Resolve the repository root relative to the current config file."""
 
-        raw_repo_root = self.paths.get("repo_root", ".")
+        raw_repo_root = _normalize_config_path(self.paths.get("repo_root", "."))
         return (self.path.parent / raw_repo_root).resolve()
 
     def resolve_path(self, value: str | Path | None) -> Path | None:
@@ -273,7 +292,7 @@ class ExperimentConfig:
 
         if value in (None, ""):
             return None
-        path = Path(value)
+        path = Path(_normalize_config_path(value))
         if path.is_absolute():
             return path
         return (self.repo_root() / path).resolve()

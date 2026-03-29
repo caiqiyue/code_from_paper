@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from pretext_platform.core.config import ExperimentConfig, load_experiment_config
+
+
+def _convert_paths(obj):
+    """Recursively convert Path objects to strings for JSON serialization."""
+    if hasattr(obj, "__iter__") and not isinstance(obj, (str, dict)):
+        return [_convert_paths(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: _convert_paths(v) for k, v in obj.items()}
+    elif hasattr(obj, "__fspath__"):
+        return str(obj)
+    return obj
 from pretext_platform.core.io_utils import ensure_dir, write_json
 from pretext_platform.core.types import StageSummary
 
@@ -51,16 +63,30 @@ def run_bootstrap(config: ExperimentConfig) -> StageSummary:
 
 
 def run_eval_small(config: ExperimentConfig) -> StageSummary:
-    """Run only the DistilGPT2 downstream evaluation."""
+    """Run only the small-model downstream evaluation.
+
+    Supports two modes:
+    - "distilgpt2": DistilGPT2 with warm-start checkpoint (requires c4_checkpoint.pth)
+    - "gpt2": Base GPT-2 from HuggingFace (no checkpoint needed, cross-platform)
+    """
 
     from pretext_platform.core.models import resolve_model_paths
     from pretext_platform.data.loaders import load_dataset_bundle
-    from pretext_platform.evaluation.distilgpt2_eval import run_distilgpt2_eval
 
     dataset_bundle = load_dataset_bundle(config)
     model_paths = resolve_model_paths(config)
     experiment_dir = _experiment_dir(config)
-    summary = run_distilgpt2_eval(config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_small")
+
+    eval_cfg = config.eval_small
+    eval_mode = eval_cfg.get("eval_mode", "gpt2")
+
+    if eval_mode == "gpt2":
+        from pretext_platform.evaluation.gpt2_eval import run_gpt2_eval
+        summary = run_gpt2_eval(config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_small")
+    else:
+        from pretext_platform.evaluation.distilgpt2_eval import run_distilgpt2_eval
+        summary = run_distilgpt2_eval(config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_small")
+
     _write_stage_summary(experiment_dir, "eval_small_summary.json", summary)
     write_json(experiment_dir / "resolved_config.json", config.raw)
     return summary
@@ -69,9 +95,10 @@ def run_eval_small(config: ExperimentConfig) -> StageSummary:
 def run_eval_large(config: ExperimentConfig) -> StageSummary:
     """Run only the large-model downstream evaluation.
 
-    Supports two modes:
+    Supports three modes:
     - "peft_lora": LLaMA-2-7B + PEFT LoRA (requires Linux for PEFT compatibility)
-    - "full_finetune": Llama-3.2-3B-Instruct full fine-tuning (Windows compatible)
+    - "full_finetune": Llama-3.2-3B-Instruct full fine-tuning (may segfault on Windows)
+    - "gpt2_xl": GPT-2 XL (1.5B) full fine-tuning (Windows compatible, single-file model)
     """
 
     from pretext_platform.core.models import resolve_model_paths
@@ -84,8 +111,15 @@ def run_eval_large(config: ExperimentConfig) -> StageSummary:
     eval_cfg = config.eval_large
     eval_mode = eval_cfg.get("eval_mode", "peft_lora")
 
-    if eval_mode == "full_finetune":
-        # Llama-3.2-3B-Instruct full fine-tuning (Windows compatible)
+    if eval_mode == "gpt2_xl":
+        # GPT-2 XL (1.5B) full fine-tuning (Windows compatible, single-file model)
+        from pretext_platform.evaluation.gpt2_xl_eval import run_gpt2_xl_eval
+
+        summary = run_gpt2_xl_eval(
+            config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large"
+        )
+    elif eval_mode == "full_finetune":
+        # Llama-3.2-3B-Instruct full fine-tuning (may segfault on Windows)
         from pretext_platform.evaluation.llama32_eval import run_llama32_eval
 
         summary = run_llama32_eval(
@@ -136,7 +170,7 @@ def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any
     summary_payload = {
         "experiment_id": config.experiment_id(),
         "experiment_dir": str(experiment_dir),
-        "stages": summaries,
+        "stages": {k: _convert_paths(asdict(v)) if hasattr(v, "__dataclass_fields__") else v for k, v in summaries.items()},
     }
     write_json(experiment_dir / "metrics_summary.json", summary_payload)
     return summary_payload

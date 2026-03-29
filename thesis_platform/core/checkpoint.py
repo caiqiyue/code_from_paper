@@ -164,6 +164,15 @@ class CheckpointManager:
             except Exception as e:
                 logger.warning(f"Could not load server_ctx: {e}")
 
+        # Load privacy ledger
+        privacy_ledger_path = checkpoint_path / "privacy_ledger.json"
+        if privacy_ledger_path.exists():
+            try:
+                with open(privacy_ledger_path, "r") as f:
+                    checkpoint_data["privacy_ledger_data"] = json.load(f)
+            except Exception as e:
+                logger.warning(f"Could not load privacy_ledger: {e}")
+
         logger.info(f"Checkpoint loaded: {checkpoint_path}")
         return checkpoint_data
 

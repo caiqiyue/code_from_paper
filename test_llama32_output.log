@@ -1,0 +1,24 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:   0%|          | 1/254 [00:01<05:39,  1.34s/it]Loading weights:  33%|¨€¨€¨€¨†      | 84/254 [00:01<00:02, 79.12it/s]Loading weights:  50%|¨€¨€¨€¨€¨     | 126/254 [00:01<00:01, 82.58it/s]Loading weights:  60%|¨€¨€¨€¨€¨€¨€    | 153/254 [00:02<00:01, 83.88it/s]Loading weights:  68%|¨€¨€¨€¨€¨€¨€¨‚   | 173/254 [00:02<00:00, 84.73it/s]Loading weights:  74%|¨€¨€¨€¨€¨€¨€¨€¨…  | 189/254 [00:02<00:00, 80.01it/s]Loading weights:  80%|¨€¨€¨€¨€¨€¨€¨€¨  | 202/254 [00:02<00:00, 75.42it/s]Loading weights:  84%|¨€¨€¨€¨€¨€¨€¨€¨€¨… | 213/254 [00:03<00:00, 78.02it/s]Loading weights:  88%|¨€¨€¨€¨€¨€¨€¨€¨€¨‚ | 224/254 [00:03<00:00, 80.87it/s]Loading weights:  92%|¨€¨€¨€¨€¨€¨€¨€¨€¨€¨‡| 234/254 [00:03<00:00, 83.02it/s]Loading weights:  96%|¨€¨€¨€¨€¨€¨€¨€¨€¨€¨„| 244/254 [00:03<00:00, 84.36it/s]Loading weights: 100%|¨€¨€¨€¨€¨€¨€¨€¨€¨€¨€| 254/254 [00:03<00:00, 85.29it/s]Loading weights: 100%|¨€¨€¨€¨€¨€¨€¨€¨€¨€¨€| 254/254 [00:03<00:00, 72.49it/s]
+The following generation flags are not valid and may be ignored: ['temperature', 'top_p']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+Both `max_new_tokens` (=10) and `max_length`(=131072) seem to have been set. `max_new_tokens` will take precedence. Please refer to the documentation for more information. (https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)
+
+Testing llama_3_2_3b model loading...
+torch.cuda.is_available(): True
+torch.version.cuda: 11.8
+Safetensors files: ['model-00001-of-00002.safetensors', 'model-00002-of-00002.safetensors']
+  model-00001-of-00002.safetensors: 4,965,799,096 bytes
+  model-00002-of-00002.safetensors: 1,459,729,952 bytes
+
+Loading with AutoModelForCausalLM...
+Loading tokenizer...
+Tokenizer loaded
+Loading model with device_map='auto'...
+Model loaded!
+Model device: cuda:0
+
+Testing generation...
+Generated: "Hello, this is a test. I'm not sure if this will work, but"
+
+ALL CHECKS PASSED
+

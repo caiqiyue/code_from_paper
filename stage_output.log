@@ -1,0 +1,16 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+
+ERROR conda.cli.main_run:execute(49): `conda run python -u test_pipeline_stages.py` failed. (See above for error)
+============================================================
+STAGE 1: Load config
+============================================================
+Config loaded: windows_real_test_minimal
+
+============================================================
+STAGE 2: Build text backends
+============================================================
+repo_root: D:\学习记录\导师项目\研究\caiqiyue_file
+Client cfg: thesis_platform/open_model/llama_3_2_3b_instruct
+Server cfg: thesis_platform/open_model/llama_3_2_3b_instruct
+Building client backend...
+

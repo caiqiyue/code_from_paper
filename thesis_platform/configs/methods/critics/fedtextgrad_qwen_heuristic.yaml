@@ -1,0 +1,5 @@
+critic:
+  name: fedtextgrad_qwen
+  engine: heuristic
+  compress_to_n_rules: 2
+  redact_enable: true

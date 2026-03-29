@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from thesis_platform.core.schemas import Sample
 
@@ -207,6 +208,60 @@ def _load_sample_records(path: Path, *, sample_format: str) -> list[dict[str, An
     return [record] if record is not None else []
 
 
+def _normalize_source_domain(url: str) -> str:
+    """Normalize one source URL into a stable bucket-friendly domain label."""
+
+    parsed = urlparse(str(url).strip())
+    domain = parsed.netloc.lower().strip()
+    if domain.startswith("www."):
+        domain = domain[4:]
+    return domain
+
+
+def _pretext_sidecar_path(path: Path) -> Path | None:
+    """Return the raw JSONL sidecar that preserves source URLs for formatted PrE-Text files."""
+
+    if path.name == "initialization.json":
+        return None
+    stem = path.stem.lower()
+    if stem.endswith("_train"):
+        return path.parent.parent / "raw" / "train.jsonl"
+    if stem.endswith("_eval"):
+        return path.parent.parent / "raw" / "eval.jsonl"
+    return None
+
+
+def _attach_pretext_sidecar_metadata(path: Path, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Restore source-domain metadata for formatted PrE-Text datasets when raw sidecars exist."""
+
+    sidecar_path = _pretext_sidecar_path(path)
+    if sidecar_path is None or not sidecar_path.exists() or not records:
+        return records
+
+    sidecar_rows = _read_jsonl_rows(sidecar_path)
+    if len(sidecar_rows) < len(records):
+        return records
+
+    for record, row in zip(records, sidecar_rows):
+        url = str(row.get("url") or "").strip()
+        if not url:
+            continue
+        domain = _normalize_source_domain(url)
+        meta = record.setdefault("meta", {})
+        meta.setdefault("source_url", url)
+        if domain:
+            meta.setdefault("source_domain", domain)
+            meta.setdefault("bucket_id", domain)
+    return records
+
+
+def _read_jsonl_rows(path: Path) -> list[dict[str, Any]]:
+    """Read newline-delimited JSON rows from one sidecar file."""
+
+    with path.open("r", encoding="utf-8") as handle:
+        return [json.loads(line) for line in handle if line.strip()]
+
+
 def build_samples(
     texts: list[str],
     *,
@@ -248,6 +303,7 @@ def load_samples(
     """Load supported JSON samples from disk and convert them into Sample objects."""
 
     records = _load_sample_records(path, sample_format=sample_format)
+    records = _attach_pretext_sidecar_metadata(path, records)
     if limit is not None:
         records = records[: max(0, limit)]
     samples: list[Sample] = []

@@ -80,19 +80,26 @@ def generate_bootstrapped_samples_hf(
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    # Check device configuration - support "cpu" for Windows compatibility
+    device = bootstrap_cfg.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    use_cuda = device == "cuda" and torch.cuda.is_available()
+
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
 
-    # Load model with fp16 on CPU first, then move to GPU
+    # Load model with appropriate dtype for target device
+    # On CPU: use float32 (fp16 not well supported on CPU)
+    # On CUDA: use float16 for memory efficiency
+    torch_dtype = torch.float16 if use_cuda else torch.float32
     # device_map='auto' causes segfaults on Windows with certain PyTorch/CUDA versions
     # Force use_safetensors=True for Windows compatibility (avoids segfault with large bin files)
     model = AutoModelForCausalLM.from_pretrained(
         str(model_path),
         local_files_only=True,
-        torch_dtype=torch.float16,
+        torch_dtype=torch_dtype,
         use_safetensors=True,
     )
 
-    if torch.cuda.is_available():
+    if use_cuda:
         model = model.to("cuda")
 
     temperature = float(bootstrap_cfg.get("temperature", 1.0))
@@ -118,7 +125,7 @@ def generate_bootstrapped_samples_hf(
             )
 
             # Move to device
-            if torch.cuda.is_available():
+            if use_cuda:
                 inputs = {k: v.cuda() for k, v in inputs.items()}
 
             # Generate
@@ -142,7 +149,7 @@ def generate_bootstrapped_samples_hf(
                 outputs.append(generated_text)
 
             # Clear CUDA cache after each batch to prevent OOM
-            if torch.cuda.is_available():
+            if use_cuda:
                 torch.cuda.empty_cache()
 
     return outputs
@@ -201,7 +208,15 @@ def run_bootstrap_stage(
         num_prompts=int(bootstrap_cfg.get("num_prompts", 50000)),
         seed=int(config.meta.get("seed", 42)),
     )
-    output_list = generator_fn(prompt_list, model_paths.llama2_7b, bootstrap_cfg)
+
+    # Select bootstrap model: "llama2_7b" (default, Linux recommended) or "llama_3_2_3b_instruct" (Windows compatible)
+    bootstrap_model = bootstrap_cfg.get("generator_model", "llama2_7b")
+    if bootstrap_model == "llama_3_2_3b_instruct":
+        model_path = model_paths.llama_3_2_3b_instruct
+    else:
+        model_path = model_paths.llama2_7b
+
+    output_list = generator_fn(prompt_list, model_path, bootstrap_cfg)
 
     output_path = output_dir / "llama7b_text_syn.json"
     with output_path.open("w", encoding="utf-8") as handle:

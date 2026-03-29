@@ -1,0 +1,90 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../methods/generators/pretext_prompt_llm.yaml
+  - ../../methods/scorers/gradmm_real.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_llm.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+  - ../../methods/prototypes/minilm_mean.yaml
+  - ../../methods/routing/personalized_v3.yaml
+  - ../../methods/privacy/jobs_eps129.yaml
+  - ../../methods/downstream_eval/pretext_large_off.yaml
+
+meta:
+  experiment_id: integrity_jobs_real_gradmm_qwen
+  stage: integrity_real
+  seed: 42
+
+data:
+  dataset_name: jobs
+  task_type: instruction_tuning
+  sample_format: raw_text
+  partition_strategy: shuffle_round_robin
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  public_seed_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  initial_prompt_path: ""
+  max_public_seed_samples: 4
+  num_clients: 2
+  max_samples_per_client: 3
+  validation_ratio: 0.34
+  train_limit: 6
+  eval_limit: 4
+  initialization_min_words: 20
+
+llm:
+  client:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.0
+    max_new_tokens: 96
+    use_chat_template: true
+  server:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.2
+    max_new_tokens: 96
+    use_chat_template: true
+
+generator:
+  name: pretext_prompt_llm
+  generated_per_round: 2
+  exemplars_per_prompt: 1
+  max_new_tokens: 80
+  temperature: 0.2
+  initial_prompt: "Generate job-related text that matches the private client writing style while preserving privacy."
+
+critic:
+  name: fedtextgrad_llm
+  compress_to_n_rules: 2
+  redact_enable: true
+
+retriever:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+  top_k: 1
+
+aggregator:
+  name: dbscan_attn_tsgdm
+  max_rules: 4
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+  cluster_eps: 0.35
+  cluster_min_samples: 1
+  momentum_beta: 0.7
+
+routing:
+  enabled: true
+  personalized_mix_ratio: 0.7
+  cluster_eps: 0.35
+  cluster_min_samples: 1
+
+federation:
+  rounds: 1
+  top_k_bad: 1

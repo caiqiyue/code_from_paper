@@ -62,6 +62,40 @@ class ServerContext:
     prototype_feedbacks: list[Any] = field(default_factory=list)
     routing_state: dict[str, Any] = field(default_factory=dict)
 
+    @classmethod
+    def restore_from_checkpoint(
+        cls,
+        checkpoint_data: dict[str, Any],
+        config: dict[str, Any],
+        output_dir: Path,
+        text_backend: Any,
+    ) -> "ServerContext":
+        """Restore a ServerContext from checkpoint data.
+
+        Args:
+            checkpoint_data: The server_ctx_data from a checkpoint
+            config: The experiment config dict
+            output_dir: Path to the experiment output directory
+            text_backend: The server text backend instance
+
+        Returns:
+            A new ServerContext with restored state
+        """
+        return cls(
+            experiment_id=checkpoint_data.get("experiment_id", ""),
+            prompt_text=checkpoint_data.get("prompt_text", ""),
+            prompt_history=list(checkpoint_data.get("prompt_history", [])),
+            config=config,
+            output_dir=output_dir,
+            text_backend=text_backend,
+            base_prompt=checkpoint_data.get("base_prompt"),
+            cluster_prompts=dict(checkpoint_data.get("cluster_prompts", {})),
+            aggregation_memory=dict(checkpoint_data.get("aggregation_memory", {})),
+            generated_history=[
+                list(batch) for batch in checkpoint_data.get("generated_history", [])
+            ],
+        )
+
 
 @dataclass(slots=True)
 class EvalContext:

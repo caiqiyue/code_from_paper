@@ -49,6 +49,12 @@ def partition_samples(
             grouped[bucket_id].append(sample)
 
         ordered_bucket_ids = sorted(grouped.keys(), key=lambda item: int(item) if item.isdigit() else item)
+        if len(ordered_bucket_ids) < num_clients:
+            raise ValueError(
+                "partition_strategy='preserve_buckets' requires at least as many distinct bucket_id values "
+                f"as num_clients. Found {len(ordered_bucket_ids)} buckets for {num_clients} clients. "
+                "Use shuffle_round_robin or provide dataset bucket metadata."
+            )
         client_buckets = [[] for _ in range(num_clients)]
         for index, bucket_id in enumerate(ordered_bucket_ids):
             client_bucket = client_buckets[index % num_clients]

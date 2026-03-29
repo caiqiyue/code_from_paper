@@ -1,0 +1,8 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights:   0%|          | 1/254 [00:00<00:28,  8.84it/s]Loading weights:  34%|¨€¨€¨€¨…      | 86/254 [00:00<00:00, 476.11it/s]Loading weights:  54%|¨€¨€¨€¨€¨€¨†    | 136/254 [00:00<00:00, 439.17it/s]
+ERROR conda.cli.main_run:execute(49): `conda run python -u test_backend_cpu.py` failed. (See above for error)
+CUDA: True
+VRAM before: 0.00GB
+Importing...
+Creating CPU backend...
+

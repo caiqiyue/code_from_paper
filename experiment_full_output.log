@@ -1,0 +1,15 @@
+2026-03-26 18:07:21,784 | INFO | Experiment windows_real_test_minimal | starting with config D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\configs\experiments\validation\windows_real_test_minimal.yaml
+`torch_dtype` is deprecated! Use `dtype` instead!
+
+ERROR conda.cli.main_run:execute(49): `conda run python -u run_minimal_experiment.py` failed. (See above for error)
+============================================================
+STARTING END-TO-END EXPERIMENT
+============================================================
+Config: thesis_platform/configs/experiments/validation/windows_real_test_minimal.yaml
+Config exists: True
+
+=== Running pipeline ===
+2026-03-26 18:07:18,008 | INFO | Loading faiss with AVX2 support.
+2026-03-26 18:07:18,024 | INFO | Successfully loaded faiss with AVX2 support.
+2026-03-26 18:07:21,784 | INFO | Experiment windows_real_test_minimal | starting with config D:\学习记录\导师项目\研究\caiqiyue_file\thesis_platform\configs\experiments\validation\windows_real_test_minimal.yaml
+

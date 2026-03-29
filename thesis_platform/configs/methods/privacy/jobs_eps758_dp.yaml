@@ -1,0 +1,23 @@
+# Privacy config for Jobs dataset with REAL differential privacy enabled (epsilon=7.58).
+# Toggle via `enable_real_dp: true/false` to switch between proxy accounting and real DP.
+#
+# Real DP applies:
+#   - Gradient clipping (max_grad_norm) to prototype vectors before upload
+#   - Gaussian noise (noise_multiplier * max_grad_norm) to prototype vectors
+#   - DP protection for influence scores before they affect server-side decisions
+
+privacy:
+  enabled: true
+  mode: sample_critique_upload_proxy
+  # --- Real DP toggle (set to true to enable actual DP protection) ---
+  enable_real_dp: false
+  # --- DP mechanism parameters (used when enable_real_dp: true) ---
+  epsilon: 7.58
+  delta: 3e-6
+  max_grad_norm: 1.0
+  noise_multiplier: 1.0
+  # --- Proxy accounting (always active when enabled: true) ---
+  sample_cost: 0.0005
+  critique_cost: 0.005
+  upload_token_cost: 0.000001
+  enforce_budget: false

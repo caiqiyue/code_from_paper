@@ -14,6 +14,7 @@ class ModelPaths:
     llama2_7b: Path
     llama_3_2_3b_instruct: Path
     distilgpt2: Path
+    gpt2_xl: Path
     c4_checkpoint: Path | None = None
 
 

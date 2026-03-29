@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from thesis_platform.data.loaders import load_texts
+from thesis_platform.data.loaders import load_samples, load_texts
 
 
 class LoaderTests(unittest.TestCase):
@@ -48,6 +48,52 @@ class LoaderTests(unittest.TestCase):
 
             self.assertEqual(len(texts), 4)
             self.assertEqual(set(texts), {"alpha", "beta", "gamma", "delta"})
+
+    def test_pretext_formatted_train_recovers_bucket_ids_from_raw_sidecar(self) -> None:
+        """Formatted PrE-Text corpora should restore source-domain buckets from raw JSONL sidecars."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            formatted_dir = root / "formatted"
+            raw_dir = root / "raw"
+            formatted_dir.mkdir(parents=True, exist_ok=True)
+            raw_dir.mkdir(parents=True, exist_ok=True)
+
+            (formatted_dir / "jobs_train.json").write_text(
+                json.dumps(["alpha job post", "beta hiring memo"]),
+                encoding="utf-8",
+            )
+            (raw_dir / "train.jsonl").write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {"text": "alpha job post", "url": "https://jobs.example.com/posting/1"},
+                            ensure_ascii=False,
+                        ),
+                        json.dumps(
+                            {"text": "beta hiring memo", "url": "https://careers.other.org/open-role"},
+                            ensure_ascii=False,
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            samples = load_samples(
+                formatted_dir / "jobs_train.json",
+                dataset_name="jobs",
+                source="real",
+                task_type="instruction_tuning",
+                round_id=0,
+                client_id="raw",
+                prefix="job",
+            )
+
+            self.assertEqual(samples[0].meta["bucket_id"], "jobs.example.com")
+            self.assertEqual(samples[0].meta["source_domain"], "jobs.example.com")
+            self.assertEqual(samples[1].meta["bucket_id"], "careers.other.org")
+            self.assertIn("source_url", samples[1].meta)
 
 
 if __name__ == "__main__":

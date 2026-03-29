@@ -72,6 +72,56 @@ llm:
             self.assertIn("missing prototype model", message)
             self.assertIn("missing scorer feature model", message)
 
+    def test_preflight_rejects_preserve_buckets_when_dataset_has_no_bucket_groups(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            train_path = tmp_root / "train.json"
+            train_path.write_text(json.dumps(["alpha", "beta", "gamma"]), encoding="utf-8")
+            config_path = tmp_root / "preserve_buckets_invalid.yaml"
+            config_path.write_text(
+                f"""
+meta:
+  experiment_id: preserve_buckets_invalid
+paths:
+  repo_root: "{tmp_root.as_posix()}"
+  output_root: "{(tmp_root / 'out').as_posix()}"
+  cache_root: "{(tmp_root / 'cache').as_posix()}"
+data:
+  dataset_name: tmp
+  task_type: instruction_tuning
+  sample_format: raw_text
+  train_path: "{train_path.as_posix()}"
+  num_clients: 2
+  partition_strategy: preserve_buckets
+generator:
+  name: pretext_seed
+scorer:
+  name: none
+retriever:
+  name: none
+critic:
+  name: none
+aggregator:
+  name: none
+downstream_eval:
+  enabled: false
+llm:
+  client:
+    engine: mock
+    model_name_or_path: ""
+  server:
+    engine: mock
+    model_name_or_path: ""
+""".strip(),
+                encoding="utf-8",
+            )
+
+            config = load_experiment_config(config_path)
+            with self.assertRaises(ValueError) as error:
+                validate_preflight(config)
+
+            self.assertIn("partition_strategy='preserve_buckets'", str(error.exception))
+
     def test_v3_pipeline_writes_routing_and_downstream_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir)
@@ -162,6 +212,9 @@ downstream_eval:
   enabled: true
   kind: pretext_large_eval
   export_filename: llama7b_text_syn.json
+  windows_large_eval_mode: peft_lora
+  linux_large_eval_mode: peft_lora
+  guard_windows_llama2_large_eval: false
 """.strip(),
                 encoding="utf-8",
             )

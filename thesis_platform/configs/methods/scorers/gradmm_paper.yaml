@@ -12,8 +12,9 @@ scorer:
   model_name: microsoft/phi-1_5
   lora_checkpoint: null  # Path to LoRA checkpoint
   # Whether to use real gradients (requires LoRA model)
-  use_real_gradients: false  # Set to true when LoRA model available
-  # Fallback feature encoder (when use_real_gradients=false)
+  # If unavailable, scorer falls back to feature-based approximation
+  use_real_gradients: true
+  # Fallback feature encoder (used when gradients are disabled or unavailable)
   feature_model: thesis_platform/open_model/roberta_large
   allow_hashing_fallback: false
   max_length: 256

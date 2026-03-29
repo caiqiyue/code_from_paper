@@ -1,0 +1,9 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+
+ERROR conda.cli.main_run:execute(49): `conda run python -u test_model_loading.py` failed. (See above for error)
+CUDA: True
+VRAM after cleanup: 0.00GB
+Model cache cleared
+Loading model with device='cuda' (not auto)...
+Tokenizer loaded
+
