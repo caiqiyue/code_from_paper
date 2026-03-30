@@ -1,0 +1,5 @@
+nohup bash install_caiqiyue.sh > install_caiqiyue.log 2>&1 &
+
+
+
+source /root/miniconda3/etc/profile.d/conda.sh
