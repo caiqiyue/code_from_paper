@@ -39,6 +39,8 @@ def build_experiment_manifest(
     resolved_config_path: Path,
     metrics_summary_path: Path,
     privacy_ledger_path: Path,
+    run_state_path: Path | None,
+    failure_summary_path: Path | None,
     round_manifests: list[dict[str, Any]],
     downstream_summary: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -62,6 +64,8 @@ def build_experiment_manifest(
             "resolved_config": str(resolved_config_path),
             "metrics_summary": str(metrics_summary_path),
             "privacy_ledger": str(privacy_ledger_path),
+            "run_state": str(run_state_path) if run_state_path is not None else None,
+            "failure_summary": str(failure_summary_path) if failure_summary_path is not None else None,
         },
         "rounds": round_manifests,
         "downstream_eval": downstream_files,

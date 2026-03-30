@@ -151,6 +151,7 @@ class CheckpointManager:
         try:
             with open(checkpoint_path / "checkpoint.json", "r") as f:
                 checkpoint_data = json.load(f)
+            checkpoint_data["checkpoint_path"] = str(checkpoint_path)
         except Exception as e:
             logger.error(f"Could not load checkpoint metadata: {e}")
             return None

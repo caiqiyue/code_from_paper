@@ -122,6 +122,56 @@ llm:
 
             self.assertIn("partition_strategy='preserve_buckets'", str(error.exception))
 
+    def test_preflight_reports_missing_local_lora_model(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            train_path = tmp_root / "train.json"
+            train_path.write_text(json.dumps(["alpha", "beta"]), encoding="utf-8")
+            config_path = tmp_root / "missing_lora_model.yaml"
+            config_path.write_text(
+                f"""
+meta:
+  experiment_id: missing_lora_model
+paths:
+  repo_root: "{tmp_root.as_posix()}"
+  output_root: "{(tmp_root / 'out').as_posix()}"
+  cache_root: "{(tmp_root / 'cache').as_posix()}"
+data:
+  dataset_name: tmp
+  task_type: instruction_tuning
+  sample_format: raw_text
+  train_path: "{train_path.as_posix()}"
+generator:
+  name: pretext_seed
+scorer:
+  name: datainf_lora
+  use_real_gradients: true
+  model_name: thesis_platform/open_model/qwen_2_0_5b_instruct
+retriever:
+  name: none
+critic:
+  name: none
+aggregator:
+  name: none
+downstream_eval:
+  enabled: false
+llm:
+  client:
+    engine: mock
+    model_name_or_path: ""
+  server:
+    engine: mock
+    model_name_or_path: ""
+""".strip(),
+                encoding="utf-8",
+            )
+            config = load_experiment_config(config_path)
+            with patch("thesis_platform.core.preflight._module_available", return_value=True):
+                with self.assertRaises(ValueError) as error:
+                    validate_preflight(config)
+
+            self.assertIn("missing scorer LoRA base model", str(error.exception))
+
     def test_v3_pipeline_writes_routing_and_downstream_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir)

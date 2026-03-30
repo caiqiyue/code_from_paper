@@ -19,7 +19,7 @@ scorer:
   lissa_iterations: 10
   
   # LoRA configuration
-  model_name: microsoft/phi-1_5  # Base model path
+  model_name: thesis_platform/open_model/qwen_2_0_5b_instruct  # Base model path
   lora_rank: 8  # LoRA rank (r parameter)
   target_modules:  # Modules to apply LoRA to
     - q_proj

@@ -24,6 +24,7 @@ from thesis_platform.core.schemas import ScoredSample
 from thesis_platform.core.lora_gradients import (
     LoRAGradientExtractor,
     GradientDistanceCalculator,
+    resolve_model_name_or_path,
 )
 from thesis_platform.algorithms.scorers.datainf_core import compute_datainf_scores
 from thesis_platform.models.features import build_feature_encoder
@@ -63,7 +64,10 @@ class DataInfRealScorer:
         )
 
         # Model configuration
-        self.model_name = config.get("model_name", "microsoft/phi-1_5")
+        self.model_name = resolve_model_name_or_path(
+            config.get("model_name", "thesis_platform/open_model/qwen_2_0_5b_instruct"),
+            repo_root=repo_root,
+        )
         self.lora_rank = int(config.get("lora_rank", 8))
         self.target_modules = config.get("target_modules", ["q_proj", "v_proj"])
 

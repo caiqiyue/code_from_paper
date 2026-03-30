@@ -50,7 +50,9 @@ class PrivacyPolicy:
         max_grad_norm = float(privacy_cfg.get("max_grad_norm", 1.0))
         noise_multiplier = float(privacy_cfg.get("noise_multiplier", 1.0))
         # Check if real DP should be enabled
-        dp_enabled = enabled and bool(privacy_cfg.get("enable_real_dp", False))
+        dp_enabled = enabled and bool(
+            privacy_cfg.get("enable_real_dp", privacy_cfg.get("dp_enabled", False))
+        )
 
         return cls(
             enabled=enabled,
@@ -132,6 +134,7 @@ class PrivacyLedger:
 
     def __post_init__(self) -> None:
         """Initialize DP privatizer if real DP is enabled."""
+        self._dp_privatizer = None
         if self.policy.dp_enabled and DP_PRIVACY_AVAILABLE:
             dp_config = self.policy.to_dp_config()
             if dp_config is not None:
@@ -211,6 +214,30 @@ class PrivacyLedger:
             },
             "privacy_spend_breakdown": spend_breakdown,
         }
+        if self.policy.dp_enabled:
+            real_status = self.get_privacy_budget_status()
+            previous_real_total = 0.0
+            if self.entries:
+                previous_real_total = float(
+                    self.entries[-1].get("real_dp_epsilon_spent", 0.0)
+                )
+            real_total = float(real_status.get("epsilon_spent", 0.0))
+            summary.update(
+                {
+                    "real_dp_enabled": True,
+                    "real_dp_epsilon_spent": real_total,
+                    "real_dp_epsilon_spent_increment": round(
+                        max(real_total - previous_real_total, 0.0), 12
+                    ),
+                    "real_dp_budget_left": real_status.get("budget_left"),
+                    "real_dp_budget_exceeded": bool(
+                        real_status.get("budget_exceeded", False)
+                    ),
+                    "real_dp_query_count": int(real_status.get("query_count", 0)),
+                    "proxy_privacy_spent": round_spent,
+                    "proxy_privacy_spent_cumulative": self.cumulative_spent,
+                }
+            )
         self.entries.append(summary)
         return summary
 
@@ -273,15 +300,7 @@ class PrivacyLedger:
         """
         if self._dp_privatizer is None:
             return scores
-
-        import random
-
-        clip_bound = clip_bound or self.policy.max_grad_norm
-        sigma = self.policy.noise_multiplier * clip_bound
-
-        clipped = [max(-clip_bound, min(clip_bound, s)) for s in scores]
-        noise = [random.gauss(0.0, 1.0) for _ in scores]
-        return [c + sigma * n for c, n in zip(clipped, noise)]
+        return self._dp_privatizer.privatize_scores(scores, clip_bound=clip_bound)
 
     def privatize_scalar(
         self,
@@ -299,7 +318,7 @@ class PrivacyLedger:
         """
         if self._dp_privatizer is None:
             return value
-        return self.privatize_scores([value], clip_bound)[0]
+        return self._dp_privatizer.privatize_scalar(value, clip_bound=clip_bound)
 
     def get_privacy_budget_status(self) -> dict[str, Any]:
         """Get current privacy budget status.
@@ -308,31 +327,70 @@ class PrivacyLedger:
             Dictionary with privacy budget information
         """
         if self._dp_privatizer is None:
+            proxy_budget_left = (
+                self.policy.epsilon - self.cumulative_spent
+                if self.policy.enabled and self.policy.epsilon
+                else None
+            )
             return {
-                "enabled": False,
+                "enabled": self.policy.enabled,
                 "real_dp_enabled": False,
                 "epsilon_budget": self.policy.epsilon,
                 "epsilon_spent": self.cumulative_spent if self.policy.enabled else 0.0,
                 "delta": self.policy.delta,
-                "budget_left": self.policy.epsilon - self.cumulative_spent if self.policy.enabled and self.policy.epsilon else None,
+                "budget_left": proxy_budget_left,
                 "budget_exceeded": self.cumulative_spent > self.policy.epsilon if self.policy.enabled and self.policy.epsilon else False,
+                "proxy_epsilon_spent": self.cumulative_spent if self.policy.enabled else 0.0,
+                "proxy_budget_left": proxy_budget_left,
+                "proxy_budget_exceeded": self.cumulative_spent > self.policy.epsilon if self.policy.enabled and self.policy.epsilon else False,
             }
-        return self._dp_privatizer.get_privacy_budget_status()
+        proxy_budget_left = (
+            self.policy.epsilon - self.cumulative_spent
+            if self.policy.enabled and self.policy.epsilon
+            else None
+        )
+        real_status = dict(self._dp_privatizer.get_privacy_budget_status())
+        real_status.update(
+            {
+                "enabled": self.policy.enabled,
+                "real_dp_enabled": True,
+                "proxy_epsilon_spent": self.cumulative_spent,
+                "proxy_budget_left": proxy_budget_left,
+                "proxy_budget_exceeded": self.cumulative_spent > self.policy.epsilon
+                if self.policy.enabled and self.policy.epsilon
+                else False,
+            }
+        )
+        return real_status
 
     def summary(self) -> dict[str, Any]:
         """Return the experiment-level privacy summary."""
 
         latest = self.entries[-1] if self.entries else {}
+        budget_status = self.get_privacy_budget_status()
+        spent_total = (
+            float(budget_status.get("epsilon_spent", 0.0))
+            if self.policy.dp_enabled
+            else self.cumulative_spent if self.policy.enabled else 0.0
+        )
         return {
             "enabled": self.policy.enabled,
             "mode": self.policy.mode if self.policy.enabled else "disabled",
             "epsilon": self.policy.epsilon,
             "delta": self.policy.delta,
-            "spent_total": self.cumulative_spent if self.policy.enabled else 0.0,
-            "budget_left": latest.get("privacy_budget_left"),
-            "budget_exceeded": bool(latest.get("privacy_budget_exceeded", False)),
+            "spent_total": spent_total,
+            "proxy_spent_total": self.cumulative_spent if self.policy.enabled else 0.0,
+            "budget_left": budget_status.get("budget_left"),
+            "budget_exceeded": bool(budget_status.get("budget_exceeded", False)),
             "real_dp_enabled": self.policy.dp_enabled,
+            "real_dp_epsilon_spent": budget_status.get("epsilon_spent")
+            if self.policy.dp_enabled
+            else None,
+            "real_dp_query_count": budget_status.get("query_count")
+            if self.policy.dp_enabled
+            else None,
             "round_count": len(self.entries),
+            "last_round_proxy_budget_left": latest.get("privacy_budget_left"),
         }
 
     def report(self) -> dict[str, Any]:
@@ -342,6 +400,9 @@ class PrivacyLedger:
             "policy": self.policy.snapshot(),
             "summary": self.summary(),
             "cumulative_spent": self.cumulative_spent,
+            "dp_runtime_state": self._dp_privatizer.export_state()
+            if self._dp_privatizer is not None
+            else None,
             "entries": list(self.entries),
         }
 
@@ -359,4 +420,25 @@ class PrivacyLedger:
         ledger = cls(policy=policy)
         ledger.cumulative_spent = report_data.get("cumulative_spent", 0.0)
         ledger.entries = list(report_data.get("entries", []))
+        if ledger._dp_privatizer is not None:
+            dp_runtime_state = report_data.get("dp_runtime_state")
+            if dp_runtime_state:
+                ledger._dp_privatizer.restore_state(dp_runtime_state)
+            elif ledger.entries:
+                legacy_query_count = int(
+                    ledger.entries[-1].get(
+                        "real_dp_query_count",
+                        report_data.get("summary", {}).get("real_dp_query_count", 0),
+                    )
+                )
+                if legacy_query_count > 0:
+                    ledger._dp_privatizer.restore_state(
+                        {
+                            "enabled": True,
+                            "accountant": {
+                                "query_counter": legacy_query_count,
+                                "steps": legacy_query_count,
+                            },
+                        }
+                    )
         return ledger

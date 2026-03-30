@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import sys
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from thesis_platform.core.artifact_manifest import ARTIFACT_SCHEMA_VERSION
-from thesis_platform.core.io_utils import ensure_dir, to_jsonable, write_json
+from thesis_platform.core.io_utils import ensure_dir, read_json, to_jsonable, write_json
 
 
 def resolve_large_eval_mode(downstream_cfg: dict[str, Any], *, platform_name: str | None = None) -> str:
@@ -302,6 +302,20 @@ class DownstreamEvalManager:
         write_json(path, payload)
         return payload
 
+    def _reuse_existing_stage_payload(self, stage_key: str) -> dict[str, Any] | None:
+        path = self._stage_summary_path(stage_key)
+        if not path.exists():
+            return None
+        try:
+            payload = dict(read_json(path))
+        except Exception:
+            return None
+        status = str(payload.get("status", "")).strip().lower()
+        reusable_statuses = {"completed", "disabled", "blocked", "completed_with_blocked_stages"}
+        if status in reusable_statuses or status.startswith("blocked_"):
+            return payload
+        return None
+
     def _stage_blocked_payload(
         self,
         *,
@@ -330,6 +344,9 @@ class DownstreamEvalManager:
     def _run_large_stage(self, *, stage2_dir: Path) -> dict[str, Any]:
         stage_key = "large_eval"
         stage_name = "eval_large"
+        reusable = self._reuse_existing_stage_payload(stage_key)
+        if reusable is not None:
+            return reusable
         if not bool(self.downstream_cfg.get("run_large_eval", False)):
             return self._write_stage_payload(
                 stage_key,
@@ -421,6 +438,9 @@ class DownstreamEvalManager:
     def _run_small_stage(self, *, stage2_dir: Path) -> dict[str, Any]:
         stage_key = "small_eval"
         stage_name = "eval_small"
+        reusable = self._reuse_existing_stage_payload(stage_key)
+        if reusable is not None:
+            return reusable
         if not bool(self.downstream_cfg.get("run_small_eval", False)):
             return self._write_stage_payload(
                 stage_key,
@@ -610,3 +630,9 @@ class DownstreamEvalManager:
             ),
             "c4_checkpoint_path": self.thesis_config.resolve_path(self.downstream_cfg.get("c4_checkpoint_path")),
         }
+
+
+
+
+
+

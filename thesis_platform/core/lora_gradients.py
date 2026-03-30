@@ -31,6 +31,31 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def resolve_model_name_or_path(
+    model_name_or_path: str,
+    repo_root: Optional[str | Path] = None,
+) -> str:
+    """Resolve one configured model path against the repo root when local assets exist.
+
+    HuggingFace model ids are returned unchanged. Local relative paths are upgraded to
+    absolute paths only when the target exists on disk.
+    """
+    raw = str(model_name_or_path or "").strip()
+    if not raw:
+        return raw
+
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        return str(candidate.resolve()) if candidate.exists() else raw
+
+    if repo_root is not None:
+        repo_candidate = Path(repo_root) / raw.replace("\\", "/")
+        if repo_candidate.exists():
+            return str(repo_candidate.resolve())
+
+    return raw
+
+
 class LoRAGradientExtractor:
     """Extract per-sample gradients from LoRA-tuned models.
 

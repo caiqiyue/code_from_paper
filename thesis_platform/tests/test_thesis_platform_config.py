@@ -34,6 +34,19 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.downstream_eval["linux_large_eval_mode"], "peft_lora")
         self.assertEqual(config.scorer["name"], "datainf_real")
 
+    def test_load_v3_jobs_large_eval_variant_enables_large_eval(self) -> None:
+        """Verify the large-eval variant keeps the same algorithm config and turns on final evaluation."""
+
+        config = load_experiment_config(
+            "thesis_platform/configs/experiments/v3/jobs_real_datainf_v3_large_eval.yaml"
+        )
+        self.assertEqual(config.meta["experiment_id"], "jobs_real_datainf_v3_large_eval")
+        self.assertTrue(config.privacy["enabled"])
+        self.assertEqual(config.scorer["name"], "datainf_real")
+        self.assertTrue(config.downstream_eval["enabled"])
+        self.assertTrue(config.downstream_eval["run_large_eval"])
+        self.assertFalse(config.downstream_eval["run_small_eval"])
+
     def test_resolve_path_normalizes_windows_style_relative_paths(self) -> None:
         """Verify backslash-separated relative paths resolve correctly across platforms."""
 

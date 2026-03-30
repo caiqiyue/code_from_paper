@@ -1,0 +1,6 @@
+inherits:
+  - ./jobs_real_datainf_v3.yaml
+  - ../../methods/downstream_eval/pretext_large_on.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_large_eval

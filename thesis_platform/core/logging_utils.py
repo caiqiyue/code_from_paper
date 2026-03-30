@@ -41,3 +41,18 @@ def setup_experiment_file_logger(
     )
     logger.addHandler(file_handler)
     return logger
+
+
+def close_experiment_file_logger(name: str = "thesis_platform") -> None:
+    """Close and detach file handlers for one experiment logger.
+
+    This prevents stale file handles from keeping old experiment directories locked,
+    which is especially important for repeated test runs and temporary directories.
+    """
+
+    logger = logging.getLogger(name)
+    for handler in logger.handlers[:]:
+        if isinstance(handler, logging.FileHandler):
+            handler.flush()
+            handler.close()
+            logger.removeHandler(handler)

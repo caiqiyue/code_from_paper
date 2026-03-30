@@ -19,6 +19,50 @@ from thesis_platform.models.backends import build_text_backend
 class PrivacyRuntimeTests(unittest.TestCase):
     """Unit tests for the v3 privacy runtime contract."""
 
+    class _FakeDPPrivatizer:
+        def __init__(self, config, device="cpu") -> None:
+            self.config = config
+            self.device = device
+            self.query_count = 0
+            self.epsilon_spent = 0.0
+
+        def privatize_scores(self, scores, clip_bound=None):
+            self.query_count += 1
+            self.epsilon_spent = round(self.query_count * 0.2, 12)
+            return list(scores)
+
+        def privatize_scalar(self, value, clip_bound=None):
+            return self.privatize_scores([value], clip_bound=clip_bound)[0]
+
+        def get_privacy_budget_status(self):
+            epsilon_budget = float(self.config.get("epsilon", 1.0))
+            return {
+                "enabled": True,
+                "epsilon_budget": epsilon_budget,
+                "epsilon_spent": self.epsilon_spent,
+                "delta": float(self.config.get("delta", 1e-5)),
+                "budget_left": max(0.0, epsilon_budget - self.epsilon_spent),
+                "budget_exceeded": self.epsilon_spent > epsilon_budget,
+                "query_count": self.query_count,
+            }
+
+        def export_state(self):
+            return {
+                "enabled": True,
+                "accountant": {
+                    "query_counter": self.query_count,
+                    "steps": self.query_count,
+                    "epsilon": float(self.config.get("epsilon", 1.0)),
+                    "delta": float(self.config.get("delta", 1e-5)),
+                },
+                "epsilon_spent": self.epsilon_spent,
+            }
+
+        def restore_state(self, state):
+            accountant = dict(state.get("accountant", {}))
+            self.query_count = int(accountant.get("query_counter", 0))
+            self.epsilon_spent = float(state.get("epsilon_spent", self.query_count * 0.2))
+
     def test_privacy_ledger_disabled_is_a_noop(self) -> None:
         policy = PrivacyPolicy.from_config({"enabled": False})
         ledger = PrivacyLedger(policy=policy)
@@ -51,6 +95,61 @@ class PrivacyRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(second["privacy_spent_cumulative"], 0.26)
         self.assertAlmostEqual(second["privacy_budget_left"], 0.74)
         self.assertEqual(ledger.summary()["round_count"], 2)
+
+    def test_privacy_ledger_real_dp_summary_prefers_accountant_status(self) -> None:
+        with patch("thesis_platform.core.privacy.DP_PRIVACY_AVAILABLE", True), patch(
+            "thesis_platform.core.privacy.create_dp_config_from_dict",
+            side_effect=lambda cfg: dict(cfg),
+        ), patch(
+            "thesis_platform.core.privacy.DPPrivatizer",
+            self._FakeDPPrivatizer,
+        ):
+            policy = PrivacyPolicy.from_config(
+                {
+                    "enabled": True,
+                    "enable_real_dp": True,
+                    "epsilon": 1.0,
+                    "delta": 1e-5,
+                    "sample_cost": 0.01,
+                    "critique_cost": 0.0,
+                    "upload_token_cost": 0.0,
+                }
+            )
+            ledger = PrivacyLedger(policy=policy)
+            ledger.privatize_scalar(0.5)
+            ledger.record_round(round_id=0, sample_count=2, critique_count=0, upload_token_count=0)
+
+            summary = ledger.summary()
+            self.assertTrue(summary["real_dp_enabled"])
+            self.assertAlmostEqual(summary["spent_total"], 0.2)
+            self.assertAlmostEqual(summary["proxy_spent_total"], 0.02)
+            self.assertEqual(summary["real_dp_query_count"], 1)
+
+    def test_privacy_ledger_restore_restores_real_dp_state(self) -> None:
+        with patch("thesis_platform.core.privacy.DP_PRIVACY_AVAILABLE", True), patch(
+            "thesis_platform.core.privacy.create_dp_config_from_dict",
+            side_effect=lambda cfg: dict(cfg),
+        ), patch(
+            "thesis_platform.core.privacy.DPPrivatizer",
+            self._FakeDPPrivatizer,
+        ):
+            policy = PrivacyPolicy.from_config(
+                {
+                    "enabled": True,
+                    "enable_real_dp": True,
+                    "epsilon": 1.0,
+                    "delta": 1e-5,
+                }
+            )
+            ledger = PrivacyLedger(policy=policy)
+            ledger.privatize_scores([0.1, -0.2])
+            report = ledger.report()
+
+            restored = PrivacyLedger.restore_from_report(report)
+            restored_status = restored.get_privacy_budget_status()
+            self.assertTrue(restored_status["real_dp_enabled"])
+            self.assertEqual(restored_status["query_count"], 1)
+            self.assertAlmostEqual(restored.summary()["real_dp_epsilon_spent"], 0.2)
 
 
 class DownstreamEvalManagerTests(unittest.TestCase):

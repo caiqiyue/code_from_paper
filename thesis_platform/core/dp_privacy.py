@@ -146,10 +146,41 @@ class MomentAccountant:
         self.steps = 0
         self._query_counter = 0  # Count of actual privatization queries
 
-    def record_query(self) -> None:
-        """Record a single privatization query (clip + noise)."""
-        self._query_counter += 1
+    @property
+    def query_count(self) -> int:
+        """Return the number of recorded privatization queries."""
+        return self._query_counter
+
+    def record_query(self, count: int = 1) -> None:
+        """Record one or more privatization queries (clip + noise)."""
+        if count <= 0:
+            return
+        self._query_counter += int(count)
         self.steps = self._query_counter
+
+    def export_state(self) -> Dict[str, Any]:
+        """Return a serializable snapshot of the accountant runtime state."""
+        return {
+            "epsilon": float(self.epsilon),
+            "delta": float(self.delta),
+            "noise_multiplier": float(self.noise_multiplier),
+            "max_grad_norm": float(self.max_grad_norm),
+            "steps": int(self.steps),
+            "query_counter": int(self._query_counter),
+        }
+
+    def restore_state(self, state: Dict[str, Any]) -> None:
+        """Restore the accountant runtime state from a serialized snapshot."""
+        if not state:
+            return
+        self.epsilon = float(state.get("epsilon", self.epsilon))
+        self.delta = float(state.get("delta", self.delta))
+        self.noise_multiplier = float(
+            state.get("noise_multiplier", self.noise_multiplier)
+        )
+        self.max_grad_norm = float(state.get("max_grad_norm", self.max_grad_norm))
+        self._query_counter = int(state.get("query_counter", state.get("steps", 0)))
+        self.steps = int(state.get("steps", self._query_counter))
 
     def _compute_rdp(self, lambda_ord: float) -> float:
         """Compute RDP at given order λ for Gaussian mechanism.
@@ -188,9 +219,7 @@ class MomentAccountant:
             if eps < best_epsilon:
                 best_epsilon = eps
 
-        # Cap at the target epsilon
-        epsilon_spent = min(best_epsilon, self.epsilon)
-        return (epsilon_spent, self.delta)
+        return (best_epsilon, self.delta)
 
     def compute_noise_multiplier(
         self,
@@ -240,11 +269,21 @@ class DPPrivatizer:
         self.noise_injector = NoiseInjector()
 
         if config.enabled:
-            self.accountant = MomentAccountant(config.epsilon, config.delta)
+            self.accountant = MomentAccountant(
+                config.epsilon,
+                config.delta,
+                noise_multiplier=config.noise_multiplier,
+                max_grad_norm=config.max_grad_norm,
+            )
             logger.info(f"DP enabled: epsilon={config.epsilon}, delta={config.delta}")
         else:
             self.accountant = None
             logger.info("DP disabled")
+
+    def _record_query(self, count: int = 1) -> None:
+        """Record one or more DP queries when accounting is enabled."""
+        if self.accountant is not None:
+            self.accountant.record_query(count=count)
 
     def privatize_gradients(
         self,
@@ -272,6 +311,7 @@ class DPPrivatizer:
             self.config.max_grad_norm,
             self.device,
         )
+        self._record_query()
 
         return noisy_grads
 
@@ -294,8 +334,37 @@ class DPPrivatizer:
         # Add noise on the same device as the input vector
         sigma = self.config.noise_multiplier * clip_norm
         noise = torch.randn_like(clipped) * sigma
+        self._record_query()
 
         return clipped + noise
+
+    def privatize_scores(
+        self,
+        scores: List[float],
+        clip_bound: Optional[float] = None,
+    ) -> List[float]:
+        """Privatize a list of scalar scores while recording one DP query."""
+        if not self.config.enabled:
+            return scores
+
+        clip_bound = clip_bound or self.config.max_grad_norm
+        clipped = torch.tensor(
+            [max(-clip_bound, min(clip_bound, float(score))) for score in scores],
+            dtype=torch.float32,
+            device=self.device,
+        )
+        sigma = self.config.noise_multiplier * clip_bound
+        noisy = clipped + torch.randn_like(clipped) * sigma
+        self._record_query()
+        return [float(value) for value in noisy.cpu().tolist()]
+
+    def privatize_scalar(
+        self,
+        value: float,
+        clip_bound: Optional[float] = None,
+    ) -> float:
+        """Privatize one scalar value while recording one DP query."""
+        return self.privatize_scores([value], clip_bound=clip_bound)[0]
 
     def get_privacy_budget_status(self) -> Dict[str, Any]:
         """Get current privacy budget consumption."""
@@ -318,7 +387,28 @@ class DPPrivatizer:
             "delta": self.config.delta,
             "budget_left": max(0, budget_left),
             "budget_exceeded": epsilon_spent > self.config.epsilon,
+            "query_count": self.accountant.query_count,
+            "noise_multiplier": self.config.noise_multiplier,
+            "max_grad_norm": self.config.max_grad_norm,
         }
+
+    def export_state(self) -> Dict[str, Any]:
+        """Return a serializable snapshot of the DP runtime state."""
+        if not self.config.enabled:
+            return {"enabled": False}
+        return {
+            "enabled": True,
+            "device": self.device,
+            "accountant": self.accountant.export_state() if self.accountant else None,
+        }
+
+    def restore_state(self, state: Optional[Dict[str, Any]]) -> None:
+        """Restore the DP runtime state after a checkpoint resume."""
+        if not self.config.enabled or not state or self.accountant is None:
+            return
+        accountant_state = state.get("accountant") or {}
+        if accountant_state:
+            self.accountant.restore_state(accountant_state)
 
 
 class DPAdamW(torch.optim.AdamW):
