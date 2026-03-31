@@ -3,12 +3,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVER_REPO_ROOT_DEFAULT="/root/caiqiyue/code_from_paper"
-if [[ -d "${SERVER_REPO_ROOT_DEFAULT}" ]]; then
-    DEFAULT_REPO_ROOT="${SERVER_REPO_ROOT_DEFAULT}"
-else
-    DEFAULT_REPO_ROOT="${SCRIPT_DIR}"
-fi
+DEFAULT_REPO_ROOT="${SCRIPT_DIR}"
+for candidate in \
+    "/root/autodl-tmp/caiqiyue/code_from_paper" \
+    "/root/caiqiyue/code_from_paper"; do
+    if [[ -d "${candidate}" ]]; then
+        DEFAULT_REPO_ROOT="${candidate}"
+        break
+    fi
+done
 
 REPO_ROOT="${REPO_ROOT:-${DEFAULT_REPO_ROOT}}"
 THESIS_DIR="${THESIS_DIR:-${REPO_ROOT}/thesis_platform}"
@@ -26,39 +29,30 @@ CLASH_CONTROL_PORT="${CLASH_CONTROL_PORT:-9090}"
 CLASH_PROXY_PORT="${CLASH_PROXY_PORT:-7890}"
 START_CLASH="${START_CLASH:-true}"
 
-INSTALL_VLLM="${INSTALL_VLLM:-true}"
+DATA_ROOT_DEFAULT="${DATA_ROOT_DEFAULT:-/root/autodl-tmp}"
+if [[ ! -d "${DATA_ROOT_DEFAULT}" ]]; then
+    DATA_ROOT_DEFAULT="${REPO_ROOT}"
+fi
+DATA_ROOT="${DATA_ROOT:-${DATA_ROOT_DEFAULT}}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-${DATA_ROOT}/conda-envs/${ENV_NAME}}"
+PIP_CACHE_DIR="${PIP_CACHE_DIR:-${DATA_ROOT}/.cache/pip}"
+HF_HOME="${HF_HOME:-${DATA_ROOT}/.cache/huggingface}"
+TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${HF_HOME}/transformers}"
+
+INSTALL_VLLM="${INSTALL_VLLM:-false}"
 INSTALL_XFORMERS="${INSTALL_XFORMERS:-false}"
 INSTALL_FLASH_ATTN="${INSTALL_FLASH_ATTN:-false}"
 VLLM_SPEC="${VLLM_SPEC:-vllm}"
 XFORMERS_SPEC="${XFORMERS_SPEC:-xformers}"
 FLASH_ATTN_SPEC="${FLASH_ATTN_SPEC:-flash-attn}"
 TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu124}"
+REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-${THESIS_DIR}/requirements.txt}"
 LOG_FILE="${1:-${REPO_ROOT}/install_caiqiyue.log}"
 
-# Synced against thesis_platform code paths, thesis_platform/requirements.txt
-# and the local `conda list -n experiment` result on 2026-03-30.
-TORCH_SPEC="${TORCH_SPEC:-torch==2.7.1}"
-TRANSFORMERS_SPEC="${TRANSFORMERS_SPEC:-transformers>=5.3.0}"
-BASE_DEPS=(
-    "accelerate>=1.13.0"
-    "datasets>=4.7.0"
-    "huggingface-hub>=1.6.0"
-    "sentencepiece>=0.2.1"
-    "tokenizers>=0.22.2"
-    "safetensors>=0.7.0"
-    "numpy>=2.4.3"
-    "pandas>=3.0.1"
-    "scikit-learn>=1.8.0"
-    "scipy>=1.17.1"
-    "tqdm>=4.67.3"
-    "PyYAML>=6.0.3"
-    "sentence-transformers>=5.2.3"
-    "peft>=0.18.1"
-    "opacus>=1.5.4"
-    "bitsandbytes>=0.49.2"
-    "faiss-cpu>=1.13.2"
-    "tiktoken>=0.12.0"
-)
+# Keep the explicit torch pin here because AutoDL exposes CUDA 12.4 on the target server,
+# and PyTorch publishes official cu124 wheels through the 2.6.0 line.
+TORCH_SPEC="${TORCH_SPEC:-torch==2.6.0}"
+TRANSFORMERS_SPEC="${TRANSFORMERS_SPEC:-transformers>=5.3}"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "${LOG_FILE}"
@@ -189,15 +183,25 @@ log "Script directory: ${SCRIPT_DIR}"
 log "Repository root: ${REPO_ROOT}"
 log "thesis_platform directory: ${THESIS_DIR}"
 log "Target Python version: ${PYTHON_VERSION}"
+log "Data root: ${DATA_ROOT}"
+log "Conda environment prefix: ${CONDA_ENV_PREFIX}"
+log "pip cache dir: ${PIP_CACHE_DIR}"
+log "HF cache dir: ${HF_HOME}"
 log "Install vLLM on Linux: ${INSTALL_VLLM}"
 log "Install xformers: ${INSTALL_XFORMERS}"
 log "Install flash-attn: ${INSTALL_FLASH_ATTN}"
-log "vLLM spec: ${VLLM_SPEC}"
+log "requirements file: ${REQUIREMENTS_FILE}"
 log "Log file: ${LOG_FILE}"
 
 [[ -d "${REPO_ROOT}" ]] || fail "Repository root does not exist: ${REPO_ROOT}"
 [[ -d "${THESIS_DIR}" ]] || fail "thesis_platform directory does not exist: ${THESIS_DIR}"
+[[ -f "${REQUIREMENTS_FILE}" ]] || fail "requirements file does not exist: ${REQUIREMENTS_FILE}"
 mkdir -p "$(dirname "${LOG_FILE}")"
+mkdir -p "$(dirname "${CONDA_ENV_PREFIX}")" "${PIP_CACHE_DIR}" "${TRANSFORMERS_CACHE}"
+
+export PIP_CACHE_DIR
+export HF_HOME
+export TRANSFORMERS_CACHE
 
 if [[ ! -x "${CONDA_BIN}" ]]; then
     ensure_command conda
@@ -216,51 +220,37 @@ log_section "Step 1: Recreate conda environment"
 
 cd "${REPO_ROOT}"
 
-if "${CONDA_BIN}" env list | awk '{print $1}' | grep -Fxq "${ENV_NAME}"; then
-    log "Removing existing conda environment: ${ENV_NAME}"
-    run_logged "${CONDA_BIN}" env remove -n "${ENV_NAME}" -y
+if [[ -d "${CONDA_ENV_PREFIX}" ]]; then
+    log "Removing existing conda environment prefix: ${CONDA_ENV_PREFIX}"
+    run_logged "${CONDA_BIN}" env remove -p "${CONDA_ENV_PREFIX}" -y
 else
-    log "No existing conda environment named ${ENV_NAME}."
+    log "No existing conda environment at ${CONDA_ENV_PREFIX}."
 fi
 
-run_logged "${CONDA_BIN}" create -n "${ENV_NAME}" "python=${PYTHON_VERSION}" -y
+run_logged "${CONDA_BIN}" create -p "${CONDA_ENV_PREFIX}" "python=${PYTHON_VERSION}" -y
 
-CONDA_BASE="$("${CONDA_BIN}" info --base)"
 source "${CONDA_SH}"
-conda activate "${ENV_NAME}"
+conda activate "${CONDA_ENV_PREFIX}"
 
-PYTHON_BIN="${CONDA_BASE}/envs/${ENV_NAME}/bin/python"
-PIP_BIN="${CONDA_BASE}/envs/${ENV_NAME}/bin/pip"
+PYTHON_BIN="${CONDA_ENV_PREFIX}/bin/python"
+PIP_BIN="${CONDA_ENV_PREFIX}/bin/pip"
 
 [[ -x "${PYTHON_BIN}" ]] || fail "Python binary not found: ${PYTHON_BIN}"
 [[ -x "${PIP_BIN}" ]] || fail "pip binary not found: ${PIP_BIN}"
-export PATH="${CONDA_BASE}/envs/${ENV_NAME}/bin:${PATH}"
+export PATH="${CONDA_ENV_PREFIX}/bin:${PATH}"
 
 log_section "Step 2: Upgrade packaging toolchain"
 run_logged "${PYTHON_BIN}" -m pip install --upgrade pip setuptools wheel
 log "Active python: $(${PYTHON_BIN} --version)"
 log "Active pip: $(${PIP_BIN} --version)"
 
-log_section "Step 3: Install Linux server extras first when requested"
+log_section "Step 3: Decide optional Linux-only extras"
 OS_NAME="$(uname -s)"
-ARCH_NAME="$(uname -m)"
 
 if [[ "${INSTALL_VLLM}" == "true" ]]; then
-    if [[ "${OS_NAME}" != "Linux" ]]; then
-        warn "vLLM install skipped because host OS is ${OS_NAME}, not Linux."
-    elif [[ "${ARCH_NAME}" != "x86_64" && "${ARCH_NAME}" != "aarch64" ]]; then
-        warn "vLLM install skipped because architecture ${ARCH_NAME} is unsupported by default wheel flow."
-    else
-        log "Installing ${VLLM_SPEC} in the fresh environment before explicit torch/transformers pinning."
-        run_logged "${PYTHON_BIN}" -m pip install "${VLLM_SPEC}"
-        if python_has_module "vllm"; then
-            log "vLLM version: $(resolve_package_version "vllm")"
-        else
-            fail "vLLM install command succeeded but module import probe failed."
-        fi
-    fi
+    fail "INSTALL_VLLM=true is blocked in this general installer. thesis_platform does not import vllm today, and current vLLM wheels bundle their own PyTorch/CUDA stack. Create a separate dedicated vLLM environment if you explicitly need it."
 else
-    log "INSTALL_VLLM=false, skipping vLLM."
+    log "INSTALL_VLLM=false. Skipping vLLM because the current thesis_platform runtime does not import it."
 fi
 
 log_section "Step 4: Ensure PyTorch and Transformers are available"
@@ -280,7 +270,7 @@ else
 fi
 
 log_section "Step 5: Install thesis_platform direct dependencies"
-run_logged "${PYTHON_BIN}" -m pip install --upgrade "${BASE_DEPS[@]}"
+run_logged "${PYTHON_BIN}" -m pip install -r "${REQUIREMENTS_FILE}"
 
 if [[ "${INSTALL_XFORMERS}" == "true" ]]; then
     if [[ "${OS_NAME}" == "Linux" ]]; then
@@ -359,5 +349,6 @@ PY
 
 log_section "Installation complete"
 log "Environment name: ${ENV_NAME}"
-log "Activation command: conda activate ${ENV_NAME}"
-log "Verification command: python -m unittest discover -s thesis_platform/tests -p 'test_thesis_platform*.py' -v"
+log "Environment prefix: ${CONDA_ENV_PREFIX}"
+log "Activation command: conda activate ${CONDA_ENV_PREFIX}"
+log "Verification command: cd ${REPO_ROOT} && python -m unittest discover -s thesis_platform/tests -p 'test_thesis_platform*.py' -v"

@@ -12,6 +12,8 @@ from typing import Any
 
 import json
 
+import thesis_platform.adapters  # Populate the adapter registry via import side effects.
+
 from thesis_platform.core.artifact_manifest import (
     ARTIFACT_SCHEMA_VERSION,
     build_experiment_manifest,

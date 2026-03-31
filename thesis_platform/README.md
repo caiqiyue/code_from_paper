@@ -63,7 +63,7 @@ global/cluster generation
 
 - `opacus`
 - `peft`
-- `vllm`（Windows 上按环境条件跳过）
+- `vllm` 当前主链代码未直接调用；如需单独尝试，请仅在 Linux 独立环境中按需安装，不要作为默认依赖
 
 如果本机默认 Python 环境依赖不完整，可以直接用已有虚拟环境运行，例如：
 
