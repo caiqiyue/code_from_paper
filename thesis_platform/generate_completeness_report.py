@@ -3,13 +3,17 @@
 
 import os
 from datetime import datetime
+from pathlib import Path
 
 # 获取当前时间
 current_time = datetime.now().strftime("%Y-%m-%d-%H%M")
-doc_path = f"D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\docs\\{current_time}-项目完整度核查报告.md"
+
+# 使用相对于脚本位置的路径，兼容 Windows 和 Linux
+_script_dir = Path(__file__).parent.resolve()
+doc_path = _script_dir / "docs" / f"{current_time}-项目完整度核查报告.md"
 
 # 确保docs目录存在
-os.makedirs(os.path.dirname(doc_path), exist_ok=True)
+os.makedirs(doc_path.parent, exist_ok=True)
 
 # 创建报告内容
 report = (

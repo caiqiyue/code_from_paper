@@ -1,0 +1,21 @@
+# LLM config for RTX 2080 Ti (22GB) - 3B models
+# These models fit comfortably in GPU memory without quantization
+llm:
+  client:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/llama_3_2_3b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.0
+    max_new_tokens: 196
+    use_chat_template: true
+    use_fast: false
+  server:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/llama_3_2_3b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.2
+    max_new_tokens: 220
+    use_chat_template: true
+    use_fast: false

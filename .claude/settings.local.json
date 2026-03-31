@@ -172,7 +172,8 @@
       "Read(//d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/open_model/**)",
       "Bash(du -sh */)",
       "Bash(ls -la llama_2_7b_hf/*.safetensors llama_2_7b_hf/*.bin)",
-      "Bash(chmod +x /d/学习记录/导师项目/研究/caiqiyue_file/start/download_small_models.sh)"
+      "Bash(chmod +x /d/学习记录/导师项目/研究/caiqiyue_file/start/download_small_models.sh)",
+      "Bash(du -sh d:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/open_model/*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans"

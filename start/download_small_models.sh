@@ -18,6 +18,10 @@ HF_HOME="${HF_HOME:-/root/autodl-tmp/.cache/huggingface}"
 # 目标模型列表
 TARGET_MODELS=("all_minilm_l6_v2" "distilgpt2" "qwen_2_0_5b_instruct" "roberta_large" "flan_t5_3b")
 
+# 代理配置
+PROXY_HOST="127.0.0.1"
+PROXY_PORT="7890"
+
 # 创建日志目录
 mkdir -p "${LOG_DIR}"
 
@@ -38,14 +42,43 @@ if [[ "${CONDA_DEFAULT_ENV:-}" != "caiqiyue" ]]; then
     echo ""
 fi
 
+# 检查代理是否开启
+check_proxy() {
+    if timeout 1 bash -c "echo >/dev/tcp/${PROXY_HOST}/${PROXY_PORT}" 2>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+PROXY_ENABLED=false
+if check_proxy; then
+    echo "✅ 检测到代理已开启: ${PROXY_HOST}:${PROXY_PORT}"
+    PROXY_ENABLED=true
+else
+    echo "⚠️  未检测到代理: ${PROXY_HOST}:${PROXY_PORT}"
+    echo "   如果下载慢或失败，请确保 Clash 代理已开启"
+    echo ""
+fi
+
 # 设置环境变量
 export HF_HOME="${HF_HOME}"
 export PIP_CACHE_DIR="${PIP_CACHE_DIR}"
 export HF_TOKEN="${HF_TOKEN}"
+export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
 export PYTHONPATH="${THESIS_DIR}:${PYTHONPATH:-}"
+
+# 设置代理（如果可用）
+if [[ "${PROXY_ENABLED}" == "true" ]]; then
+    export HTTP_PROXY="http://${PROXY_HOST}:${PROXY_PORT}"
+    export HTTPS_PROXY="http://${PROXY_HOST}:${PROXY_PORT}"
+    export ALL_PROXY="socks5://${PROXY_HOST}:${PROXY_PORT}"
+    echo "代理已设置: ${HTTP_PROXY}"
+fi
 
 echo "开始时间: $(date '+%Y-%m-%d %H:%M:%S')"
 echo "HF_HOME: ${HF_HOME}"
+echo "HF_ENDPOINT: ${HF_ENDPOINT}"
 echo "HF_TOKEN: 已设置"
 echo "Python: $(which python)"
 echo "Python 版本: $(python --version)"
