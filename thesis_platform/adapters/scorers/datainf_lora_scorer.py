@@ -53,6 +53,9 @@ class DataInfRealScorer:
             config: Configuration dictionary
             repo_root: Repository root path
         """
+        self._gradient_extractor: Optional[LoRAGradientExtractor] = None
+        self._grad_cache: Dict[str, Any] = {}
+
         self.score_direction = str(config.get("score_direction", "larger_is_worse"))
         self.lambda_const_param = float(config.get("lambda_const_param", 10.0))
         self.hvp_method = str(
@@ -83,12 +86,6 @@ class DataInfRealScorer:
                 max_length=int(config.get("max_length", 256)),
                 device=self.device,
             )
-
-        # Gradient extractor (lazily initialized)
-        self._gradient_extractor: Optional[LoRAGradientExtractor] = None
-
-        # Cache for gradients
-        self._grad_cache: Dict[str, Any] = {}
 
     def _get_gradient_extractor(self) -> LoRAGradientExtractor:
         """Get or initialize the gradient extractor."""
@@ -407,5 +404,6 @@ class DataInfRealScorer:
 
     def __del__(self):
         """Cleanup resources."""
-        if self._gradient_extractor is not None:
-            self._gradient_extractor.release()
+        gradient_extractor = getattr(self, "_gradient_extractor", None)
+        if gradient_extractor is not None:
+            gradient_extractor.release()

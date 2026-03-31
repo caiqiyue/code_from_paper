@@ -224,6 +224,7 @@ class TestScorerIntegration(unittest.TestCase):
             "hvp_method": "proposed",
             "use_real_gradients": False,  # Use feature fallback for testing
             "feature_model": None,
+            "allow_hashing_fallback": True,
         }
 
         # Should initialize without error
@@ -239,6 +240,7 @@ class TestScorerIntegration(unittest.TestCase):
             "metric": "cos",
             "use_real_gradients": False,
             "feature_model": None,
+            "allow_hashing_fallback": True,
         }
 
         # Should initialize without error

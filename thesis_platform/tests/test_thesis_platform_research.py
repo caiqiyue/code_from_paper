@@ -560,7 +560,7 @@ aggregator:
 
             config = load_experiment_config(config_path)
             summary = ExperimentRunner(config).run()
-            exp_dir = tmp_root / "out" / "tmp_research"
+            exp_dir = Path(summary["experiment_dir"])
             round_0 = exp_dir / "round_000"
             round_1 = exp_dir / "round_001"
             generated_0 = (round_0 / "generated_samples.jsonl").read_text(encoding="utf-8")

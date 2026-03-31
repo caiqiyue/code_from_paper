@@ -281,7 +281,7 @@ downstream_eval:
             ):
                 summary = ExperimentRunner(config).run()
 
-            exp_dir = tmp_root / "out" / "tmp_v3"
+            exp_dir = Path(summary["experiment_dir"])
             round_1 = exp_dir / "round_001"
             with (round_1 / "round_metrics.json").open("r", encoding="utf-8") as handle:
                 round_metrics = json.load(handle)
