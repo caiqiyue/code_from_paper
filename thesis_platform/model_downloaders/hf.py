@@ -10,8 +10,8 @@ from .common import remove_path
 # Set via HF_TOKEN environment variable - will be used automatically by huggingface_hub
 HF_TOKEN = os.environ.get("HF_TOKEN", None)
 
-# Default to hf-mirror.com if no HF_ENDPOINT is set (for China users)
-os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+# Default to huggingface.co if no HF_ENDPOINT is set
+os.environ.setdefault("HF_ENDPOINT", "https://huggingface.co")
 
 
 class HuggingFaceModelDownloader(BaseModelDownloader):
