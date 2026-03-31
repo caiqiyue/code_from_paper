@@ -27,6 +27,7 @@ CLASH_CONFIG="${CLASH_CONFIG:-${CLASH_DIR}/config.yaml}"
 CLASH_ENV_FILE="${CLASH_ENV_FILE:-${CLASH_DIR}/run.txt}"
 CLASH_CONTROL_PORT="${CLASH_CONTROL_PORT:-9090}"
 CLASH_PROXY_PORT="${CLASH_PROXY_PORT:-7890}"
+CLASH_HOST="${CLASH_HOST:-127.0.0.1}"
 START_CLASH="${START_CLASH:-true}"
 
 DATA_ROOT_DEFAULT="${DATA_ROOT_DEFAULT:-/root/autodl-tmp}"
@@ -86,38 +87,54 @@ ensure_command() {
 port_open() {
     local host="$1"
     local port="$2"
-    if ! command -v nc >/dev/null 2>&1; then
-        return 1
+    if command -v nc >/dev/null 2>&1; then
+        nc -z "${host}" "${port}" >/dev/null 2>&1
+        return $?
     fi
-    nc -z "${host}" "${port}" >/dev/null 2>&1
+    timeout 1 bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
 }
 
-load_proxy_env() {
-    if [[ -f "${CLASH_ENV_FILE}" ]]; then
-        log "Loading proxy variables from ${CLASH_ENV_FILE}"
-        set +u
-        # shellcheck disable=SC1090
-        source "${CLASH_ENV_FILE}"
-        set -u
+export_clash_proxy() {
+    local http_proxy_url="http://${CLASH_HOST}:${CLASH_PROXY_PORT}"
+    local socks_proxy_url="socks5://${CLASH_HOST}:${CLASH_PROXY_PORT}"
 
-        if [[ -n "${http_proxy:-}" ]]; then
-            export http_proxy
-            export HTTP_PROXY="${HTTP_PROXY:-${http_proxy}}"
-        fi
-        if [[ -n "${https_proxy:-}" ]]; then
-            export https_proxy
-            export HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy}}"
-        fi
-        if [[ -n "${all_proxy:-}" ]]; then
-            export all_proxy
-            export ALL_PROXY="${ALL_PROXY:-${all_proxy}}"
-        fi
-        return
+    export http_proxy="${http_proxy_url}"
+    export https_proxy="${http_proxy_url}"
+    export HTTP_PROXY="${http_proxy_url}"
+    export HTTPS_PROXY="${http_proxy_url}"
+    export all_proxy="${socks_proxy_url}"
+    export ALL_PROXY="${socks_proxy_url}"
+    log "Proxy exported to ${http_proxy_url}"
+}
+
+conda_env_name_exists() {
+    "${CONDA_BIN}" env list | awk '{print $1}' | grep -Fxq "${ENV_NAME}"
+}
+
+remove_existing_conda_env() {
+    log_section "Step 0: Remove existing caiqiyue environment"
+
+    local removed_any="false"
+
+    if conda_env_name_exists; then
+        log "Removing existing named conda environment: ${ENV_NAME}"
+        run_logged "${CONDA_BIN}" env remove -n "${ENV_NAME}" -y
+        removed_any="true"
+    else
+        log "No named conda environment called ${ENV_NAME}."
     fi
 
-    export HTTP_PROXY="http://127.0.0.1:${CLASH_PROXY_PORT}"
-    export HTTPS_PROXY="http://127.0.0.1:${CLASH_PROXY_PORT}"
-    export ALL_PROXY="socks5://127.0.0.1:${CLASH_PROXY_PORT}"
+    if [[ -d "${CONDA_ENV_PREFIX}" ]]; then
+        log "Removing existing prefixed conda environment: ${CONDA_ENV_PREFIX}"
+        run_logged "${CONDA_BIN}" env remove -p "${CONDA_ENV_PREFIX}" -y
+        removed_any="true"
+    else
+        log "No prefixed conda environment at ${CONDA_ENV_PREFIX}."
+    fi
+
+    if [[ "${removed_any}" == "false" ]]; then
+        log "No existing caiqiyue environment needed removal."
+    fi
 }
 
 python_has_module() {
@@ -140,42 +157,33 @@ PY
 }
 
 maybe_start_clash() {
-    log_section "Step 0: Prepare optional Clash proxy"
+    log_section "Step 1: Ensure Clash is running and export port 7890"
 
     if [[ "${START_CLASH}" != "true" ]]; then
-        log "START_CLASH=${START_CLASH}, skipping Clash startup."
+        log "START_CLASH=${START_CLASH}, skipping Clash startup and proxy export."
         return
     fi
 
-    if [[ ! -x "${CLASH_BIN}" ]]; then
-        warn "Clash binary not found at ${CLASH_BIN}. Continuing without proxy."
-        return
-    fi
-
-    if ! command -v nc >/dev/null 2>&1; then
-        warn "netcat (nc) is not installed. Skipping Clash health check and proxy auto-start."
-        return
-    fi
-
-    if port_open "127.0.0.1" "${CLASH_PROXY_PORT}"; then
+    if port_open "${CLASH_HOST}" "${CLASH_PROXY_PORT}"; then
         log "Clash proxy is already reachable on port ${CLASH_PROXY_PORT}."
     else
+        [[ -x "${CLASH_BIN}" ]] || fail "Clash binary not found: ${CLASH_BIN}"
+        [[ -f "${CLASH_CONFIG}" ]] || fail "Clash config not found: ${CLASH_CONFIG}"
         log "Starting Clash from ${CLASH_DIR} ..."
         (
             cd "${CLASH_DIR}"
-            nohup "${CLASH_BIN}" -d "${CLASH_DIR}" >/tmp/clash.log 2>&1 &
+            nohup "${CLASH_BIN}" -d "${CLASH_DIR}" -f "${CLASH_CONFIG}" >/tmp/clash.log 2>&1 &
         )
-        sleep 3
+        sleep 5
 
-        if ! port_open "127.0.0.1" "${CLASH_PROXY_PORT}" && ! port_open "127.0.0.1" "${CLASH_CONTROL_PORT}"; then
-            warn "Clash did not become ready. Continuing without proxy. See /tmp/clash.log if needed."
+        if ! port_open "${CLASH_HOST}" "${CLASH_PROXY_PORT}" && ! port_open "${CLASH_HOST}" "${CLASH_CONTROL_PORT}"; then
+            warn "Clash did not become ready on port ${CLASH_PROXY_PORT}. See /tmp/clash.log if needed."
             return
         fi
         log "Clash started successfully."
     fi
 
-    load_proxy_env
-    log "Proxy exported: ${HTTP_PROXY:-<unset>}"
+    export_clash_proxy
 }
 
 log_section "Start installation for ${ENV_NAME}"
@@ -187,6 +195,8 @@ log "Data root: ${DATA_ROOT}"
 log "Conda environment prefix: ${CONDA_ENV_PREFIX}"
 log "pip cache dir: ${PIP_CACHE_DIR}"
 log "HF cache dir: ${HF_HOME}"
+log "Clash directory: ${CLASH_DIR}"
+log "Clash proxy target: ${CLASH_HOST}:${CLASH_PROXY_PORT}"
 log "Install vLLM on Linux: ${INSTALL_VLLM}"
 log "Install xformers: ${INSTALL_XFORMERS}"
 log "Install flash-attn: ${INSTALL_FLASH_ATTN}"
@@ -214,18 +224,12 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     run_logged nvidia-smi
 fi
 
+remove_existing_conda_env
 maybe_start_clash
 
-log_section "Step 1: Recreate conda environment"
+log_section "Step 2: Recreate conda environment"
 
 cd "${REPO_ROOT}"
-
-if [[ -d "${CONDA_ENV_PREFIX}" ]]; then
-    log "Removing existing conda environment prefix: ${CONDA_ENV_PREFIX}"
-    run_logged "${CONDA_BIN}" env remove -p "${CONDA_ENV_PREFIX}" -y
-else
-    log "No existing conda environment at ${CONDA_ENV_PREFIX}."
-fi
 
 run_logged "${CONDA_BIN}" create -p "${CONDA_ENV_PREFIX}" "python=${PYTHON_VERSION}" -y
 
@@ -239,12 +243,12 @@ PIP_BIN="${CONDA_ENV_PREFIX}/bin/pip"
 [[ -x "${PIP_BIN}" ]] || fail "pip binary not found: ${PIP_BIN}"
 export PATH="${CONDA_ENV_PREFIX}/bin:${PATH}"
 
-log_section "Step 2: Upgrade packaging toolchain"
+log_section "Step 3: Upgrade packaging toolchain"
 run_logged "${PYTHON_BIN}" -m pip install --upgrade pip setuptools wheel
 log "Active python: $(${PYTHON_BIN} --version)"
 log "Active pip: $(${PIP_BIN} --version)"
 
-log_section "Step 3: Decide optional Linux-only extras"
+log_section "Step 4: Decide optional Linux-only extras"
 OS_NAME="$(uname -s)"
 
 if [[ "${INSTALL_VLLM}" == "true" ]]; then
@@ -253,7 +257,7 @@ else
     log "INSTALL_VLLM=false. Skipping vLLM because the current thesis_platform runtime does not import it."
 fi
 
-log_section "Step 4: Ensure PyTorch and Transformers are available"
+log_section "Step 5: Ensure PyTorch and Transformers are available"
 
 if python_has_module "torch"; then
     log "Torch already available: $(resolve_package_version "torch")"
@@ -269,7 +273,7 @@ else
     run_logged "${PYTHON_BIN}" -m pip install "${TRANSFORMERS_SPEC}"
 fi
 
-log_section "Step 5: Install thesis_platform direct dependencies"
+log_section "Step 6: Install thesis_platform direct dependencies"
 run_logged "${PYTHON_BIN}" -m pip install -r "${REQUIREMENTS_FILE}"
 
 if [[ "${INSTALL_XFORMERS}" == "true" ]]; then
@@ -290,7 +294,7 @@ if [[ "${INSTALL_FLASH_ATTN}" == "true" ]]; then
     fi
 fi
 
-log_section "Step 6: Verify environment"
+log_section "Step 7: Verify environment"
 
 run_logged "${PYTHON_BIN}" -m pip check
 
