@@ -23,9 +23,10 @@ class HuggingFaceModelDownloader(BaseModelDownloader):
     def validate_repo(self) -> dict[str, object]:
         """Validate the selected repository before downloading it."""
 
-        from huggingface_hub import model_info
+        from huggingface_hub import HfApi
 
-        info = model_info(self.resolved_repo_id, token=HF_TOKEN, endpoint=os.environ["HF_ENDPOINT"])
+        api = HfApi(endpoint=os.environ["HF_ENDPOINT"])
+        info = api.model_info(self.resolved_repo_id, token=HF_TOKEN)
         tags = list(info.tags or [])
         has_transformers = info.library_name == "transformers" or "transformers" in tags
         if self.community_mirror_only and not has_transformers:
