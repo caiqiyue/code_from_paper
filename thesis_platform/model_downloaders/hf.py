@@ -10,6 +10,9 @@ from .common import remove_path
 # Set via HF_TOKEN environment variable - will be used automatically by huggingface_hub
 HF_TOKEN = os.environ.get("HF_TOKEN", None)
 
+# Default to hf-mirror.com if no HF_ENDPOINT is set (for China users)
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+
 
 class HuggingFaceModelDownloader(BaseModelDownloader):
     """Download a model snapshot from Hugging Face Hub."""
@@ -22,7 +25,7 @@ class HuggingFaceModelDownloader(BaseModelDownloader):
 
         from huggingface_hub import model_info
 
-        info = model_info(self.resolved_repo_id, token=HF_TOKEN)
+        info = model_info(self.resolved_repo_id, token=HF_TOKEN, endpoint=os.environ["HF_ENDPOINT"])
         tags = list(info.tags or [])
         has_transformers = info.library_name == "transformers" or "transformers" in tags
         if self.community_mirror_only and not has_transformers:
@@ -59,6 +62,7 @@ class HuggingFaceModelDownloader(BaseModelDownloader):
                     allow_patterns=self.allow_patterns,
                     ignore_patterns=self.ignore_patterns,
                     token=HF_TOKEN,
+                    endpoint=os.environ["HF_ENDPOINT"],
                 )
                 break
             except Exception as exc:
