@@ -118,6 +118,115 @@ def _validate_partition_inputs(config, asset_errors: list[str]) -> None:
         )
 
 
+def _cross_domain_eval_runtime_cfg(config) -> dict[str, object]:
+    """Resolve the effective downstream-eval settings used by cross-domain transfer runs."""
+
+    cross_domain_eval = config.cross_domain_eval
+    if not bool(cross_domain_eval.get("enabled", False)):
+        return {}
+
+    derived = dict(config.downstream_eval)
+    derived["enabled"] = True
+    derived["kind"] = str(cross_domain_eval.get("kind", "pretext_large_eval"))
+    derived["run_large_eval"] = bool(cross_domain_eval.get("run_large_eval", True))
+    derived["run_small_eval"] = bool(cross_domain_eval.get("run_small_eval", False))
+    for key in (
+        "large_eval_mode",
+        "windows_large_eval_mode",
+        "linux_large_eval_mode",
+        "small_eval_mode",
+        "windows_small_eval_mode",
+        "linux_small_eval_mode",
+        "model_root",
+        "distilgpt2_path",
+        "gpt2_xl_path",
+        "llama2_7b_path",
+        "llama_3_2_3b_instruct_path",
+        "c4_checkpoint_path",
+        "batch_size",
+        "eval_batch_size",
+        "grad_accum_steps",
+        "epochs",
+        "learning_rate",
+        "num_proc",
+        "lora_rank",
+        "lora_alpha",
+        "lora_dropout",
+        "small_batch_size",
+        "small_eval_batch_size",
+        "small_grad_accum_steps",
+        "small_epochs",
+        "small_learning_rate",
+        "small_num_proc",
+    ):
+        if key in cross_domain_eval:
+            derived[key] = cross_domain_eval[key]
+    return derived
+
+
+def _validate_pretext_eval_requirements(
+    config,
+    eval_cfg: dict[str, object],
+    dependency_errors: list[str],
+    asset_errors: list[str],
+    *,
+    label_prefix: str,
+) -> None:
+    """Validate shared pretext-eval dependencies/assets for downstream and transfer runs."""
+
+    if not bool(eval_cfg.get("enabled")):
+        return
+
+    for module_name, package_name in {
+        "accelerate": "accelerate",
+        "datasets": "datasets",
+        "peft": "peft",
+        "transformers": "transformers",
+    }.items():
+        if not _module_available(module_name):
+            dependency_errors.append(f"missing Python package: {package_name}")
+
+    run_large_eval = bool(eval_cfg.get("run_large_eval"))
+    if run_large_eval:
+        large_eval_mode = resolve_large_eval_mode(eval_cfg, platform_name=sys.platform)
+        model_root = config.resolve_path(eval_cfg.get("model_root", "thesis_platform/open_model"))
+        if model_root is None or not model_root.exists():
+            asset_errors.append(f"missing {label_prefix} model root: {_display_path(model_root or Path('<unset>'))}")
+        if large_eval_mode == "full_finetune":
+            llama32_path = config.resolve_path(
+                eval_cfg.get("llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct")
+            )
+            if llama32_path is None or not llama32_path.exists():
+                asset_errors.append(
+                    f"missing {label_prefix} llama_3_2_3b_instruct model: {_display_path(llama32_path or Path('<unset>'))}"
+                )
+        elif large_eval_mode == "gpt2_xl":
+            gpt2_xl_path = config.resolve_path(eval_cfg.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl"))
+            distilgpt2_path = config.resolve_path(eval_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2"))
+            if (gpt2_xl_path is None or not gpt2_xl_path.exists()) and (
+                distilgpt2_path is None or not distilgpt2_path.exists()
+            ):
+                asset_errors.append(
+                    f"missing {label_prefix} gpt2_xl model and distilgpt2 fallback: "
+                    f"{_display_path(gpt2_xl_path or Path('<unset>'))}, {_display_path(distilgpt2_path or Path('<unset>'))}"
+                )
+        else:
+            llama_path = config.resolve_path(eval_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf"))
+            if llama_path is None or not llama_path.exists():
+                asset_errors.append(f"missing {label_prefix} llama2_7b model: {_display_path(llama_path or Path('<unset>'))}")
+
+    run_small_eval = bool(eval_cfg.get("run_small_eval"))
+    if run_small_eval:
+        small_eval_mode = resolve_small_eval_mode(eval_cfg, platform_name=sys.platform)
+        distilgpt2_path = config.resolve_path(eval_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2"))
+        if distilgpt2_path is None or not distilgpt2_path.exists():
+            asset_errors.append(f"missing {label_prefix} distilgpt2 model: {_display_path(distilgpt2_path or Path('<unset>'))}")
+        if small_eval_mode != "gpt2":
+            checkpoint_path = config.resolve_path(eval_cfg.get("c4_checkpoint_path"))
+            if checkpoint_path is None or not checkpoint_path.exists():
+                asset_errors.append(f"missing {label_prefix} c4 checkpoint: {_display_path(checkpoint_path or Path('<unset>'))}")
+
+
 def validate_preflight(config) -> None:
     """Validate dependencies and local assets before a v3 experiment starts."""
 
@@ -129,6 +238,7 @@ def validate_preflight(config) -> None:
     prototype_name = str(config.prototype.get("name", "")).lower()
     routing_enabled = bool(config.routing.get("enabled", False))
     downstream_eval = config.downstream_eval
+    cross_domain_eval = config.cross_domain_eval
     privacy_policy = PrivacyPolicy.from_config(config.privacy)
 
     try:
@@ -185,17 +295,36 @@ def validate_preflight(config) -> None:
             if not _module_available(module_name):
                 dependency_errors.append(f"missing Python package: {package_name}")
 
-    if downstream_eval.get("enabled"):
-        for module_name, package_name in {
-            "accelerate": "accelerate",
-            "datasets": "datasets",
-            "peft": "peft",
-            "transformers": "transformers",
-        }.items():
-            if not _module_available(module_name):
-                dependency_errors.append(f"missing Python package: {package_name}")
+    _validate_pretext_eval_requirements(
+        config,
+        downstream_eval,
+        dependency_errors,
+        asset_errors,
+        label_prefix="downstream eval",
+    )
+    _validate_pretext_eval_requirements(
+        config,
+        _cross_domain_eval_runtime_cfg(config),
+        dependency_errors,
+        asset_errors,
+        label_prefix="cross-domain eval",
+    )
 
     _validate_configured_dataset_paths(config, asset_errors)
+    if bool(cross_domain_eval.get("enabled", False)):
+        target_dataset = str(cross_domain_eval.get("target_dataset", "target"))
+        target_train_path = config.resolve_path(cross_domain_eval.get("target_train_path"))
+        if target_train_path is None or not target_train_path.exists():
+            asset_errors.append(
+                f"missing cross-domain {target_dataset} train dataset: {_display_path(target_train_path or Path('<unset>'))}"
+            )
+        raw_target_eval_path = cross_domain_eval.get("target_eval_path")
+        if raw_target_eval_path not in (None, ""):
+            target_eval_path = config.resolve_path(raw_target_eval_path)
+            if target_eval_path is None or not target_eval_path.exists():
+                asset_errors.append(
+                    f"missing cross-domain {target_dataset} eval dataset: {_display_path(target_eval_path or Path('<unset>'))}"
+                )
 
     prototype_model = config.prototype.get("embedding_model")
     if routing_enabled and prototype_name == "minilm_mean" and prototype_model:
@@ -243,54 +372,6 @@ def validate_preflight(config) -> None:
         model_path = config.resolve_path(role_cfg.get("model_name_or_path"))
         if model_path is None or not model_path.exists():
             asset_errors.append(f"missing {role} text backend model: {_display_path(model_path or Path('<unset>'))}")
-
-    run_large_eval = bool(downstream_eval.get("enabled")) and bool(downstream_eval.get("run_large_eval"))
-    if run_large_eval:
-        large_eval_mode = resolve_large_eval_mode(downstream_eval, platform_name=sys.platform)
-        model_root = config.resolve_path(downstream_eval.get("model_root", "thesis_platform/open_model"))
-        if model_root is None or not model_root.exists():
-            asset_errors.append(f"missing downstream eval model root: {_display_path(model_root or Path('<unset>'))}")
-        if large_eval_mode == "full_finetune":
-            llama32_path = config.resolve_path(
-                downstream_eval.get(
-                    "llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct"
-                )
-            )
-            if llama32_path is None or not llama32_path.exists():
-                asset_errors.append(
-                    f"missing downstream eval llama_3_2_3b_instruct model: {_display_path(llama32_path or Path('<unset>'))}"
-                )
-        elif large_eval_mode == "gpt2_xl":
-            gpt2_xl_path = config.resolve_path(downstream_eval.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl"))
-            distilgpt2_path = config.resolve_path(
-                downstream_eval.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
-            )
-            if (gpt2_xl_path is None or not gpt2_xl_path.exists()) and (
-                distilgpt2_path is None or not distilgpt2_path.exists()
-            ):
-                asset_errors.append(
-                    "missing downstream eval gpt2_xl model and distilgpt2 fallback: "
-                    f"{_display_path(gpt2_xl_path or Path('<unset>'))}, {_display_path(distilgpt2_path or Path('<unset>'))}"
-                )
-        else:
-            llama_path = config.resolve_path(
-                downstream_eval.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")
-            )
-            if llama_path is None or not llama_path.exists():
-                asset_errors.append(f"missing downstream eval llama2_7b model: {_display_path(llama_path or Path('<unset>'))}")
-
-    run_small_eval = bool(downstream_eval.get("enabled")) and bool(downstream_eval.get("run_small_eval"))
-    if run_small_eval:
-        small_eval_mode = resolve_small_eval_mode(downstream_eval, platform_name=sys.platform)
-        distilgpt2_path = config.resolve_path(
-            downstream_eval.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
-        )
-        if distilgpt2_path is None or not distilgpt2_path.exists():
-            asset_errors.append(f"missing downstream eval distilgpt2 model: {_display_path(distilgpt2_path or Path('<unset>'))}")
-        if small_eval_mode != "gpt2":
-            checkpoint_path = config.resolve_path(downstream_eval.get("c4_checkpoint_path"))
-            if checkpoint_path is None or not checkpoint_path.exists():
-                asset_errors.append(f"missing downstream eval c4 checkpoint: {_display_path(checkpoint_path or Path('<unset>'))}")
 
     if dependency_errors or asset_errors:
         message = ["Preflight validation failed."]

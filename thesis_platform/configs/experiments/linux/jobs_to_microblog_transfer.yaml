@@ -1,0 +1,12 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+
+meta:
+  experiment_id: jobs_to_microblog_transfer
+  description: "Cross-domain transfer from jobs to microblog."
+
+cross_domain_eval:
+  enabled: true
+  target_dataset: microblog
+  target_train_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json
+  target_eval_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_eval.json

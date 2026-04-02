@@ -270,6 +270,12 @@ class ExperimentConfig:
         return self.raw.get("evaluation", {})
 
     @property
+    def cross_domain_eval(self) -> dict[str, Any]:
+        """Return the cross-domain evaluation config for transfer learning experiments."""
+
+        return self.raw.get("cross_domain_eval", {})
+
+    @property
     def llm(self) -> dict[str, Any]:
         """Return the shared client/server text-backend config section."""
 

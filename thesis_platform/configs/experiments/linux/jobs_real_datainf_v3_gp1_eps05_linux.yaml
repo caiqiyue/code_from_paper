@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/privacy/jobs_eps05.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gp1_eps05_linux
+  description: "GP1 privacy-utility tradeoff: epsilon 0.5."

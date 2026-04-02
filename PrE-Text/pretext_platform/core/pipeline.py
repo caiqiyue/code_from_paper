@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from pretext_platform.core.config import ExperimentConfig, load_experiment_config
+from pretext_platform.core.io_utils import ensure_dir, write_json
+from pretext_platform.core.types import StageSummary
 
 
 def _convert_paths(obj):
@@ -16,8 +18,6 @@ def _convert_paths(obj):
     elif hasattr(obj, "__fspath__"):
         return str(obj)
     return obj
-from pretext_platform.core.io_utils import ensure_dir, write_json
-from pretext_platform.core.types import StageSummary
 
 
 def _experiment_dir(config: ExperimentConfig) -> Path:
@@ -138,6 +138,57 @@ def run_eval_large(config: ExperimentConfig) -> StageSummary:
     return summary
 
 
+def run_glue_eval(config: ExperimentConfig) -> dict[str, StageSummary]:
+    """Run GLUE downstream evaluation on synthetic data.
+
+    Supports multiple GLUE classification tasks:
+    - sst2: Binary sentiment classification (SST-2)
+    - qqp: Quora Question Pairs
+    - qnli: Question-answering NLI
+    - imdb: Binary sentiment classification (IMDB)
+    - rotten_tomatoes: Sentiment classification
+
+    Reads synthetic corpus from Stage2 output (llama7b_text_syn.json).
+    """
+    from pretext_platform.evaluation.glue_classification_eval import run_glue_classification_eval
+    from pretext_platform.core.models import resolve_model_paths
+
+    model_paths = resolve_model_paths(config)
+    experiment_dir = _experiment_dir(config)
+    stage2_dir = experiment_dir / "stage2"
+
+    eval_cfg = config.eval_glue
+    summaries = {}
+
+    # Get list of tasks to evaluate
+    tasks = eval_cfg.get("tasks", ["sst2"])
+
+    for task in tasks:
+        summary = run_glue_classification_eval(
+            config=config,
+            model_paths=model_paths,
+            stage2_dir=stage2_dir,
+            output_dir=experiment_dir / "eval_glue",
+            task_name=task,
+        )
+        summaries[f"glue_{task}"] = summary
+        _write_stage_summary(experiment_dir, f"glue_{task}_summary.json", summary)
+
+    glue_summary_payload = {
+        task: {
+            "best_accuracy": summaries[f"glue_{task}"].metrics.get("best_accuracy", 0.0),
+            "correct": summaries[f"glue_{task}"].metrics.get("correct", 0),
+            "total": summaries[f"glue_{task}"].metrics.get("total", 0),
+            "data_source": summaries[f"glue_{task}"].metrics.get("data_source", "unknown"),
+        }
+        for task in tasks
+        if f"glue_{task}" in summaries
+    }
+    write_json(ensure_dir(experiment_dir / "eval_glue") / "glue_summary.json", glue_summary_payload)
+    write_json(experiment_dir / "resolved_config.json", config.raw)
+    return summaries
+
+
 def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any]:
     """Run the enabled stages for one experiment config."""
 
@@ -150,6 +201,7 @@ def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any
     bootstrap_cfg = config.bootstrap
     eval_small_cfg = config.eval_small
     eval_large_cfg = config.eval_large
+    eval_glue_cfg = config.eval_glue
 
     if bool(stage1_cfg.get("enabled", True)):
         summaries["stage1"] = run_stage1(config)
@@ -167,9 +219,14 @@ def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any
         summaries["eval_large"] = run_eval_large(config)
         _write_stage_summary(experiment_dir, "eval_large_summary.json", summaries["eval_large"])
 
+    if bool(eval_glue_cfg.get("enabled", False)):
+        glue_summaries = run_glue_eval(config)
+        summaries.update(glue_summaries)
+
     summary_payload = {
         "experiment_id": config.experiment_id(),
         "experiment_dir": str(experiment_dir),
+        "status": "SUCCESS",
         "stages": {k: _convert_paths(asdict(v)) if hasattr(v, "__dataclass_fields__") else v for k, v in summaries.items()},
     }
     write_json(experiment_dir / "metrics_summary.json", summary_payload)

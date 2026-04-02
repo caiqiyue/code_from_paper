@@ -28,6 +28,12 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     """Load one YAML file, using a stdlib-only fallback parser when PyYAML is unavailable."""
 
     text = path.read_text(encoding="utf-8")
+    stripped = text.lstrip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        data = json.loads(text)
+        if not isinstance(data, dict):
+            raise ValueError(f"Config at {path} must decode to a mapping.")
+        return data
     if yaml is not None:
         data = yaml.safe_load(text) or {}
         if not isinstance(data, dict):
@@ -168,6 +174,10 @@ class ExperimentConfig:
     @property
     def eval_large(self) -> dict[str, Any]:
         return self.raw.get("eval_large", {})
+
+    @property
+    def eval_glue(self) -> dict[str, Any]:
+        return self.raw.get("eval_glue", {})
 
     @property
     def runtime(self) -> dict[str, Any]:

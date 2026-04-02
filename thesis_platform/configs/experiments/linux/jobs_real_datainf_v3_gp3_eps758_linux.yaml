@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/privacy/jobs_eps758.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gp3_eps758_linux
+  description: "GP3 privacy-utility tradeoff: epsilon 7.58."

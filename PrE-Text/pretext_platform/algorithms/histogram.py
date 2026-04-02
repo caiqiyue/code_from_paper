@@ -75,10 +75,20 @@ class NN_Histogram:
         )
         resulting_mean_distance = np.mean(D, axis=0).squeeze()
         first_nearest_neighbors_idx = I[:nearest_neighbors_print, 0]
-        resulting_histogram_noised = (
-            resulting_histogram.astype(np.float32)
-            + np.random.standard_normal(size=resulting_histogram.shape) * sigma
-        )
+
+        # Privacy-disabled mode (eps=∞): skip DP noise addition
+        privacy_disabled = config.get("privacy_disabled", False)
+        if privacy_disabled:
+            # No DP noise - use raw histogram with sensitivity clipping only
+            accelerator.print("Privacy disabled: skipping DP noise", file=sys.stderr)
+            resulting_histogram_noised = resulting_histogram.astype(np.float32)
+        else:
+            # Standard DP: add Gaussian noise proportional to sigma
+            resulting_histogram_noised = (
+                resulting_histogram.astype(np.float32)
+                + np.random.standard_normal(size=resulting_histogram.shape) * sigma
+            )
+
         accelerator.print("Histogram before thresholding", np.sum(np.maximum(resulting_histogram_noised, 0)))
         noised_histogram_thresh = np.maximum(resulting_histogram_noised - H, 0.0)
         accelerator.print("Histogram after thresholding", np.sum(noised_histogram_thresh))

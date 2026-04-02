@@ -1,0 +1,35 @@
+{
+  "jobs_real_eps05": {
+    "description": "PrE-Text Jobs ε=0.5",
+    "config": "configs/experiments/jobs_real_eps05.yaml",
+    "suite": "jobs",
+    "tags": [
+      "GP1"
+    ]
+  },
+  "jobs_real_eps129": {
+    "description": "PrE-Text Jobs ε=1.29",
+    "config": "configs/experiments/jobs_real_eps129.yaml",
+    "suite": "jobs",
+    "tags": [
+      "GC2",
+      "GP2"
+    ]
+  },
+  "jobs_real_eps758": {
+    "description": "PrE-Text Jobs ε=7.58",
+    "config": "configs/experiments/jobs_real_eps758.yaml",
+    "suite": "jobs",
+    "tags": [
+      "GP3"
+    ]
+  },
+  "jobs_real_no_privacy": {
+    "description": "PrE-Text Jobs without privacy",
+    "config": "configs/experiments/jobs_real_no_privacy.yaml",
+    "suite": "jobs",
+    "tags": [
+      "GP4"
+    ]
+  }
+}

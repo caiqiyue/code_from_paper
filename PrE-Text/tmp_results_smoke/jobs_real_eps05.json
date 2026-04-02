@@ -1,0 +1,18 @@
+{
+  "experiment_id": "jobs_real_eps05",
+  "requested_id": "jobs_real_eps05",
+  "description": "PrE-Text Jobs ε=0.5",
+  "config": "configs/experiments/jobs_real_eps05.yaml",
+  "status": "FAILED",
+  "start_time": "2026-04-02T16:37:29.291008",
+  "output_dir": "tmp_outputs_smoke\\jobs_real_eps05",
+  "log_dir": "tmp_logs_smoke\\jobs_real_eps05",
+  "stages": {},
+  "glue_results": null,
+  "end_time": "2026-04-02T16:37:29.367093",
+  "total_elapsed_seconds": 0.07608485221862793,
+  "error": {
+    "type": "RuntimeError",
+    "message": "PIPELINE failed with return code 1"
+  }
+}

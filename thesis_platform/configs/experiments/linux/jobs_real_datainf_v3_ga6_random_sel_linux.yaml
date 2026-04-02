@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/selectors/random.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_ga6_random_sel_linux
+  description: "GA6 ablation: randomly select bad samples instead of top-k."

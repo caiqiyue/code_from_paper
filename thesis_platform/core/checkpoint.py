@@ -18,6 +18,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _serialize_prototype_feedback(fb: Any) -> dict[str, Any]:
+    """Serialize a PrototypeFeedback object to a JSON-serializable dict."""
+    return {
+        "client_id": str(getattr(fb, "client_id", "")),
+        "round_id": int(getattr(fb, "round_id", 0)),
+        "prototype_vector": list(getattr(fb, "prototype_vector", [])),
+        "weight": float(getattr(fb, "weight", 1.0)),
+        "source_sample_ids": list(getattr(fb, "source_sample_ids", [])),
+        "meta": dict(getattr(fb, "meta", {})),
+    }
+
+
 def serialize_server_context(server_ctx: Any) -> dict[str, Any]:
     """Serialize ServerContext to a JSON-serializable dictionary.
 
@@ -34,6 +46,12 @@ def serialize_server_context(server_ctx: Any) -> dict[str, Any]:
         "generated_history": [
             list(batch) for batch in getattr(server_ctx, "generated_history", [])
         ],
+        # Routing and clustering state (needed for proper checkpoint/restore)
+        "client_cluster_map": dict(getattr(server_ctx, "client_cluster_map", {})),
+        "prototype_feedbacks": [
+            _serialize_prototype_feedback(fb) for fb in getattr(server_ctx, "prototype_feedbacks", [])
+        ],
+        "routing_state": dict(getattr(server_ctx, "routing_state", {})),
     }
 
 

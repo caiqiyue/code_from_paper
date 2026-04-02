@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 import os
 from pathlib import Path
@@ -612,6 +613,156 @@ class ExperimentRunner:
             )
         return contexts
 
+    def _run_cross_domain_eval(
+        self,
+        *,
+        synthetic_texts: list[str],
+        cross_domain_cfg: dict[str, Any],
+        current_round: int | None,
+        rounds_total: int,
+        checkpoint_path: str | None,
+    ) -> dict[str, Any]:
+        """Run cross-domain downstream evaluation for transfer learning experiments.
+
+        This evaluates the synthetic corpus generated from the source domain
+        on a target domain's downstream task to measure transfer learning capability.
+        """
+        from thesis_platform.evaluation.downstream_eval import export_synthetic_corpus
+
+        self._write_run_state(
+            status="running",
+            phase="cross_domain_eval",
+            rounds_total=rounds_total,
+            completed_rounds=len(self._all_round_metrics) if hasattr(self, "_all_round_metrics") else 0,
+            current_round=current_round,
+            checkpoint_path=checkpoint_path,
+            downstream_status="cross_domain_running",
+            resume_requested=False,
+        )
+
+        target_dataset = str(cross_domain_cfg.get("target_dataset", "unknown"))
+        target_train_path = self.config.resolve_path(cross_domain_cfg.get("target_train_path"))
+        target_eval_path = self.config.resolve_path(cross_domain_cfg.get("target_eval_path"))
+
+        if not target_train_path or not target_train_path.exists():
+            self.logger.warning(
+                "Cross-domain eval skipped: target_train_path not found at %s",
+                target_train_path,
+            )
+            return {
+                "schema_version": ARTIFACT_SCHEMA_VERSION,
+                "artifact_type": "cross_domain_eval_summary",
+                "experiment_id": self.experiment_id,
+                "enabled": True,
+                "status": "skipped",
+                "message": f"Target dataset '{target_dataset}' train path not found",
+                "target_dataset": target_dataset,
+            }
+
+        cross_domain_root = ensure_dir(self.experiment_dir / "cross_domain_eval" / target_dataset)
+        corpus_path = export_synthetic_corpus(
+            synthetic_texts,
+            output_dir=cross_domain_root,
+            filename="synthetic_corpus.json",
+        )
+
+        self.logger.info(
+            "Cross-domain eval: source=%s -> target=%s | corpus=%s",
+            self.config.data.get("dataset_name"),
+            target_dataset,
+            corpus_path,
+        )
+
+        try:
+            target_raw = copy.deepcopy(self.config.raw)
+            target_raw.setdefault("meta", {})["experiment_id"] = f"{self.experiment_id}_xfer_{target_dataset}"
+            target_raw.setdefault("data", {})["dataset_name"] = target_dataset
+            target_raw["data"]["train_path"] = str(cross_domain_cfg.get("target_train_path", ""))
+            if cross_domain_cfg.get("target_eval_path") not in (None, ""):
+                target_raw["data"]["eval_path"] = str(cross_domain_cfg.get("target_eval_path"))
+
+            target_downstream_cfg = dict(target_raw.get("downstream_eval", {}))
+            target_downstream_cfg["enabled"] = True
+            target_downstream_cfg["kind"] = str(cross_domain_cfg.get("kind", "pretext_large_eval"))
+            target_downstream_cfg["run_large_eval"] = bool(cross_domain_cfg.get("run_large_eval", True))
+            target_downstream_cfg["run_small_eval"] = bool(cross_domain_cfg.get("run_small_eval", False))
+            for key in (
+                "large_eval_mode",
+                "windows_large_eval_mode",
+                "linux_large_eval_mode",
+                "small_eval_mode",
+                "windows_small_eval_mode",
+                "linux_small_eval_mode",
+                "model_root",
+                "distilgpt2_path",
+                "gpt2_xl_path",
+                "llama2_7b_path",
+                "llama_3_2_3b_instruct_path",
+                "c4_checkpoint_path",
+                "batch_size",
+                "eval_batch_size",
+                "grad_accum_steps",
+                "epochs",
+                "learning_rate",
+                "num_proc",
+                "lora_rank",
+                "lora_alpha",
+                "lora_dropout",
+                "small_batch_size",
+                "small_eval_batch_size",
+                "small_grad_accum_steps",
+                "small_epochs",
+                "small_learning_rate",
+                "small_num_proc",
+            ):
+                if key in cross_domain_cfg:
+                    target_downstream_cfg[key] = cross_domain_cfg[key]
+            target_raw["downstream_eval"] = target_downstream_cfg
+
+            target_config = ExperimentConfig(path=self.config.path, raw=target_raw)
+            transfer_output_dir = ensure_dir(cross_domain_root / "downstream_eval")
+            eval_results = DownstreamEvalManager(
+                target_config,
+                experiment_id=f"{self.experiment_id}_xfer_{target_dataset}",
+                output_dir=transfer_output_dir,
+            ).run(synthetic_texts)
+            write_json(cross_domain_root / "cross_domain_results.json", eval_results)
+            status = str(eval_results.get("status", "completed"))
+            message = str(eval_results.get("message", ""))
+            metrics = dict(eval_results.get("metrics", {}))
+            stage2_dir = str(eval_results.get("stage2_dir", transfer_output_dir / "stage2"))
+            eval_corpus_path = str(eval_results.get("synthetic_corpus_path", corpus_path))
+        except Exception as exc:
+            self.logger.warning("Cross-domain eval failed: %s", exc)
+            eval_results = {}
+            status = "failed"
+            message = str(exc)
+            metrics = {}
+            stage2_dir = str(cross_domain_root / "downstream_eval" / "stage2")
+            eval_corpus_path = str(corpus_path)
+
+        summary = {
+            "schema_version": ARTIFACT_SCHEMA_VERSION,
+            "artifact_type": "cross_domain_eval_summary",
+            "experiment_id": self.experiment_id,
+            "enabled": True,
+            "status": status,
+            "message": message,
+            "source_dataset": self.config.data.get("dataset_name"),
+            "target_dataset": target_dataset,
+            "corpus_path": eval_corpus_path,
+            "source_corpus_alias_path": str(corpus_path),
+            "stage2_dir": stage2_dir,
+            "target_train_path": str(target_train_path),
+            "target_eval_path": str(target_eval_path) if target_eval_path else None,
+            "metrics": metrics,
+            "downstream_eval": eval_results,
+            "updated_at": self._now_iso(),
+        }
+
+        write_json(cross_domain_root / "cross_domain_summary.json", summary)
+        return summary
+
     def run(self, resume: bool = False, resume_dir: str | Path | None = None) -> dict[str, Any]:
         """Run the configured experiment end to end and return the summary payload.
 
@@ -1002,6 +1153,7 @@ class ExperimentRunner:
                 )
                 return interrupted_summary
 
+            synthetic_texts: list[str] = []
             if bool(downstream_cfg.get("enabled")):
                 if last_artifacts is not None:
                     synthetic_texts = [
@@ -1033,10 +1185,26 @@ class ExperimentRunner:
                     output_dir=downstream_root,
                 ).run(synthetic_texts)
             else:
+                # Restore synthetic texts from last completed round for cross-domain eval
+                synthetic_texts = self._restore_synthetic_texts_for_downstream(
+                    last_completed_round=all_round_metrics[-1]["round_id"] if all_round_metrics else None,
+                )
                 downstream_summary = self._build_downstream_stub(
                     enabled=False,
                     status="disabled",
                     kind=downstream_cfg.get("kind", "none"),
+                )
+
+            # Run cross-domain evaluation if enabled (for transfer learning experiments)
+            cross_domain_summary = None
+            cross_domain_cfg = self.config.cross_domain_eval
+            if bool(cross_domain_cfg.get("enabled", False)) and synthetic_texts:
+                cross_domain_summary = self._run_cross_domain_eval(
+                    synthetic_texts=synthetic_texts,
+                    cross_domain_cfg=cross_domain_cfg,
+                    current_round=current_round,
+                    rounds_total=rounds,
+                    checkpoint_path=last_checkpoint_path,
                 )
 
             self._write_privacy_ledger_snapshot(privacy_ledger)
@@ -1179,8 +1347,6 @@ class ExperimentRunner:
                 progress.close()
             self._restore_signal_handlers()
             close_experiment_file_logger("thesis_platform")
-
-
 
 
 

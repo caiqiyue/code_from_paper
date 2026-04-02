@@ -1,0 +1,179 @@
+{
+  "timestamp": "2026-04-02T16:56:00.076396",
+  "total": 4,
+  "ready": 0,
+  "blocked": 4,
+  "ready_experiments": [],
+  "blocked_experiments": [
+    "jobs_real_eps05",
+    "jobs_real_eps129",
+    "jobs_real_eps758",
+    "jobs_real_no_privacy"
+  ],
+  "reports": {
+    "jobs_real_eps05": {
+      "experiment_id": "jobs_real_eps05",
+      "config_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tmpjszvlgmp.json",
+      "enabled_stages": [
+        "stage1",
+        "stage2",
+        "eval_large"
+      ],
+      "ready": false,
+      "errors": [
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage1 requires missing Python modules: accelerate, faiss, numpy, opacus, sentence_transformers, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage2 requires missing Python modules: sentencepiece, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "eval_large requires missing Python modules: accelerate, datasets, peft, sentencepiece, torch, transformers"
+        }
+      ],
+      "warnings": [
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "Windows cannot use vLLM; Stage 2 will fall back to HuggingFace generation and run much slower."
+        },
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "eval_large peft_lora is less stable on Windows; gpt2_xl or full_finetune is usually safer."
+        }
+      ],
+      "description": "PrE-Text Jobs ε=0.5",
+      "config": "configs/experiments/jobs_real_eps05.yaml"
+    },
+    "jobs_real_eps129": {
+      "experiment_id": "jobs_real_eps129",
+      "config_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tmp7tzdrhzd.json",
+      "enabled_stages": [
+        "stage1",
+        "stage2",
+        "eval_large"
+      ],
+      "ready": false,
+      "errors": [
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage1 requires missing Python modules: accelerate, faiss, numpy, opacus, sentence_transformers, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage2 requires missing Python modules: sentencepiece, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "eval_large requires missing Python modules: accelerate, datasets, peft, sentencepiece, torch, transformers"
+        }
+      ],
+      "warnings": [
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "Windows cannot use vLLM; Stage 2 will fall back to HuggingFace generation and run much slower."
+        },
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "eval_large peft_lora is less stable on Windows; gpt2_xl or full_finetune is usually safer."
+        }
+      ],
+      "description": "PrE-Text Jobs ε=1.29",
+      "config": "configs/experiments/jobs_real_eps129.yaml"
+    },
+    "jobs_real_eps758": {
+      "experiment_id": "jobs_real_eps758",
+      "config_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tmpq499tx2q.json",
+      "enabled_stages": [
+        "stage1",
+        "stage2",
+        "eval_large"
+      ],
+      "ready": false,
+      "errors": [
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage1 requires missing Python modules: accelerate, faiss, numpy, opacus, sentence_transformers, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage2 requires missing Python modules: sentencepiece, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "eval_large requires missing Python modules: accelerate, datasets, peft, sentencepiece, torch, transformers"
+        }
+      ],
+      "warnings": [
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "Windows cannot use vLLM; Stage 2 will fall back to HuggingFace generation and run much slower."
+        },
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "eval_large peft_lora is less stable on Windows; gpt2_xl or full_finetune is usually safer."
+        }
+      ],
+      "description": "PrE-Text Jobs ε=7.58",
+      "config": "configs/experiments/jobs_real_eps758.yaml"
+    },
+    "jobs_real_no_privacy": {
+      "experiment_id": "jobs_real_no_privacy",
+      "config_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tmpil9tywu5.json",
+      "enabled_stages": [
+        "stage1",
+        "stage2",
+        "eval_large"
+      ],
+      "ready": false,
+      "errors": [
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage1 requires missing Python modules: accelerate, faiss, numpy, opacus, sentence_transformers, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "stage2 requires missing Python modules: sentencepiece, torch, transformers"
+        },
+        {
+          "severity": "error",
+          "category": "dependency",
+          "message": "eval_large requires missing Python modules: accelerate, datasets, peft, sentencepiece, torch, transformers"
+        }
+      ],
+      "warnings": [
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "Windows cannot use vLLM; Stage 2 will fall back to HuggingFace generation and run much slower."
+        },
+        {
+          "severity": "warning",
+          "category": "platform",
+          "message": "eval_large peft_lora is less stable on Windows; gpt2_xl or full_finetune is usually safer."
+        }
+      ],
+      "description": "PrE-Text Jobs without privacy",
+      "config": "configs/experiments/jobs_real_no_privacy.yaml"
+    }
+  }
+}

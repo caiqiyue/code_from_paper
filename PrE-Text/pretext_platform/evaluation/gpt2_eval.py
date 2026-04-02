@@ -1,5 +1,6 @@
 """GPT-2 downstream evaluation on synthetic data - Windows compatible version.
-Uses base GPT-2 from HuggingFace without requiring c4_checkpoint.pth.
+
+Uses a local DistilGPT2/GPT2 checkpoint only and never downloads from Hugging Face.
 """
 
 from __future__ import annotations
@@ -89,7 +90,7 @@ def run_gpt2_eval(
     output_dir: Path,
 ) -> StageSummary:
     """Fine-tune GPT-2 on synthetic data and evaluate next-token prediction.
-    Windows compatible version that uses base GPT-2 from HuggingFace.
+    Windows compatible version that requires a local DistilGPT2/GPT2 directory.
     """
 
     eval_cfg = config.eval_small
@@ -107,11 +108,15 @@ def run_gpt2_eval(
     log_dir = ensure_dir(output_dir / "log_models_and_accuracies")
     accelerator = Accelerator()
 
-    # Use GPT-2 from HuggingFace (downloads automatically if not cached)
-    gpt2_path = str(model_paths.distilgpt2) if model_paths.distilgpt2 else "openai-community/gpt2"
+    if model_paths.distilgpt2 is None or not model_paths.distilgpt2.exists():
+        raise ValueError(
+            "eval_small.gpt2 requires a local DistilGPT2/GPT2 directory. "
+            "No online download fallback is allowed."
+        )
 
-    tokenizer = AutoTokenizer.from_pretrained(gpt2_path, local_files_only=False)
-    model = AutoModelForCausalLM.from_pretrained(gpt2_path, local_files_only=False)
+    gpt2_path = str(model_paths.distilgpt2)
+    tokenizer = AutoTokenizer.from_pretrained(gpt2_path, local_files_only=True)
+    model = AutoModelForCausalLM.from_pretrained(gpt2_path, local_files_only=True)
 
     # Move model to accelerator device
     model = model.to(accelerator.device)

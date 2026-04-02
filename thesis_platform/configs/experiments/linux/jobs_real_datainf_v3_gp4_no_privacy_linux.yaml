@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/privacy/jobs_no_privacy.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gp4_no_privacy_linux
+  description: "GP4 privacy-utility tradeoff: no privacy budget."

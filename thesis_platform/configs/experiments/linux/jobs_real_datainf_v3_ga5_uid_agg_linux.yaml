@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_ga5_uid_agg_linux
+  description: "GA5 ablation: replace DBSCAN attention aggregation with UID."

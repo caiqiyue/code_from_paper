@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/retrievers/random.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_ga7_random_ret_linux
+  description: "GA7 ablation: use random anchor retrieval instead of KNN."

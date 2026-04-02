@@ -205,3 +205,32 @@ class Stage1AndPipelineTests(unittest.TestCase):
             self.assertTrue((exp_dir / "stage1_summary.json").exists())
             self.assertTrue((exp_dir / "stage2_summary.json").exists())
             self.assertTrue((exp_dir / "metrics_summary.json").exists())
+
+    def test_pipeline_writes_combined_glue_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            config = ExperimentConfig.from_mapping(
+                {
+                    "meta": {"experiment_id": "glue_demo"},
+                    "paths": {"repo_root": ".", "output_root": "./out"},
+                    "stage1": {"enabled": False},
+                    "bootstrap": {"enabled": False},
+                    "eval_small": {"enabled": False},
+                    "eval_large": {"enabled": False},
+                    "eval_glue": {"enabled": True, "tasks": ["sst2", "qqp"]},
+                },
+                base_dir=root,
+            )
+            fake_summary = StageSummary(
+                "glue_eval_sst2",
+                root / "out" / "glue_demo" / "eval_glue",
+                metrics={"best_accuracy": 0.8, "correct": 8, "total": 10, "data_source": "local"},
+            )
+            with patch(
+                "pretext_platform.evaluation.glue_classification_eval.run_glue_classification_eval",
+                side_effect=[fake_summary, fake_summary],
+            ):
+                summary = run_pipeline(config)
+            exp_dir = root / "out" / "glue_demo"
+            self.assertIn("glue_sst2", summary["stages"])
+            self.assertTrue((exp_dir / "eval_glue" / "glue_summary.json").exists())

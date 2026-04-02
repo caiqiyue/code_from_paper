@@ -14,6 +14,7 @@ from thesis_platform.adapters.generators.pretext_generator import PretextSeedGen
 from thesis_platform.adapters.retrievers.knn_retriever import KNNRetriever
 from thesis_platform.adapters.retrievers.label_match import LabelMatchRetriever
 from thesis_platform.adapters.retrievers.none import NoRetriever
+from thesis_platform.adapters.retrievers.random_retriever import RandomRetriever
 from thesis_platform.adapters.scorers.ira_scorer import IRAScorer
 from thesis_platform.adapters.scorers.pretext_histogram import PretextHistogramScorer
 from thesis_platform.core.registry import register
@@ -76,6 +77,7 @@ _register_optional("scorer", "gradmm_lora", "thesis_platform.adapters.scorers.gr
 register("retriever", "none", NoRetriever)
 register("retriever", "knn", KNNRetriever)
 register("retriever", "label_match", LabelMatchRetriever)
+register("retriever", "random", RandomRetriever)
 
 register("critic", "none", NoCritic)
 register("critic", "fedtextgrad_qwen", FedTextGradCritic)

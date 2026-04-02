@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from functools import lru_cache
 import json
 from pathlib import Path
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -218,6 +221,21 @@ def _normalize_source_domain(url: str) -> str:
     return domain
 
 
+def _merge_restored_meta(record_meta: dict[str, Any], restored_meta: dict[str, Any]) -> None:
+    """Merge recovered metadata, replacing placeholder bucket IDs when needed."""
+
+    existing_bucket = str(record_meta.get("bucket_id", "")).strip()
+    restored_bucket = str(restored_meta.get("bucket_id", "")).strip()
+    if restored_bucket and (not existing_bucket or existing_bucket.isdigit()):
+        record_meta["bucket_id"] = restored_bucket
+
+    for key, value in restored_meta.items():
+        if key == "bucket_id":
+            continue
+        if value not in (None, ""):
+            record_meta.setdefault(key, value)
+
+
 def _pretext_sidecar_path(path: Path) -> Path | None:
     """Return the raw JSONL sidecar that preserves source URLs for formatted PrE-Text files."""
 
@@ -247,11 +265,94 @@ def _attach_pretext_sidecar_metadata(path: Path, records: list[dict[str, Any]]) 
         if not url:
             continue
         domain = _normalize_source_domain(url)
-        meta = record.setdefault("meta", {})
-        meta.setdefault("source_url", url)
+        restored_meta: dict[str, Any] = {"source_url": url}
         if domain:
-            meta.setdefault("source_domain", domain)
-            meta.setdefault("bucket_id", domain)
+            restored_meta["source_domain"] = domain
+            restored_meta["bucket_id"] = domain
+        _merge_restored_meta(record.setdefault("meta", {}), restored_meta)
+    return records
+
+
+def _normalize_bucket_label(value: Any) -> str:
+    """Normalize one bucket label while preserving readable identity text."""
+
+    normalized = re.sub(r"\s+", " ", str(value or "").strip()).lower()
+    return normalized
+
+
+@lru_cache(maxsize=8)
+def _load_congressional_text_metadata(raw_dir: str) -> dict[str, tuple[dict[str, Any], ...]]:
+    """Index congressional raw monthly JSON files by speech text for metadata recovery."""
+
+    raw_path = Path(raw_dir)
+    text_to_meta: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for monthly_file in sorted(raw_path.glob("congressional_data_*.json")):
+        month_token = monthly_file.stem.rsplit("_", 1)[-1]
+        try:
+            payload = json.loads(monthly_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, list):
+            continue
+        for row in payload:
+            if not isinstance(row, dict):
+                continue
+            text = str(row.get("data") or "").strip()
+            if not text or len(text.split()) < 20:
+                continue
+            date_str = str(row.get("date_str") or month_token).strip()
+            month_bucket = _normalize_bucket_label(date_str[:7] or month_token)
+            speaker = str(row.get("speaker") or "").strip()
+            title = str(row.get("title") or "").strip()
+            chamber = str(row.get("chamber") or "").strip()
+            country = str(row.get("country") or "").strip()
+            url = str(row.get("url") or "").strip()
+            text_to_meta[text].append(
+                {
+                    "bucket_id": month_bucket or "congressional",
+                    "source_domain": month_bucket or "congressional",
+                    "source_url": url,
+                    "speaker": speaker,
+                    "title": title,
+                    "date_str": date_str,
+                    "source_month": month_bucket,
+                    "chamber": chamber,
+                    "country": country,
+                }
+            )
+    return {text: tuple(items) for text, items in text_to_meta.items()}
+
+
+def _attach_congressional_metadata(path: Path, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Recover monthly bucket metadata for congressional formatted datasets."""
+
+    if not records:
+        return records
+    if path.parent.name != "formatted":
+        return records
+    if path.parent.parent.name.lower() != "congressional":
+        return records
+
+    raw_dir = path.parent.parent / "raw"
+    if not raw_dir.exists():
+        return records
+
+    indexed_meta = {
+        text: list(entries)
+        for text, entries in _load_congressional_text_metadata(str(raw_dir.resolve())).items()
+    }
+    if not indexed_meta:
+        return records
+
+    for record in records:
+        text = str(record.get("text") or "").strip()
+        if not text:
+            continue
+        candidates = indexed_meta.get(text)
+        if not candidates:
+            continue
+        restored_meta = candidates.pop()
+        _merge_restored_meta(record.setdefault("meta", {}), restored_meta)
     return records
 
 
@@ -304,6 +405,7 @@ def load_samples(
 
     records = _load_sample_records(path, sample_format=sample_format)
     records = _attach_pretext_sidecar_metadata(path, records)
+    records = _attach_congressional_metadata(path, records)
     if limit is not None:
         records = records[: max(0, limit)]
     samples: list[Sample] = []

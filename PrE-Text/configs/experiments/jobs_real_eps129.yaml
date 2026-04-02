@@ -1,0 +1,33 @@
+inherits:
+  - ../base/paths.yaml
+  - ../base/models.yaml
+  - ../base/runtime.yaml
+  - ../templates/noise_eps129.yaml
+
+meta:
+  experiment_id: jobs_real_eps129
+  seed: 42
+
+paths:
+  dataset_root: ../thesis_platform/datasets
+  model_root: ../thesis_platform/open_model
+
+data:
+  dataset_name: jobs
+  train_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  max_samples_per_client: 8
+  initialization_min_words: 20
+
+stage1:
+  sensitivity: 8
+
+bootstrap:
+  num_prompts: 50000
+
+eval_small:
+  enabled: false
+
+eval_large:
+  enabled: true

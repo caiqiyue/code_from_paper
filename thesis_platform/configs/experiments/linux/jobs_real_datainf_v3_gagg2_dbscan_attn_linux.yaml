@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/aggregators/dbscan_attn.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gagg2_dbscan_attn_linux
+  description: "GAgg2 aggregator comparison: DBSCAN attention without memory."

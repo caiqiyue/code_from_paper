@@ -1,0 +1,6 @@
+# ε=0.5 严格差分隐私配置
+# 适用于医疗、金融等高敏感场景
+# sigma ≈ 160 (sensitivity=8 × sigma_ratio=20)
+stage1:
+  sigma: 160.0
+  delta: 3e-6

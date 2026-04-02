@@ -245,6 +245,66 @@ def run_pretext_small_eval(thesis_config, *, stage2_dir: Path, output_dir: Path)
     return to_jsonable(summary)
 
 
+def run_pretext_glue_eval(
+    thesis_config,
+    *,
+    stage2_dir: Path,
+    output_dir: Path,
+    tasks: list[str],
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Run GLUE-style classification evaluation on one exported synthetic corpus."""
+
+    pretext_config = _build_pretext_config(
+        thesis_config,
+        output_dir=output_dir,
+        enable_large_eval=False,
+        enable_small_eval=False,
+    )
+    eval_glue_cfg = {
+        "enabled": True,
+        "tasks": list(tasks),
+    }
+    if overrides:
+        eval_glue_cfg.update(dict(overrides))
+    pretext_config.raw["eval_glue"] = eval_glue_cfg
+
+    from pretext_platform.core.models import resolve_model_paths
+    from pretext_platform.evaluation.glue_classification_eval import run_glue_classification_eval
+
+    model_paths = resolve_model_paths(pretext_config)
+    task_summaries: dict[str, Any] = {}
+    for task in tasks:
+        summary = run_glue_classification_eval(
+            config=pretext_config,
+            model_paths=model_paths,
+            stage2_dir=stage2_dir,
+            output_dir=output_dir,
+            task_name=task,
+        )
+        stage_summary = to_jsonable(summary)
+        task_summaries[task] = {
+            "stage_name": stage_summary.get("stage_name", f"glue_eval_{task}"),
+            "output_dir": stage_summary.get("output_dir", str(output_dir)),
+            "artifacts": stage_summary.get("artifacts", {}),
+            "metrics": stage_summary.get("metrics", {}),
+            "message": stage_summary.get("message", ""),
+            "skipped": bool(stage_summary.get("skipped", False)),
+        }
+        write_json(output_dir / f"glue_{task}_summary.json", task_summaries[task])
+
+    summary_payload = {
+        "schema_version": ARTIFACT_SCHEMA_VERSION,
+        "artifact_type": "glue_eval_summary",
+        "experiment_id": str(thesis_config.meta.get("experiment_id", "experiment")),
+        "stage2_dir": str(stage2_dir),
+        "output_dir": str(output_dir),
+        "tasks": task_summaries,
+    }
+    write_json(ensure_dir(output_dir) / "glue_summary.json", summary_payload)
+    return summary_payload
+
+
 def collect_baseline_summaries(repo_root: Path, summary_paths: list[str], *, output_dir: Path) -> dict[str, Any]:
     """Collect existing baseline summary files into one normalized payload."""
 

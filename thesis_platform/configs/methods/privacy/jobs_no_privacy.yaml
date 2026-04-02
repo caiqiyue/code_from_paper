@@ -1,0 +1,11 @@
+# Privacy config for ablation experiments - no differential privacy
+# Used for GA3 (no privacy baseline) and GP4 (ε=∞)
+privacy:
+  enabled: false
+  mode: disabled
+  epsilon: 0.0
+  delta: 0.0
+  sample_cost: 0.0
+  critique_cost: 0.0
+  upload_token_cost: 0.0
+  enforce_budget: false

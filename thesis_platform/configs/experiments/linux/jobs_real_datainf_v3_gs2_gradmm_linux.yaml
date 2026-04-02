@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/scorers/gradmm_real.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gs2_gradmm_linux
+  description: "GS2 scorer comparison: use GradMM real scorer."

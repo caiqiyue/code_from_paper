@@ -113,10 +113,17 @@ def run_private_evolution_stage(
     sigma_ratio = float(stage1_cfg.get("sigma", 2.31))
     delta = float(stage1_cfg.get("delta", 3e-6))
     mask = float(stage1_cfg.get("mask", 0.3))
-    scale = sensitivity * sigma_ratio
-    epsilon = _compute_epsilon(rounds=rounds, sigma_ratio=sigma_ratio, delta=delta)
-
-    accelerator.print("Epsilon of this run", epsilon, file=sys.stderr)
+    privacy_disabled = bool(stage1_cfg.get("privacy_disabled", False))
+    if privacy_disabled:
+        # Privacy disabled (eps=∞): no DP noise
+        epsilon = float("inf")
+        sigma_ratio = 0.0
+        scale = 0.0
+        accelerator.print("Privacy DISABLED (eps=∞): running without differential privacy", file=sys.stderr)
+    else:
+        scale = sensitivity * sigma_ratio
+        epsilon = _compute_epsilon(rounds=rounds, sigma_ratio=sigma_ratio, delta=delta)
+        accelerator.print("Epsilon of this run", epsilon, file=sys.stderr)
     model = model.eval()
     model = accelerator.prepare_model(model, evaluation_mode=True)
 
@@ -141,6 +148,7 @@ def run_private_evolution_stage(
         "multiplier": int(stage1_cfg.get("multiplier", 4)),
         "device": device,
         "t_steps": int(stage1_cfg.get("t_steps", 2)),
+        "privacy_disabled": bool(stage1_cfg.get("privacy_disabled", False)),
     }
     stage_config["nsyn"] = stage_config["batch_size"] * stage_config["multiplier"]
 

@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../base/llm_7b_quant_linux.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gm2_llama2_7b_linux
+  description: "GM2 model-scale comparison: Llama 2 7B INT4."

@@ -1,0 +1,14 @@
+# GLUE downstream evaluation for Microblog dataset experiments
+
+eval_glue:
+  enabled: true
+  tasks:
+    - sst2
+    - qqp
+    - qnli
+  epochs: 5
+  cutoff_len: 128
+  batch_size: 16
+  grad_accum_steps: 64
+  learning_rate: 5e-5
+  num_synthetic_samples: 10000

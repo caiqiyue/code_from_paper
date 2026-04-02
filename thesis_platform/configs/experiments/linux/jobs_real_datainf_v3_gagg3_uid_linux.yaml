@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gagg3_uid_linux
+  description: "GAgg3 aggregator comparison: UID aggregation."

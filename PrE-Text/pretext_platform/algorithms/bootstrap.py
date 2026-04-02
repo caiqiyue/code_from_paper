@@ -29,11 +29,10 @@ def build_bootstrap_prompts(seed_texts: list[str], *, num_prompts: int, seed: in
     """Create few-shot prompts that ask LLaMA 2 to continue the synthetic corpus."""
 
     single_prompt = (
-        "List of 6 diverse original text samples:\n"
+        "List of 3 diverse original text samples:\n"
         "Original Text Sample 1\n{0}\n"
         "Original Text Sample 2\n{1}\n"
         "Original Text Sample 3\n{2}\n"
-        "Original Text Sample 4\n"
     )
     rng = random.Random(seed)
     prompt_list = []

@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-04-02T16:37:29.473061",
+  "total": 4,
+  "succeeded": 0,
+  "failed": 4,
+  "skipped": 0,
+  "succeeded_experiments": [],
+  "failed_experiments": [
+    "jobs_real_eps05",
+    "jobs_real_eps129",
+    "jobs_real_eps758",
+    "jobs_real_no_privacy"
+  ],
+  "skipped_experiments": [],
+  "parallel": true,
+  "max_parallel": 2,
+  "with_glue": false,
+  "resume": true
+}

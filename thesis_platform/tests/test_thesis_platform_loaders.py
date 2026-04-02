@@ -95,6 +95,64 @@ class LoaderTests(unittest.TestCase):
             self.assertEqual(samples[1].meta["bucket_id"], "careers.other.org")
             self.assertIn("source_url", samples[1].meta)
 
+    def test_congressional_formatted_train_recovers_month_buckets_from_raw_json(self) -> None:
+        """Congressional formatted corpora should restore monthly buckets from raw debate files."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "congressional"
+            formatted_dir = root / "formatted"
+            raw_dir = root / "raw"
+            formatted_dir.mkdir(parents=True, exist_ok=True)
+            raw_dir.mkdir(parents=True, exist_ok=True)
+
+            speech_a = " ".join(["alpha"] * 24)
+            speech_b = " ".join(["beta"] * 26)
+            (formatted_dir / "congressional_train.json").write_text(
+                json.dumps([speech_a, speech_b]),
+                encoding="utf-8",
+            )
+            (raw_dir / "congressional_data_2026-03.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "url": "https://api.openparliament.ca/debates/2026/3/9/example-1/",
+                            "date_str": "2026-03-09",
+                            "title": "Sample Debate",
+                            "speaker": "Hon. Example Speaker",
+                            "data": speech_a,
+                            "chamber": "House of Commons",
+                            "country": "CA",
+                        },
+                        {
+                            "url": "https://api.openparliament.ca/debates/2026/3/10/example-2/",
+                            "date_str": "2026-03-10",
+                            "title": "Sample Debate",
+                            "speaker": "Hon. Example Speaker",
+                            "data": speech_b,
+                            "chamber": "House of Commons",
+                            "country": "CA",
+                        },
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            samples = load_samples(
+                formatted_dir / "congressional_train.json",
+                dataset_name="congressional",
+                source="real",
+                task_type="instruction_tuning",
+                round_id=0,
+                client_id="raw",
+                prefix="speech",
+            )
+
+            self.assertEqual(samples[0].meta["bucket_id"], "2026-03")
+            self.assertEqual(samples[0].meta["source_month"], "2026-03")
+            self.assertEqual(samples[0].meta["speaker"], "Hon. Example Speaker")
+            self.assertEqual(samples[1].meta["bucket_id"], "2026-03")
+            self.assertIn("source_url", samples[1].meta)
+
 
 if __name__ == "__main__":
     unittest.main()

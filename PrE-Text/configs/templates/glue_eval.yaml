@@ -1,0 +1,19 @@
+# GLUE downstream evaluation configuration template
+# Add this to experiment configs to enable GLUE evaluation
+
+# Tasks: sst2, qqp, qnli, imdb, rotten_tomatoes
+# Set tasks: [all] to run all supported tasks
+eval_glue:
+  enabled: true
+  tasks:
+    - sst2
+    - qqp
+    - qnli
+    # - imdb
+    # - rotten_tomatoes
+  epochs: 5
+  cutoff_len: 128
+  batch_size: 16
+  grad_accum_steps: 64
+  learning_rate: 5e-5
+  num_synthetic_samples: 10000

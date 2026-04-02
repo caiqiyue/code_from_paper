@@ -4,7 +4,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from thesis_platform.core.schemas import Sample
+from thesis_platform.core.schemas import PrototypeFeedback, Sample
+
+
+def _restore_prototype_feedbacks(data: list[dict[str, Any]]) -> list[PrototypeFeedback]:
+    """Restore a list of PrototypeFeedback objects from serialized data."""
+    result = []
+    for item in data:
+        try:
+            result.append(PrototypeFeedback(
+                client_id=str(item.get("client_id", "")),
+                round_id=int(item.get("round_id", 0)),
+                prototype_vector=list(item.get("prototype_vector", [])),
+                weight=float(item.get("weight", 1.0)),
+                source_sample_ids=list(item.get("source_sample_ids", [])),
+                meta=dict(item.get("meta", {})),
+            ))
+        except Exception:
+            # Skip malformed entries
+            pass
+    return result
 
 
 @dataclass(slots=True)
@@ -94,6 +113,12 @@ class ServerContext:
             generated_history=[
                 list(batch) for batch in checkpoint_data.get("generated_history", [])
             ],
+            # Restore routing and clustering state
+            client_cluster_map=dict(checkpoint_data.get("client_cluster_map", {})),
+            prototype_feedbacks=_restore_prototype_feedbacks(
+                checkpoint_data.get("prototype_feedbacks", [])
+            ),
+            routing_state=dict(checkpoint_data.get("routing_state", {})),
         )
 
 

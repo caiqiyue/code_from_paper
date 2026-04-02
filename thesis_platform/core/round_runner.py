@@ -15,7 +15,7 @@ from thesis_platform.core.logging_utils import get_logger
 from thesis_platform.core.privacy import PrivacyLedger
 from thesis_platform.core.prompt_updater import apply_prompt_update, render_cluster_prompt
 from thesis_platform.core.schemas import Critique, PairedSample, PromptUpdate, PrototypeFeedback, ScoredSample, Sample
-from thesis_platform.core.selector import select_top_k
+from thesis_platform.core.selector import select_top_k, select_random
 from thesis_platform.evaluation.metrics import compute_critique_metrics, compute_generation_metrics, compute_system_metrics
 
 
@@ -613,11 +613,20 @@ class RoundRunner:
                 client_samples = client_assigned_map.get(client_ctx.client_id, [])
                 client_scored = self.scorer.score(client_samples, client_ctx)
                 scored_samples.extend(client_scored)
-                client_selected = [
-                    item
-                    for item in select_top_k(client_scored, int(federation_cfg.get("top_k_bad", 10)))
-                    if item.client_id == client_ctx.client_id
-                ]
+                selector_name = federation_cfg.get("selector", "top_k")
+                top_k = int(federation_cfg.get("top_k_bad", 10))
+                if selector_name == "random":
+                    client_selected = [
+                        item
+                        for item in select_random(client_scored, top_k, seed=int(server_ctx.config.get("meta", {}).get("seed", 42)))
+                        if item.client_id == client_ctx.client_id
+                    ]
+                else:
+                    client_selected = [
+                        item
+                        for item in select_top_k(client_scored, top_k)
+                        if item.client_id == client_ctx.client_id
+                    ]
                 selected_bad_samples.extend(client_selected)
                 selected_bad_by_client[client_ctx.client_id].extend(client_selected)
                 paired_samples = self.retriever.retrieve(client_selected, client_ctx)

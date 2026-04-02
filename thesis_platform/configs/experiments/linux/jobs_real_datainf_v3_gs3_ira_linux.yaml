@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/scorers/ira.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gs3_ira_linux
+  description: "GS3 scorer comparison: use IRA scorer."

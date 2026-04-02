@@ -1,0 +1,4 @@
+retriever:
+  name: random
+  top_k: 3
+  seed: 42

@@ -1,0 +1,61 @@
+# Linux RTX 2080 Ti (22GB) experiment config - GRun3 (seed=456)
+# Uses seed 456 for statistical significance testing
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../base/llm_3b_linux.yaml
+  - ../../methods/generators/pretext_prompt_llm.yaml
+  - ../../methods/scorers/datainf_real.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_qwen.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+  - ../../methods/prototypes/minilm_mean.yaml
+  - ../../methods/routing/personalized_v3.yaml
+  - ../../methods/privacy/jobs_eps129.yaml
+  - ../../methods/downstream_eval/pretext_large_off.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_run3_linux
+  stage: v3_real_linux
+  seed: 456
+
+data:
+  dataset_name: jobs
+  task_type: instruction_tuning
+  sample_format: raw_text
+  partition_strategy: preserve_buckets
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  public_seed_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  initial_prompt_path: ""
+  max_public_seed_samples: 48
+  num_clients: 16
+  max_samples_per_client: 8
+  validation_ratio: 0.25
+  initialization_min_words: 20
+
+generator:
+  generated_per_round: 24
+  exemplars_per_prompt: 2
+  max_new_tokens: 192
+  temperature: 0.2
+  initial_prompt: "Generate job-related text that matches the private client writing style while preserving privacy."
+
+retriever:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+  top_k: 2
+
+aggregator:
+  name: dbscan_attn_tsgdm
+  max_rules: 5
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+  cluster_eps: 0.35
+  cluster_min_samples: 2
+  momentum_beta: 0.7
+
+federation:
+  rounds: 3
+  top_k_bad: 2

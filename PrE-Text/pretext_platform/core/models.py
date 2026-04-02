@@ -31,6 +31,12 @@ def resolve_model_paths(config: ExperimentConfig) -> ModelPaths:
         llama_3_2_3b_instruct=_resolve_model_dir(
             config, models_cfg.get("llama_3_2_3b_instruct_path"), "llama_3_2_3b_instruct"
         ),
+        llama_3_1_8b_instruct=_resolve_model_dir(
+            config, models_cfg.get("llama_3_1_8b_instruct_path"), "llama_3_1_8b_instruct"
+        ),
+        meta_llama_2_7b_chat=_resolve_model_dir(
+            config, models_cfg.get("meta_llama_2_7b_chat_path"), "Meta-Llama-2-7b-chat-hf"
+        ),
         distilgpt2=_resolve_model_dir(config, models_cfg.get("distilgpt2_path"), "distilgpt2"),
         gpt2_xl=_resolve_model_dir(config, models_cfg.get("gpt2_xl_path"), "gpt2_xl"),
         c4_checkpoint=c4_checkpoint,

@@ -1,0 +1,7 @@
+inherits:
+  - ./jobs_real_datainf_v3_linux.yaml
+  - ../../methods/aggregators/summarization.yaml
+
+meta:
+  experiment_id: jobs_real_datainf_v3_gagg4_summ_linux
+  description: "GAgg4 aggregator comparison: summarization aggregation."
