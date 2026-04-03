@@ -45,7 +45,23 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 def _parse_scalar(raw: str) -> Any:
     """Parse a scalar YAML value into a Python primitive."""
 
+    # Strip inline comments (e.g., "value  # comment") before processing
+    # Only strip # that is not inside quotes
     value = raw.strip()
+    comment_start = -1
+    in_single_quote = False
+    in_double_quote = False
+    for i, ch in enumerate(value):
+        if ch == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+        elif ch == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+        elif ch == "#" and not in_single_quote and not in_double_quote:
+            comment_start = i
+            break
+    if comment_start >= 0:
+        value = value[:comment_start].strip()
+
     if value == "":
         return ""
     if value.startswith(('"', "'")) and value.endswith(('"', "'")):

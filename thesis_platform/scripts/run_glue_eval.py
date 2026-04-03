@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from thesis_platform.core.config import ExperimentConfig
-from thesis_platform.core.io_utils import read_json
+from thesis_platform.core.io_utils import read_json, read_jsonl, write_json, ensure_dir
 from thesis_platform.evaluation.downstream_eval import run_pretext_glue_eval
 
 
@@ -31,6 +31,22 @@ def _resolve_run_dir(*, experiment_id: str | None, run_dir: str | None, output_r
     if not resolved.exists():
         raise FileNotFoundError(f"experiment_dir recorded in latest pointer does not exist: {resolved}")
     return resolved
+
+
+def _render_sample_payload(payload: dict) -> str:
+    """Render a sample payload dict into a text string."""
+    text = str(payload.get("text") or "").strip()
+    if text:
+        return text
+    instruction = payload.get("instruction")
+    response = payload.get("response")
+    if instruction is not None and response is not None:
+        return f"Instruction: {instruction}\nResponse: {response}".strip()
+    if instruction is not None:
+        return str(instruction)
+    if response is not None:
+        return str(response)
+    return ""
 
 
 def _load_run_config(run_dir: Path) -> ExperimentConfig:
@@ -76,8 +92,36 @@ def main() -> None:
     thesis_config = _load_run_config(run_dir)
     stage2_dir = run_dir / "downstream_eval" / "stage2"
     corpus_path = stage2_dir / "llama7b_text_syn.json"
-    if not corpus_path.exists():
-        raise FileNotFoundError(f"Synthetic corpus not found: {corpus_path}")
+
+    synthetic_texts: list[str] = []
+    if corpus_path.exists():
+        synthetic_texts = [str(item).strip() for item in read_json(corpus_path) if str(item).strip()]
+    else:
+        # Fallback: restore from last completed round's client_assigned_samples
+        rounds = int(thesis_config.federation.get("rounds", 1))
+        last_round = rounds - 1
+        for candidate in range(last_round, -1, -1):
+            client_assigned_path = run_dir / f"round_{candidate:03d}" / "client_assigned_samples.jsonl"
+            if client_assigned_path.exists():
+                try:
+                    fallback_texts = [
+                        _render_sample_payload(dict(row))
+                        for row in read_jsonl(client_assigned_path)
+                    ]
+                    synthetic_texts = [t for t in fallback_texts if t]
+                except Exception:
+                    synthetic_texts = []
+                break
+
+        if not synthetic_texts:
+            raise FileNotFoundError(
+                f"Synthetic corpus not found at {corpus_path} and no fallback corpus could be restored "
+                f"from round artifacts under {run_dir}."
+            )
+
+        # Write fallback texts to stage2_dir so downstream eval can read them
+        ensure_dir(stage2_dir)
+        write_json(corpus_path, synthetic_texts)
 
     overrides: dict[str, object] = {}
     if args.epochs is not None:

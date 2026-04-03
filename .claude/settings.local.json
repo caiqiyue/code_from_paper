@@ -199,7 +199,14 @@
       "Bash(ssh -p 26732 root@connect.nmb1.seetacloud.com \"ls -la ~/autodl-tmp/caiqiyue/\")",
       "Bash(ls -la \"D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/\"*.yaml)",
       "Bash(ls -1 \"D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/\"*.yaml)",
-      "Bash(xargs -I {} basename {})"
+      "Bash(xargs -I {} basename {})",
+      "Read(//c/Users/Administrator/.claude/projects/d---------------caiqiyue-file/**)",
+      "Bash(python connect_server.py)",
+      "Bash(D:\\\\python311\\\\python.exe -m pip install paramiko)",
+      "Bash(\"/d/python311/python.exe\" -m pip install paramiko)",
+      "Bash(\"/d/anaconda/python.exe\" -m pip install paramiko)",
+      "Bash(\"/d/python/python.exe\" -m pip install paramiko --user)",
+      "Bash(\"/d/python/python.exe\" connect_server.py)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans"
