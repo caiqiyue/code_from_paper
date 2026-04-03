@@ -206,7 +206,11 @@
       "Bash(\"/d/python311/python.exe\" -m pip install paramiko)",
       "Bash(\"/d/anaconda/python.exe\" -m pip install paramiko)",
       "Bash(\"/d/python/python.exe\" -m pip install paramiko --user)",
-      "Bash(\"/d/python/python.exe\" connect_server.py)"
+      "Bash(\"/d/python/python.exe\" connect_server.py)",
+      "Bash(python -c ':*)",
+      "Bash('D:\\\\python\\\\python.exe' -c ':*)",
+      "Bash(\"D:\\\\python\\\\python.exe\")",
+      "Bash(\"D:\\\\python\\\\python.exe\" -m pip show safetensors)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans"

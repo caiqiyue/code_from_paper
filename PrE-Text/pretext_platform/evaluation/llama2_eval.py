@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 
+import torch
+
 from pretext_platform.core.config import ExperimentConfig
 from pretext_platform.core.io_utils import ensure_dir
 from pretext_platform.core.types import DatasetBundle, ModelPaths, StageSummary
@@ -178,6 +180,13 @@ def run_llama2_eval(
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, peft_config)
+
+    # Ensure all LoRA parameters use the same dtype as the base model to prevent
+    # float32 (optimizer state) vs float16 (model forward) matmul dtype mismatch.
+    base_dtype = next(model.parameters()).dtype
+    for _, param in model.named_parameters():
+        if param.dtype == torch.float32:
+            param.data = param.data.to(dtype=base_dtype)
 
     # Manually move model to device and prepare dataloaders
     # Don't use accelerator.prepare() for model to avoid dtype conversion issues on Windows
