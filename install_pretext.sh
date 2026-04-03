@@ -257,8 +257,19 @@ else
     run_logged "${PYTHON_BIN}" -m pip install "${TORCH_SPEC}" --index-url "${TORCH_INDEX_URL}"
 fi
 
-log_section "Step 5: Install PrE-Text direct dependencies"
-run_logged "${PYTHON_BIN}" -m pip install -r "${REQUIREMENTS_FILE}"
+log_section "Step 5: Install PrE-Text direct dependencies (excluding torch and cuda libs - installed in Step 4)"
+
+# Create a filtered requirements file that excludes torch and nvidia-cuda-*
+# (these must come from the official torch wheel to match CUDA version)
+FILTERED_REQS="/tmp/requirements_filtered.txt"
+grep -vE "^(torch|nvidia-cuda-|nvidia-cublas|nvidia-cudnn|nvidia-cufft|nvidia-curand|nvidia-cusolver|nvidia-cusparse|nvidia-cusparselt|nvidia-nccl|nvidia-nvjitlink|nvidia-nvtx|nvidia-cupti|nvidia-cuda-nvrtc|nvidia-cuda-runtime|triton|xformers|vllm)==" \
+    "${REQUIREMENTS_FILE}" > "${FILTERED_REQS}"
+
+run_logged "${PYTHON_BIN}" -m pip install -r "${FILTERED_REQS}"
+
+# Re-install torch to ensure correct version (in case requirements.txt had torch pinned)
+log "Reinstalling torch to guarantee CUDA 12.4 build..."
+run_logged "${PYTHON_BIN}" -m pip install torch --extra-index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-deps
 
 log_section "Step 6: Install optional acceleration packages"
 
