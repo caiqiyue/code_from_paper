@@ -195,7 +195,11 @@
       "Bash(grep -l \"distilgpt2\\\\|c4_checkpoint\" \"D:/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/\"*.yaml)",
       "Read(//c/Users/Administrator/.claude/projects/d---------------caiqiyue-file/memory//**)",
       "Bash(ls -la configs/experiments/*.yaml)",
-      "Bash(python3 -c ':*)"
+      "Bash(python3 -c ':*)",
+      "Bash(ssh -p 26732 root@connect.nmb1.seetacloud.com \"ls -la ~/autodl-tmp/caiqiyue/\")",
+      "Bash(ls -la \"D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/\"*.yaml)",
+      "Bash(ls -1 \"D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/\"*.yaml)",
+      "Bash(xargs -I {} basename {})"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans"
