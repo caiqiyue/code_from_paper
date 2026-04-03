@@ -46,13 +46,13 @@ INSTALL_FLASH_ATTN="${INSTALL_FLASH_ATTN:-false}"
 VLLM_SPEC="${VLLM_SPEC:-vllm}"
 XFORMERS_SPEC="${XFORMERS_SPEC:-xformers}"
 FLASH_ATTN_SPEC="${FLASH_ATTN_SPEC:-flash-attn}"
-TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu118}"
+TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu124}"
 REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-${PRETEXT_DIR}/requirements.txt}"
 LOG_FILE="${1:-${REPO_ROOT}/install_pretext.log}"
 
-# PrE-Text uses torch==2.1.2 with CUDA 11.8
-TORCH_SPEC="${TORCH_SPEC:-torch==2.1.2}"
-TRANSFORMERS_SPEC="${TRANSFORMERS_SPEC:-transformers==4.38.2}"
+# PrE-Text uses torch>=2.6 with CUDA 12.4
+TORCH_SPEC="${TORCH_SPEC:-torch>=2.6}"
+TRANSFORMERS_SPEC="${TRANSFORMERS_SPEC:-transformers>=5.3}"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "${LOG_FILE}"
@@ -247,9 +247,9 @@ run_logged "${PYTHON_BIN}" -m pip install --upgrade pip setuptools wheel
 log "Active python: $(${PYTHON_BIN} --version)"
 log "Active pip: $(${PIP_BIN} --version)"
 
-log_section "Step 4: Install PyTorch with CUDA 11.8 support"
+log_section "Step 4: Install PyTorch with CUDA 12.4 support"
 
-# PrE-Text requires torch==2.1.2 with CUDA 11.8 (cu118)
+# PrE-Text requires torch>=2.6 with CUDA 12.4 (cu124)
 if python_has_module "torch"; then
     log "Torch already available: $(resolve_package_version "torch")"
 else
