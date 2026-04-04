@@ -45,6 +45,7 @@ INSTALL_XFORMERS="${INSTALL_XFORMERS:-false}"
 INSTALL_FLASH_ATTN="${INSTALL_FLASH_ATTN:-false}"
 VLLM_SPEC="${VLLM_SPEC:-vllm}"
 XFORMERS_SPEC="${XFORMERS_SPEC:-xformers}"
+SENTENCE_TRANSFORMERS_SPEC="${SENTENCE_TRANSFORMERS_SPEC:-sentence-transformers==3.0.0}"
 FLASH_ATTN_SPEC="${FLASH_ATTN_SPEC:-flash-attn}"
 TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu124}"
 REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-${PRETEXT_DIR}/requirements.txt}"
@@ -199,6 +200,7 @@ log "Clash proxy target: ${CLASH_HOST}:${CLASH_PROXY_PORT}"
 log "Install vLLM: ${INSTALL_VLLM}"
 log "Install xformers: ${INSTALL_XFORMERS}"
 log "Install flash-attn: ${INSTALL_FLASH_ATTN}"
+log "Install sentence-transformers: ${SENTENCE_TRANSFORMERS_SPEC}"
 log "requirements file: ${REQUIREMENTS_FILE}"
 log "Log file: ${LOG_FILE}"
 
@@ -262,14 +264,15 @@ log_section "Step 5: Install PrE-Text direct dependencies (excluding torch and c
 # Create a filtered requirements file that excludes torch and nvidia-cuda-*
 # (these must come from the official torch wheel to match CUDA version)
 FILTERED_REQS="/tmp/requirements_filtered.txt"
-grep -vE "^(torch|nvidia-cuda-|nvidia-cublas|nvidia-cudnn|nvidia-cufft|nvidia-curand|nvidia-cusolver|nvidia-cusparse|nvidia-cusparselt|nvidia-nccl|nvidia-nvjitlink|nvidia-nvtx|nvidia-cupti|nvidia-cuda-nvrtc|nvidia-cuda-runtime|triton|xformers|vllm)==" \
+grep -vE "^(torch|nvidia-cuda-|nvidia-cublas|nvidia-cudnn|nvidia-cufft|nvidia-curand|nvidia-cusolver|nvidia-cusparse|nvidia-cusparselt|nvidia-nccl|nvidia-nvjitlink|nvidia-nvtx|nvidia-cupti|nvidia-cuda-nvrtc|nvidia-cuda-runtime|triton|xformers|vllm|sympy)==" \
     "${REQUIREMENTS_FILE}" > "${FILTERED_REQS}"
 
 run_logged "${PYTHON_BIN}" -m pip install -r "${FILTERED_REQS}"
 
 # Re-install torch to ensure correct version (in case requirements.txt had torch pinned)
-log "Reinstalling torch to guarantee CUDA 12.4 build..."
-run_logged "${PYTHON_BIN}" -m pip install torch --extra-index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-deps
+# Pin exact version to avoid pip upgrading to non-cu124 builds (e.g. 2.11.0 which has no cu124)
+log "Reinstalling torch==2.6.0+cu124 to guarantee CUDA 12.4 build..."
+run_logged "${PYTHON_BIN}" -m pip install "torch==2.6.0+cu124" --extra-index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-deps
 
 log_section "Step 6: Install optional acceleration packages"
 
@@ -303,6 +306,12 @@ if [[ "${INSTALL_VLLM}" == "true" ]]; then
 else
     log "INSTALL_VLLM=false. Skipping vLLM installation."
 fi
+
+log_section "Step 6.5: Install sentence-transformers for all_minilm_l6_v2"
+
+SENTENCE_TRANSFORMERS_SPEC="${SENTENCE_TRANSFORMERS_SPEC:-sentence-transformers==3.0.0}"
+log "Installing ${SENTENCE_TRANSFORMERS_SPEC} (required for all_minilm_l6_v2 in stage1)."
+run_logged "${PYTHON_BIN}" -m pip install "${SENTENCE_TRANSFORMERS_SPEC}"
 
 log_section "Step 7: Verify environment"
 
