@@ -306,7 +306,13 @@
       "Bash(python \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\run_pt2_fix4.py\")",
       "Bash(python -c \"import tempfile; print\\(tempfile.gettempdir\\(\\)\\)\")",
       "Bash(python \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\run_pt2_fix5.py\")",
-      "Bash(python \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\test_model_load.py\")"
+      "Bash(python \"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\test_model_load.py\")",
+      "Bash(mkdir -p /c/temp)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /c/temp/ssh_connect.ps1)",
+      "Bash(export SSH_ASKPASS='C:/temp/ssh_askpass.exe')",
+      "Bash(export SSH_ASKPASS_REQUIRE='force')",
+      "Bash(export DISPLAY='dummy:0')",
+      "Bash(ssh -v -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=no -p 26732 root@connect.nmb1.seetacloud.com 'echo CONNECTED && whoami && hostname && uname -a && pwd')"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",

@@ -113,71 +113,26 @@ def run_llama2_eval(
 
     tokenizer = LlamaTokenizer.from_pretrained(str(model_paths.llama2_7b), local_files_only=True)
 
-    # Load model with 8-bit quantization for large models (7B/8B) to reduce GPU memory.
-    # 7B float16 = ~14GB, 8-bit = ~3.5GB; smaller models (5B, 3B) use float16 without quantization.
-    # bitsandbytes 0.44+ required for this environment.
-    # Note: accelerate 1.13.0's dispatch_model calls .to() on 8-bit models which is not supported.
-    # We patch the dispatch_model reference in transformers.modeling_utils since that's where
-    # from_pretrained calls it from.
-    load_in_8bit = eval_cfg.get("load_in_8bit", True)
-    if load_in_8bit:
-        from transformers import BitsAndBytesConfig
-        import transformers.modeling_utils
-
-        # Store original dispatch_model
-        _orig_dispatch_model = transformers.modeling_utils.dispatch_model
-
-        # Monkey-patch to no-op for 8-bit loading
-        def _noop_dispatch(*args, **kwargs):
-            return args[0] if args else kwargs.get('model')
-
-        transformers.modeling_utils.dispatch_model = _noop_dispatch
-
-        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-        # Use device_map with single device so accelerate places model on GPU without calling .to()
-        # The monkey-patch prevents the problematic .to() inside dispatch_model
-        device_map = {"": accelerator.device}
-        model = AutoModelForCausalLM.from_pretrained(
-            str(model_paths.llama2_7b),
-            local_files_only=True,
-            use_safetensors=True,
-            quantization_config=quantization_config,
-            device_map=device_map,
-        )
-
-        # Restore original dispatch_model
-        transformers.modeling_utils.dispatch_model = _orig_dispatch_model
-
-        # Extend embedding for pad token (model is already on GPU via device_map)
-        vocab_size = tokenizer.vocab_size
-        cached_embedding = model.model.embed_tokens.weight[:vocab_size]
-        embed_device = cached_embedding.device
-        dim = cached_embedding.shape[1]
-        pad_idx = vocab_size
-        extended_embedding = nn.Embedding(vocab_size + 1, dim, padding_idx=pad_idx).to(embed_device)
-        extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=torch.float16, device=embed_device)])
-        extended_embedding.load_state_dict({"weight": extended_weight})
-        model.model.embed_tokens = extended_embedding
-    else:
-        # Use device_map to load directly to GPU for proper device placement
-        device_map = {"": accelerator.device}
-        model = AutoModelForCausalLM.from_pretrained(
-            str(model_paths.llama2_7b),
-            local_files_only=True,
-            use_safetensors=True,
-            torch_dtype=torch.float16,
-            device_map=device_map,
-        )
-        # Embedding pad extension for float16 model - must be on same device as model
-        vocab_size = tokenizer.vocab_size
-        cached_embedding = model.model.embed_tokens.weight[:vocab_size]
-        embed_device = cached_embedding.device
-        dim = cached_embedding.shape[1]
-        pad_idx = vocab_size
-        extended_embedding = nn.Embedding(vocab_size + 1, dim, padding_idx=pad_idx).to(embed_device)
-        extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=torch.float16, device=embed_device)])
-        extended_embedding.load_state_dict({"weight": extended_weight})
-        model.model.embed_tokens = extended_embedding
+    # Load model in float16 for fine-tuning with PEFT LoRA
+    # 7B model in fp16 = ~14GB, fits in 22GB GPU
+    device_map = {"": accelerator.device}
+    model = AutoModelForCausalLM.from_pretrained(
+        str(model_paths.llama2_7b),
+        local_files_only=True,
+        use_safetensors=True,
+        torch_dtype=torch.float16,
+        device_map=device_map,
+    )
+    # Extend embedding for pad token - must be on same device as model
+    vocab_size = tokenizer.vocab_size
+    cached_embedding = model.model.embed_tokens.weight[:vocab_size]
+    embed_device = cached_embedding.device
+    dim = cached_embedding.shape[1]
+    pad_idx = vocab_size
+    extended_embedding = nn.Embedding(vocab_size + 1, dim, padding_idx=pad_idx).to(embed_device)
+    extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=torch.float16, device=embed_device)])
+    extended_embedding.load_state_dict({"weight": extended_weight})
+    model.model.embed_tokens = extended_embedding
 
     tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
@@ -230,22 +185,12 @@ def run_llama2_eval(
     )
     model = get_peft_model(model, peft_config)
 
-    # Determine base dtype for batches and LoRA params.
-    # For 8-bit quantized model: base model decompresses to float16 at runtime.
-    # For non-quantized model: base dtype is whatever the base model uses.
-    if load_in_8bit:
-        # 8-bit base model decompresses to float16 during forward pass
-        base_dtype = torch.float16
-        # Model is already on GPU via device_map={"": accelerator.device} during loading.
-        # PEFT adds LoRA params to the same device automatically.
-    else:
-        base_dtype = next(model.base_model.parameters()).dtype
-        # Force all LoRA parameters (float32) to match base dtype to prevent dtype mismatch.
-        for _, param in model.named_parameters():
-            if param.dtype == torch.float32:
-                param.data = param.data.to(dtype=base_dtype)
-        # Model is already on GPU via device_map={"": accelerator.device} during loading.
-        # PEFT adds LoRA params to the same device automatically.
+    # Model is in float16, base_dtype matches model parameters
+    base_dtype = next(model.base_model.parameters()).dtype
+    # Force all LoRA parameters (float32) to match base dtype to prevent dtype mismatch.
+    for _, param in model.named_parameters():
+        if param.dtype == torch.float32:
+            param.data = param.data.to(dtype=base_dtype)
 
     # Use CPU for optimizer to avoid OOM on 22GB GPU with 7B parameter model.
     # AdamW float32 optimizer states for 7B params = ~56GB, too large for GPU.
