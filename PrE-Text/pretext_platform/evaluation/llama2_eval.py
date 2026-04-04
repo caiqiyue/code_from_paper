@@ -27,7 +27,7 @@ def _load_training_texts(stage2_dir: Path) -> list[str]:
     return all_data
 
 
-def evaluate(model, eval_loader, accelerator, xent_loss):
+def evaluate(model, eval_loader, accelerator, xent_loss, base_dtype):
     """Compute loss and top-k token accuracy on the evaluation split."""
 
     import torch
@@ -39,10 +39,9 @@ def evaluate(model, eval_loader, accelerator, xent_loss):
     with torch.no_grad():
         for batch in eval_loader:
             # Cast batch to model's dtype for fp16 compatibility
-            # input_ids must be int64, other tensors can be fp16
+            # input_ids must be int64, other tensors cast to model dtype
             batch = {
-                k: (v.to(model.device) if k == 'input_ids' else v.to(model.device).half())
-                if v.dtype == torch.float32 else v.to(model.device)
+                k: (v.to(model.device) if k == 'input_ids' else v.to(model.device).to(dtype=base_dtype))
                 for k, v in batch.items()
             }
             outputs = model(**batch)
@@ -181,12 +180,14 @@ def run_llama2_eval(
     )
     model = get_peft_model(model, peft_config)
 
-    # Ensure all LoRA parameters use the same dtype as the base model to prevent
-    # float32 (optimizer state) vs float16 (model forward) matmul dtype mismatch.
-    base_dtype = next(model.parameters()).dtype
+    # Ensure all parameters (LoRA + base model) use the same dtype as the base model
+    # to prevent float32 vs float16 matmul dtype mismatch in forward pass.
+    # Get base dtype BEFORE any dtype conversion, then force all params to that dtype.
+    base_dtype = next(model.base_model.parameters()).dtype
     for _, param in model.named_parameters():
         if param.dtype == torch.float32:
             param.data = param.data.to(dtype=base_dtype)
+    model = model.to(dtype=base_dtype)
 
     # Manually move model to device and prepare dataloaders
     # Don't use accelerator.prepare() for model to avoid dtype conversion issues on Windows
@@ -198,7 +199,7 @@ def run_llama2_eval(
     cross_entropy_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction="sum")
     best_accuracy = 0.0
     best_dict = None
-    avg_loss, top_k_accuracies = evaluate(model, eval_loader, accelerator, cross_entropy_loss)
+    avg_loss, top_k_accuracies = evaluate(model, eval_loader, accelerator, cross_entropy_loss, base_dtype)
     if accelerator.is_main_process:
         baseline_stats = dict(top_k_accuracies)
         baseline_stats["cross_entropy_loss"] = avg_loss
@@ -211,8 +212,7 @@ def run_llama2_eval(
         for step, batch in enumerate(train_loader):
             # Cast batch to model's dtype for fp16 compatibility
             batch = {
-                k: (v.to(model.device) if k == 'input_ids' else v.to(model.device).half())
-                if v.dtype == torch.float32 else v.to(model.device)
+                k: (v.to(model.device) if k == 'input_ids' else v.to(model.device).to(dtype=base_dtype))
                 for k, v in batch.items()
             }
             outputs = model(**batch)
@@ -225,7 +225,7 @@ def run_llama2_eval(
 
         actual_updates = len(train_loader) // grad_accum_steps + (1 if len(train_loader) % grad_accum_steps != 0 else 0)
         avg_loss = total_loss / actual_updates if actual_updates else 0.0
-        avg_loss, top_k_accuracies = evaluate(model, eval_loader, accelerator, cross_entropy_loss)
+        avg_loss, top_k_accuracies = evaluate(model, eval_loader, accelerator, cross_entropy_loss, base_dtype)
         if accelerator.is_main_process:
             stats = dict(top_k_accuracies)
             stats["cross_entropy_loss"] = avg_loss
