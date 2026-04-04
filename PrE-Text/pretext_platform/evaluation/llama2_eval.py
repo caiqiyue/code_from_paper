@@ -193,7 +193,11 @@ def run_llama2_eval(
     # Don't use accelerator.prepare() for model to avoid dtype conversion issues on Windows
     device = accelerator.device
     model = model.to(device)
+    # Use CPU for optimizer to avoid OOM on 22GB GPU with 7B parameter model.
+    # AdamW float32 optimizer states for 7B params = ~56GB, too large for GPU.
     optimizer = AdamW(model.parameters(), lr=learning_rate)
+    # Offload optimizer to CPU to save GPU memory
+    optimizer = accelerator.prepare(optimizer)
     train_loader, eval_loader = accelerator.prepare(train_loader, eval_loader)
 
     cross_entropy_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction="sum")

@@ -244,7 +244,8 @@
       "Bash(mv \"整体实验设计.md\" \"整体实验设计_old.md\")",
       "Bash(mv \"整体实验设计_new.md\" \"整体实验设计.md\")",
       "Bash(\"D:\\\\anconda\\\\python.exe\" test_all_models.py)",
-      "Bash(\"D:\\\\anconda\\\\python.exe\" sync_files.py)"
+      "Bash(\"D:\\\\anconda\\\\python.exe\" sync_files.py)",
+      "Bash('D:\\\\anaconda\\\\python.exe' -c ':*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans"
