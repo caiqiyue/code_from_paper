@@ -2,9 +2,5 @@ models:
   minilm_path: ../thesis_platform/open_model/all_minilm_l6_v2
   roberta_large_path: ../thesis_platform/open_model/roberta_large
   llama2_7b_path: ../thesis_platform/open_model/llama_2_7b_hf
-  llama_3_2_3b_instruct_path: ../thesis_platform/open_model/llama_3_2_3b_instruct
-  llama_3_1_8b_instruct_path: ../thesis_platform/open_model/llama_3_1_8b_instruct
-  meta_llama_2_7b_chat_path: ../thesis_platform/open_model/Meta-Llama-2-7b-chat-hf
   distilgpt2_path: ../thesis_platform/open_model/distilgpt2
-  gpt2_xl_path: ../thesis_platform/open_model/gpt2_xl
-  c4_checkpoint_path: ./c4_checkpoint.pth
+  c4_checkpoint_path: ""

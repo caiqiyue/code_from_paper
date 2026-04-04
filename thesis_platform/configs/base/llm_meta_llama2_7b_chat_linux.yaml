@@ -1,26 +1,26 @@
-# LLM config for RTX 2080 Ti (22GB) - Meta-Llama-2-7b-chat with 4-bit quantization
-# Use this for GC5 and GM3 experiments - 7B chat model with INT4 to fit in GPU memory
+# Legacy filename retained for compatibility.
+# GC5 and GM3 now use the verified Meta-Llama-3-8B checkpoint with 4-bit quantization.
 llm:
   client:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/Meta-Llama-2-7b-chat-hf
+    model_name_or_path: thesis_platform/open_model/Meta-Llama-3-8B
     device: auto
     dtype: auto
     temperature: 0.0
     max_new_tokens: 196
-    use_chat_template: true
+    use_chat_template: false
     use_fast: false
     load_in_4bit: true
     bnb_4bit_compute_dtype: float16
     bnb_4bit_use_double_quant: true
   server:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/Meta-Llama-2-7b-chat-hf
+    model_name_or_path: thesis_platform/open_model/Meta-Llama-3-8B
     device: auto
     dtype: auto
     temperature: 0.2
     max_new_tokens: 220
-    use_chat_template: true
+    use_chat_template: false
     use_fast: false
     load_in_4bit: true
     bnb_4bit_compute_dtype: float16

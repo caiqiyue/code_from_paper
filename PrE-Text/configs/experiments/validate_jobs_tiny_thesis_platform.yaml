@@ -31,13 +31,14 @@ stage1:
   embed_batch_size: 64
   nearest_neighbors_print: 1
   sensitivity: 8
-  num_workers: 0  # Windows fix: disable multiprocessing
+  num_workers: 0
 
 bootstrap:
   enabled: true
   num_prompts: 32
-  generator_backend: huggingface  # Use HuggingFace on Windows (vLLM not available)
-  batch_size: 1  # Small batch size to avoid OOM with 7B model
+  generator_backend: huggingface
+  generator_model: llama2_7b
+  batch_size: 1
   max_tokens: 85
   temperature: 1.0
   top_p: 1.0
@@ -48,7 +49,8 @@ eval_small:
 
 eval_large:
   enabled: true
-  batch_size: 1      # Reduced for Windows 16GB GPU (LLaMA-2-7B is large)
+  eval_mode: peft_lora
+  batch_size: 1
   eval_batch_size: 1
   cutoff_len: 64
   grad_accum_steps: 16

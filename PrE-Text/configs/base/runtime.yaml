@@ -22,6 +22,7 @@ stage1:
 bootstrap:
   enabled: true
   num_prompts: 50000
+  generator_model: llama2_7b
   temperature: 1.0
   top_p: 1.0
   max_tokens: 85
@@ -29,6 +30,7 @@ bootstrap:
 
 eval_small:
   enabled: true
+  eval_mode: gpt2
   cutoff_len: 64
   grad_accum_steps: 64
   epochs: 20
@@ -39,6 +41,7 @@ eval_small:
 
 eval_large:
   enabled: true
+  eval_mode: peft_lora
   cutoff_len: 64
   grad_accum_steps: 16
   epochs: 1

@@ -4,20 +4,18 @@ downstream_eval:
   export_filename: llama7b_text_syn.json
   run_large_eval: false
   run_small_eval: false
-  large_eval_mode: auto
-  windows_large_eval_mode: full_finetune
+  large_eval_mode: peft_lora
+  windows_large_eval_mode: peft_lora
   linux_large_eval_mode: peft_lora
-  small_eval_mode: auto
+  small_eval_mode: gpt2
   windows_small_eval_mode: gpt2
-  linux_small_eval_mode: distilgpt2
+  linux_small_eval_mode: gpt2
   dataset_root: thesis_platform/datasets
   model_root: thesis_platform/open_model
   llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
-  llama_3_2_3b_instruct_path: thesis_platform/open_model/llama_3_2_3b_instruct
   minilm_path: thesis_platform/open_model/all_minilm_l6_v2
   roberta_large_path: thesis_platform/open_model/roberta_large
   distilgpt2_path: thesis_platform/open_model/distilgpt2
-  gpt2_xl_path: thesis_platform/open_model/gpt2_xl
   c4_checkpoint_path: ""
   cutoff_len: 64
   grad_accum_steps: 16

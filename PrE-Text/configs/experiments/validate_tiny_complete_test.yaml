@@ -5,7 +5,7 @@ inherits:
   - ../templates/noise_eps758.yaml
 
 meta:
-  experiment_id: validate_tiny_complete_test_windows
+  experiment_id: validate_tiny_complete_test_linux
   seed: 42
 
 paths:
@@ -31,15 +31,15 @@ stage1:
   embed_batch_size: 32
   nearest_neighbors_print: 1
   sensitivity: 8
-  num_workers: 0  # Windows fix: disable multiprocessing
+  num_workers: 0
 
 bootstrap:
   enabled: true
-  num_prompts: 16  # Very small for quick test
-  generator_backend: huggingface  # Use HuggingFace on Windows (vLLM not available)
-  generator_model: llama_3_2_3b_instruct  # Use smaller 3B model for Windows compatibility
-  batch_size: 1  # Small batch size to avoid OOM
-  device: cuda  # Use GPU for 3B model
+  num_prompts: 16
+  generator_backend: huggingface
+  generator_model: llama2_7b
+  batch_size: 1
+  device: cuda
   max_tokens: 64
   temperature: 1.0
   top_p: 1.0
@@ -47,7 +47,7 @@ bootstrap:
 
 eval_small:
   enabled: true
-  eval_mode: gpt2  # gpt2: HuggingFace base GPT-2 | distilgpt2: requires c4_checkpoint.pth
+  eval_mode: gpt2
   cutoff_len: 64
   grad_accum_steps: 16
   epochs: 3
@@ -55,13 +55,9 @@ eval_small:
   eval_batch_size: 8
   learning_rate: 0.0002
 
-# eval_large model options:
-#   - gpt2_xl: GPT-2 XL (1.5B) full fine-tuning - Windows compatible, single-file model
-#   - full_finetune: Llama-3.2-3B full fine-tuning - may segfault on Windows (sharded safetensors)
-#   - peft_lora: LLaMA-2-7B + PEFT LoRA - Linux recommended
 eval_large:
   enabled: true
-  eval_mode: gpt2_xl
+  eval_mode: peft_lora
   cutoff_len: 64
   grad_accum_steps: 32
   epochs: 3

@@ -128,16 +128,8 @@ def _build_pretext_raw(
             "llama2_7b_path": str(
                 thesis_config.resolve_path(downstream_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf"))
             ),
-            "llama_3_2_3b_instruct_path": str(
-                thesis_config.resolve_path(
-                    downstream_cfg.get("llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct")
-                )
-            ),
             "distilgpt2_path": str(
                 thesis_config.resolve_path(downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2"))
-            ),
-            "gpt2_xl_path": str(
-                thesis_config.resolve_path(downstream_cfg.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl"))
             ),
             "c4_checkpoint_path": downstream_cfg.get("c4_checkpoint_path", ""),
         },

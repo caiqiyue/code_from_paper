@@ -90,8 +90,8 @@ federation:
   top_k_bad: 1
 
 downstream_eval:
-  large_eval_mode: auto
-  windows_large_eval_mode: full_finetune
+  large_eval_mode: peft_lora
+  windows_large_eval_mode: peft_lora
   linux_large_eval_mode: peft_lora
   cutoff_len: 32
   grad_accum_steps: 1
