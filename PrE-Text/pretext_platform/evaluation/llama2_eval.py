@@ -112,23 +112,38 @@ def run_llama2_eval(
     accelerator = Accelerator()
 
     tokenizer = LlamaTokenizer.from_pretrained(str(model_paths.llama2_7b), local_files_only=True)
-    # Load model in float16 for memory efficiency (required for Windows + safetensors)
-    model = AutoModelForCausalLM.from_pretrained(
-        str(model_paths.llama2_7b),
-        local_files_only=True,
-        use_safetensors=True,
-        torch_dtype=torch.float16,
-    )
-    vocab_size = tokenizer.vocab_size
-    cached_embedding = model.model.embed_tokens.weight[:vocab_size]
-    model_dtype = cached_embedding.dtype  # fp16
-    dim = model.model.embed_tokens.weight.shape[1]
-    pad_idx = vocab_size
-    extended_embedding = nn.Embedding(vocab_size + 1, dim, padding_idx=pad_idx)
-    # Use same dtype as model to avoid dtype mismatch
-    extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=model_dtype)])
-    extended_embedding.load_state_dict({"weight": extended_weight})
-    model.model.embed_tokens = extended_embedding
+
+    # Load model with 8-bit quantization for large models (7B/8B) to reduce GPU memory.
+    # 7B float16 = ~14GB, 8-bit = ~3.5GB; smaller models (5B, 3B) use float16 without quantization.
+    # bitsandbytes 0.44+ required for this environment.
+    load_in_8bit = eval_cfg.get("load_in_8bit", True)
+    if load_in_8bit:
+        from transformers import BitsAndBytesConfig
+        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            str(model_paths.llama2_7b),
+            local_files_only=True,
+            use_safetensors=True,
+            quantization_config=quantization_config,
+            device_map="auto",
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            str(model_paths.llama2_7b),
+            local_files_only=True,
+            use_safetensors=True,
+            torch_dtype=torch.float16,
+        )
+        # Embedding pad extension for float16 model
+        vocab_size = tokenizer.vocab_size
+        cached_embedding = model.model.embed_tokens.weight[:vocab_size]
+        dim = model.model.embed_tokens.weight.shape[1]
+        pad_idx = vocab_size
+        extended_embedding = nn.Embedding(vocab_size + 1, dim, padding_idx=pad_idx)
+        extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=torch.float16)])
+        extended_embedding.load_state_dict({"weight": extended_weight})
+        model.model.embed_tokens = extended_embedding
+
     tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
     cutoff_len = int(eval_cfg.get("cutoff_len", 64))
@@ -180,19 +195,25 @@ def run_llama2_eval(
     )
     model = get_peft_model(model, peft_config)
 
-    # Ensure all parameters (LoRA + base model) use the same dtype as the base model
-    # to prevent float32 vs float16 matmul dtype mismatch in forward pass.
-    # Get base dtype BEFORE any dtype conversion, then force all params to that dtype.
-    base_dtype = next(model.base_model.parameters()).dtype
+    # Determine base dtype for batches and LoRA params.
+    # For 8-bit quantized model: base model decompresses to float16 at runtime.
+    # For non-quantized model: base dtype is whatever the base model uses.
+    if load_in_8bit:
+        # 8-bit base model decompresses to float16 during forward pass
+        base_dtype = torch.float16
+    else:
+        base_dtype = next(model.base_model.parameters()).dtype
+
+    # Force all LoRA parameters (float32) to match base dtype to prevent dtype mismatch
     for _, param in model.named_parameters():
         if param.dtype == torch.float32:
             param.data = param.data.to(dtype=base_dtype)
-    model = model.to(dtype=base_dtype)
 
-    # Manually move model to device and prepare dataloaders
-    # Don't use accelerator.prepare() for model to avoid dtype conversion issues on Windows
-    device = accelerator.device
-    model = model.to(device)
+    # For 8-bit model with device_map="auto", model is already placed on devices.
+    # For non-8-bit model, move to accelerator device.
+    if not load_in_8bit:
+        model = model.to(accelerator.device)
+
     # Use CPU for optimizer to avoid OOM on 22GB GPU with 7B parameter model.
     # AdamW float32 optimizer states for 7B params = ~56GB, too large for GPU.
     optimizer = AdamW(model.parameters(), lr=learning_rate)
