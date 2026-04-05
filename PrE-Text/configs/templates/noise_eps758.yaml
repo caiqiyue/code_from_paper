@@ -1,3 +1,6 @@
+# ε=7.58 宽松差分隐私配置
+# epsilon=7.58 对应较低隐私约束、较高效用
+# 基于 Gaussian mechanism 理论值约 8.7，采用较紧的界
 stage1:
-  sigma: 2.31
+  sigma: 8.0
   delta: 3e-6

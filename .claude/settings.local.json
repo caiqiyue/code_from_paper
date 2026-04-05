@@ -368,7 +368,9 @@
       "Bash(ssh -p 26732 -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 -o StrictHostKeyChecking=no root@connect.nmb1.seetacloud.com 'cd /root/autodl-tmp/caiqiyue/code_from_paper/PrE-Text && source ~/miniconda3/etc/profile.d/conda.sh && conda activate caiqiyue && export PYTHONPATH=/root/autodl-tmp/caiqiyue/code_from_paper/PrE-Text:$PYTHONPATH && python -m pretext_platform.scripts.run_pipeline --config configs/experiments/validate_jobs_tiny_thesis_platform.yaml 2>&1')",
       "Bash(scp -P 26732 -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 -o StrictHostKeyChecking=no ./PrE-Text/configs/experiments/validate_jobs_tiny_thesis_platform.yaml root@connect.nmb1.seetacloud.com:/root/autodl-tmp/caiqiyue/code_from_paper/PrE-Text/configs/experiments/validate_jobs_tiny_thesis_platform.yaml)",
       "Read(//d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/**)",
-      "Bash(python thesis_platform/dataset_scripts/format_bioarxiv.py)"
+      "Bash(python thesis_platform/dataset_scripts/format_bioarxiv.py)",
+      "Bash(ls thesis_platform/configs/experiments/linux/*transfer*.yaml)",
+      "Bash(ls PrE-Text/configs/experiments/*.yaml)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",
