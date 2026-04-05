@@ -5,7 +5,7 @@ inherits:
   - ../templates/noise_eps758.yaml
 
 meta:
-  experiment_id: validate_tiny_stage1_only
+  experiment_id: validate_tiny
   seed: 42
 
 paths:

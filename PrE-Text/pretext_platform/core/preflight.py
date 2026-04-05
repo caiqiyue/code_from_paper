@@ -71,11 +71,12 @@ def _required_modules(config: ExperimentConfig, *, with_glue: bool) -> dict[str,
         backend = str(config.bootstrap.get("generator_backend", "auto"))
         stage2_modules = {"torch", "transformers"}
         generator_model = str(config.bootstrap.get("generator_model", "llama2_7b"))
+        # Support both llama2_7b and distilgpt2 for testing
         if generator_model == "llama2_7b":
             stage2_modules.add("sentencepiece")
-        else:
+        elif generator_model != "distilgpt2":
             raise ValueError(
-                "bootstrap.generator_model must be 'llama2_7b' on the fixed Linux server."
+                "bootstrap.generator_model must be 'llama2_7b' or 'distilgpt2'."
             )
         if backend == "vllm":
             stage2_modules.add("vllm")

@@ -206,11 +206,15 @@ def run_bootstrap_stage(
     )
 
     bootstrap_model = str(bootstrap_cfg.get("generator_model", "llama2_7b"))
-    if bootstrap_model != "llama2_7b":
+    # Support both llama2_7b and distilgpt2 for testing
+    if bootstrap_model == "llama2_7b":
+        model_path = model_paths.llama2_7b
+    elif bootstrap_model == "distilgpt2":
+        model_path = model_paths.distilgpt2
+    else:
         raise ValueError(
-            "Stage 2 bootstrap only supports generator_model='llama2_7b' on the fixed Linux server."
+            f"Stage 2 bootstrap only supports generator_model='llama2_7b' or 'distilgpt2', got '{bootstrap_model}'."
         )
-    model_path = model_paths.llama2_7b
 
     output_list = generator_fn(prompt_list, model_path, bootstrap_cfg)
 

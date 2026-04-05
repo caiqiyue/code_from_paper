@@ -113,8 +113,9 @@ def run_llama2_eval(
 
     tokenizer = LlamaTokenizer.from_pretrained(str(model_paths.llama2_7b), local_files_only=True)
 
-    # Load model in float16 for fine-tuning with PEFT LoRA
-    # 7B model in fp16 = ~14GB, fits in 22GB GPU
+    # Load model in fp16 with memory optimizations
+    # 7B model in fp16 = ~14GB, but with gradient checkpointing + CPU optimizer
+    # we can fit in 22GB GPU
     device_map = {"": accelerator.device}
     model = AutoModelForCausalLM.from_pretrained(
         str(model_paths.llama2_7b),
@@ -123,14 +124,17 @@ def run_llama2_eval(
         torch_dtype=torch.float16,
         device_map=device_map,
     )
+    # Enable gradient checkpointing to reduce activation memory during training
+    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
     # Extend embedding for pad token - must be on same device as model
     vocab_size = tokenizer.vocab_size
     cached_embedding = model.model.embed_tokens.weight[:vocab_size]
     embed_device = cached_embedding.device
+    embed_dtype = cached_embedding.dtype  # Use actual dtype from dequantized weights
     dim = cached_embedding.shape[1]
     pad_idx = vocab_size
     extended_embedding = nn.Embedding(vocab_size + 1, dim, padding_idx=pad_idx).to(embed_device)
-    extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=torch.float16, device=embed_device)])
+    extended_weight = torch.cat([cached_embedding, torch.zeros(1, dim, dtype=embed_dtype, device=embed_device)])
     extended_embedding.load_state_dict({"weight": extended_weight})
     model.model.embed_tokens = extended_embedding
 
@@ -185,17 +189,13 @@ def run_llama2_eval(
     )
     model = get_peft_model(model, peft_config)
 
-    # Model is in float16, base_dtype matches model parameters
-    base_dtype = next(model.base_model.parameters()).dtype
-    # Force all parameters (including LoRA and bias) to match base dtype to prevent dtype mismatch.
-    for _, param in model.named_parameters():
-        if param.dtype != base_dtype:
-            param.data = param.data.to(dtype=base_dtype)
+    # Model is in fp16, base_dtype for computation
+    base_dtype = torch.float16
 
     # Use CPU for optimizer to avoid OOM on 22GB GPU with 7B parameter model.
     # AdamW float32 optimizer states for 7B params = ~56GB, too large for GPU.
+    # Use accelerator CPU offloading for optimizer
     optimizer = AdamW(model.parameters(), lr=learning_rate)
-    # Offload optimizer to CPU to save GPU memory
     optimizer = accelerator.prepare(optimizer)
     train_loader, eval_loader = accelerator.prepare(train_loader, eval_loader)
 
