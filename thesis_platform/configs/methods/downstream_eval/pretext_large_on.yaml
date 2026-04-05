@@ -2,5 +2,5 @@ downstream_eval:
   enabled: true
   kind: pretext_large_eval
   export_filename: llama7b_text_syn.json
-  run_large_eval: true
-  run_small_eval: false
+  run_small_eval: true
+  run_large_eval: false

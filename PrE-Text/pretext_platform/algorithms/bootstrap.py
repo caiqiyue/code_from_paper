@@ -86,6 +86,10 @@ def generate_bootstrapped_samples_hf(
 
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
 
+    # Handle padding token for models without one (like distilgpt2)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
     # Load model with appropriate dtype for target device
     # On CPU: use float32 (fp16 not well supported on CPU)
     # On CUDA: use float16 for memory efficiency

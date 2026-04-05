@@ -205,16 +205,19 @@ def _check_model_paths(
 
     if bool(config.bootstrap.get("enabled", True)):
         generator_model = str(config.bootstrap.get("generator_model", "llama2_7b"))
-        if generator_model != "llama2_7b":
+        # Support both llama2_7b and distilgpt2 for testing
+        if generator_model == "llama2_7b":
+            bootstrap_model_path = model_paths.llama2_7b
+        elif generator_model == "distilgpt2":
+            bootstrap_model_path = model_paths.distilgpt2
+        else:
             _add_issue(
                 errors,
                 severity="error",
                 category="model",
-                message="Stage 2 bootstrap only supports generator_model='llama2_7b'.",
+                message="Stage 2 bootstrap only supports generator_model='llama2_7b' or 'distilgpt2'.",
             )
             bootstrap_model_path = None
-        else:
-            bootstrap_model_path = model_paths.llama2_7b
         if bootstrap_model_path is None or not bootstrap_model_path.exists():
             _add_issue(
                 errors,
