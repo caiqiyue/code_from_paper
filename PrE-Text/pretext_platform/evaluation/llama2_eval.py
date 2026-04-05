@@ -187,9 +187,9 @@ def run_llama2_eval(
 
     # Model is in float16, base_dtype matches model parameters
     base_dtype = next(model.base_model.parameters()).dtype
-    # Force all LoRA parameters (float32) to match base dtype to prevent dtype mismatch.
+    # Force all parameters (including LoRA and bias) to match base dtype to prevent dtype mismatch.
     for _, param in model.named_parameters():
-        if param.dtype == torch.float32:
+        if param.dtype != base_dtype:
             param.data = param.data.to(dtype=base_dtype)
 
     # Use CPU for optimizer to avoid OOM on 22GB GPU with 7B parameter model.
