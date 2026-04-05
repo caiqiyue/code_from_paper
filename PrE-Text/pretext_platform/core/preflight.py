@@ -71,8 +71,12 @@ def _required_modules(config: ExperimentConfig, *, with_glue: bool) -> dict[str,
         backend = str(config.bootstrap.get("generator_backend", "auto"))
         stage2_modules = {"torch", "transformers"}
         generator_model = str(config.bootstrap.get("generator_model", "llama2_7b"))
-        if generator_model in {"llama2_7b", "llama_3_2_3b_instruct"}:
+        if generator_model == "llama2_7b":
             stage2_modules.add("sentencepiece")
+        else:
+            raise ValueError(
+                "bootstrap.generator_model must be 'llama2_7b' on the fixed Linux server."
+            )
         if backend == "vllm":
             stage2_modules.add("vllm")
         required["stage2"] = stage2_modules
@@ -85,8 +89,10 @@ def _required_modules(config: ExperimentConfig, *, with_glue: bool) -> dict[str,
         eval_large_modules = {"datasets", "torch", "transformers"}
         if eval_mode == "peft_lora":
             eval_large_modules.update({"accelerate", "peft", "sentencepiece"})
-        elif eval_mode == "full_finetune":
-            eval_large_modules.add("sentencepiece")
+        else:
+            raise ValueError(
+                "eval_large.eval_mode must be 'peft_lora' on the fixed Linux server."
+            )
         required["eval_large"] = eval_large_modules
 
     if bool(config.eval_glue.get("enabled", False)) or with_glue:
@@ -198,9 +204,16 @@ def _check_model_paths(
 
     if bool(config.bootstrap.get("enabled", True)):
         generator_model = str(config.bootstrap.get("generator_model", "llama2_7b"))
-        bootstrap_model_path = (
-            model_paths.llama_3_2_3b_instruct if generator_model == "llama_3_2_3b_instruct" else model_paths.llama2_7b
-        )
+        if generator_model != "llama2_7b":
+            _add_issue(
+                errors,
+                severity="error",
+                category="model",
+                message="Stage 2 bootstrap only supports generator_model='llama2_7b'.",
+            )
+            bootstrap_model_path = None
+        else:
+            bootstrap_model_path = model_paths.llama2_7b
         if bootstrap_model_path is None or not bootstrap_model_path.exists():
             _add_issue(
                 errors,
@@ -236,39 +249,13 @@ def _check_model_paths(
                     category="model",
                     message=f"eval_large peft_lora requires local LLaMA-2-7B weights at: {model_paths.llama2_7b}",
                 )
-        elif eval_mode == "full_finetune":
-            if model_paths.llama_3_2_3b_instruct is None or not model_paths.llama_3_2_3b_instruct.exists():
-                _add_issue(
-                    errors,
-                    severity="error",
-                    category="model",
-                    message=(
-                        "eval_large full_finetune requires local Llama-3.2-3B-Instruct weights at: "
-                        f"{model_paths.llama_3_2_3b_instruct}"
-                    ),
-                )
-        elif eval_mode == "gpt2_xl":
-            if model_paths.gpt2_xl is None or not model_paths.gpt2_xl.exists():
-                if model_paths.distilgpt2.exists():
-                    _add_issue(
-                        warnings,
-                        severity="warning",
-                        category="model",
-                        message=(
-                            f"GPT-2 XL is missing at {model_paths.gpt2_xl}; eval_large will fall back to "
-                            f"DistilGPT2 at {model_paths.distilgpt2}."
-                        ),
-                    )
-                else:
-                    _add_issue(
-                        errors,
-                        severity="error",
-                        category="model",
-                        message=(
-                            "eval_large gpt2_xl needs either a local GPT-2 XL directory or a local DistilGPT2 "
-                            f"fallback. Missing: {model_paths.gpt2_xl} and {model_paths.distilgpt2}"
-                        ),
-                    )
+        else:
+            _add_issue(
+                errors,
+                severity="error",
+                category="model",
+                message="eval_large only supports eval_mode='peft_lora'.",
+            )
 
     if bool(config.eval_glue.get("enabled", False)) or with_glue:
         if not model_paths.distilgpt2.exists():
@@ -345,7 +332,7 @@ def _check_platform_risks(config: ExperimentConfig, *, warnings: list[PreflightI
                 warnings,
                 severity="warning",
                 category="platform",
-                message="eval_large peft_lora is less stable on Windows; gpt2_xl or full_finetune is usually safer.",
+                message="eval_large peft_lora requires more careful GPU memory management on Windows than on Linux.",
             )
 
 

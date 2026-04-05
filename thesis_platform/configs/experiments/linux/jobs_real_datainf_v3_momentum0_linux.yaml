@@ -1,5 +1,5 @@
 # Linux RTX 2080 Ti (22GB) experiment config - GA4 ablation (no memory)
-# Uses llama_3_2_3b_instruct with momentum_beta:0 to disable cross-round memory
+# Uses qwen_2_0_5b_instruct with momentum_beta:0 to disable cross-round memory
 inherits:
   - ../../base/paths.yaml
   - ../../base/runtime.yaml

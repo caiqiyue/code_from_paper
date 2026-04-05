@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import gc
 import hashlib
 import json
 from pathlib import Path
 from typing import Any
-
-_MODEL_CACHE: dict[tuple[str, str, str], tuple[Any, Any, str]] = {}
-
 
 class BaseTextBackend:
     """Abstract text generation backend."""
@@ -107,10 +105,8 @@ class TransformersTextBackend(BaseTextBackend):
         max_new_tokens: int = 256,
         use_chat_template: bool = False,
         use_fast: bool | None = None,
-        load_in_4bit: bool = False,
-        load_in_8bit: bool = False,
     ):
-        """Load a causal LM lazily and keep it cached by model/device/dtype."""
+        """Store one local causal LM path and load it lazily on first use."""
 
         self._model_path = model_path
         self._device = device
@@ -119,80 +115,69 @@ class TransformersTextBackend(BaseTextBackend):
         self._default_max_new_tokens = max_new_tokens
         self._use_chat_template = use_chat_template
         self._use_fast = use_fast
-        self._load_in_4bit = load_in_4bit
-        self._load_in_8bit = load_in_8bit
+        self._tokenizer = None
+        self._model = None
+        self._load_device = None
         self.backend_name = f"transformers:{model_path.name}"
 
-        cache_key = (str(model_path), device, dtype, str(load_in_4bit), str(load_in_8bit))
-        if cache_key not in _MODEL_CACHE:
+    def _ensure_loaded(self) -> tuple[Any, Any, Any]:
+        if self._tokenizer is not None and self._model is not None and self._load_device is not None:
+            return self._tokenizer, self._model, self._load_device
+        try:
+            import torch
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except Exception as exc:  # pragma: no cover - exercised in dependency-missing environments
+            raise RuntimeError(
+                "transformers/torch are required for research-mode text backends. "
+                "Install thesis_platform/requirements.txt in the active environment."
+            ) from exc
+
+        torch_dtype = self._resolve_dtype(torch, self._dtype, self._device)
+        tokenizer = self._load_tokenizer(AutoTokenizer)
+        if tokenizer.pad_token_id is None:
+            tokenizer.pad_token = tokenizer.eos_token
+
+        load_kwargs = {
+            "low_cpu_mem_usage": True,
+            "local_files_only": True,
+            "torch_dtype": torch_dtype,
+        }
+        if self._device == "auto":
+            load_kwargs["device_map"] = "auto"
+            model = AutoModelForCausalLM.from_pretrained(str(self._model_path), **load_kwargs)
+            load_device = "auto"
+        else:
+            model = AutoModelForCausalLM.from_pretrained(str(self._model_path), **load_kwargs)
+            model.to(self._device)
+            load_device = self._device
+        model.eval()
+        self._tokenizer, self._model, self._load_device = tokenizer, model, load_device
+        return tokenizer, model, load_device
+
+    def _load_tokenizer(self, auto_tokenizer_cls: Any):
+        if self._use_fast is None:
             try:
-                import torch
-                from transformers import AutoModelForCausalLM, AutoTokenizer
-            except Exception as exc:  # pragma: no cover - exercised in dependency-missing environments
-                raise RuntimeError(
-                    "transformers/torch are required for research-mode text backends. "
-                    "Install thesis_platform/requirements.txt in the active environment."
-                ) from exc
-
-            torch_dtype = self._resolve_dtype(torch, dtype, device)
-            if self._use_fast is None:
-                try:
-                    tokenizer = AutoTokenizer.from_pretrained(str(model_path))
-                except Exception:
-                    tokenizer = AutoTokenizer.from_pretrained(str(model_path), use_fast=False)
-            else:
-                try:
-                    tokenizer = AutoTokenizer.from_pretrained(
-                        str(model_path),
-                        use_fast=self._use_fast,
-                    )
-                except Exception:
-                    if self._use_fast:
-                        tokenizer = AutoTokenizer.from_pretrained(
-                            str(model_path),
-                            use_fast=False,
-                        )
-                    else:
-                        raise
-            if tokenizer.pad_token_id is None:
-                tokenizer.pad_token = tokenizer.eos_token
-
-            load_kwargs = dict(
-                low_cpu_mem_usage=True,
+                return auto_tokenizer_cls.from_pretrained(str(self._model_path), local_files_only=True)
+            except Exception:
+                return auto_tokenizer_cls.from_pretrained(
+                    str(self._model_path),
+                    local_files_only=True,
+                    use_fast=False,
+                )
+        try:
+            return auto_tokenizer_cls.from_pretrained(
+                str(self._model_path),
+                local_files_only=True,
+                use_fast=self._use_fast,
             )
-            if self._load_in_4bit:
-                try:
-                    from transformers import BitsAndBytesConfig
-                    compute_dtype = torch_dtype if torch_dtype != torch.float32 else torch.float16
-                    load_kwargs["quantization_config"] = BitsAndBytesConfig(
-                        load_in_4bit=True,
-                        bnb_4bit_compute_dtype=compute_dtype,
-                    )
-                    torch_dtype = torch.float16  # force to float16 for 4bit
-                except Exception as e:
-                    raise RuntimeError(f"4-bit quantization requested but failed to configure: {e}") from e
-            elif self._load_in_8bit:
-                try:
-                    from transformers import BitsAndBytesConfig
-                    load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
-                    torch_dtype = torch.float16
-                except Exception as e:
-                    raise RuntimeError(f"8-bit quantization requested but failed to configure: {e}") from e
-
-            if device == "auto":
-                load_kwargs["dtype"] = torch_dtype
-                load_kwargs["device_map"] = "auto"
-                model = AutoModelForCausalLM.from_pretrained(str(model_path), **load_kwargs)
-                load_device = "auto"
-            else:
-                load_kwargs["dtype"] = torch_dtype
-                model = AutoModelForCausalLM.from_pretrained(str(model_path), **load_kwargs)
-                model.to(device)
-                load_device = device
-            model.eval()
-            _MODEL_CACHE[cache_key] = (tokenizer, model, load_device)
-
-        self._tokenizer, self._model, self._load_device = _MODEL_CACHE[cache_key]
+        except Exception:
+            if self._use_fast:
+                return auto_tokenizer_cls.from_pretrained(
+                    str(self._model_path),
+                    local_files_only=True,
+                    use_fast=False,
+                )
+            raise
 
     @staticmethod
     def _resolve_dtype(torch: Any, dtype: str, device: str) -> Any:
@@ -207,24 +192,27 @@ class TransformersTextBackend(BaseTextBackend):
         return torch.float32
 
     def _format_prompt(self, prompt: str) -> str:
-        if self._use_chat_template and hasattr(self._tokenizer, "apply_chat_template"):
+        tokenizer, _, _ = self._ensure_loaded()
+        if self._use_chat_template and hasattr(tokenizer, "apply_chat_template"):
             messages = [{"role": "user", "content": prompt}]
-            return self._tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         return prompt
 
     def _resolve_input_device(self) -> Any:
-        if self._load_device != "auto":
-            return self._load_device
-        model_device = getattr(self._model, "device", None)
+        _, model, load_device = self._ensure_loaded()
+        if load_device != "auto":
+            return load_device
+        model_device = getattr(model, "device", None)
         if model_device is not None:
             return model_device
         try:
-            return next(self._model.parameters()).device
+            return next(model.parameters()).device
         except StopIteration:
             return None
 
     def _tokenize(self, text: str) -> Any:
-        inputs = self._tokenizer(text, return_tensors="pt")
+        tokenizer, _, _ = self._ensure_loaded()
+        inputs = tokenizer(text, return_tensors="pt")
         input_device = self._resolve_input_device()
         if input_device is not None:
             inputs = {key: value.to(input_device) for key, value in inputs.items()}
@@ -235,6 +223,7 @@ class TransformersTextBackend(BaseTextBackend):
 
         import torch
 
+        tokenizer, model, _ = self._ensure_loaded()
         formatted_prompt = self._format_prompt(prompt)
         inputs = self._tokenize(formatted_prompt)
         effective_temperature = temperature if temperature is not None else self._default_temperature
@@ -243,16 +232,16 @@ class TransformersTextBackend(BaseTextBackend):
             **inputs,
             max_new_tokens=max_new_tokens or self._default_max_new_tokens,
             do_sample=do_sample,
-            pad_token_id=self._tokenizer.pad_token_id,
-            eos_token_id=self._tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id,
         )
         if do_sample:
             generate_kwargs["temperature"] = effective_temperature
-        generation = self._model.generate(**generate_kwargs)
+        generation = model.generate(**generate_kwargs)
         prompt_length = inputs["input_ids"].shape[1]
         with torch.no_grad():
             new_tokens = generation[0][prompt_length:]
-        return self._tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+        return tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
     def negative_log_likelihood(self, prompt: str, completion: str) -> float:
         """Compute the mean token-level NLL of completion conditioned on prompt."""
@@ -261,9 +250,10 @@ class TransformersTextBackend(BaseTextBackend):
 
         if not completion:
             return 0.0
+        tokenizer, model, _ = self._ensure_loaded()
         formatted_prompt = self._format_prompt(prompt)
-        prompt_ids = self._tokenizer(formatted_prompt, return_tensors="pt", add_special_tokens=False)
-        completion_ids = self._tokenizer(completion, return_tensors="pt", add_special_tokens=False)
+        prompt_ids = tokenizer(formatted_prompt, return_tensors="pt", add_special_tokens=False)
+        completion_ids = tokenizer(completion, return_tensors="pt", add_special_tokens=False)
         input_ids = torch.cat([prompt_ids["input_ids"], completion_ids["input_ids"]], dim=1)
         attention_mask = torch.ones_like(input_ids)
         labels = input_ids.clone()
@@ -274,8 +264,24 @@ class TransformersTextBackend(BaseTextBackend):
             attention_mask = attention_mask.to(input_device)
             labels = labels.to(input_device)
         with torch.inference_mode():
-            outputs = self._model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
         return float(outputs.loss.detach().cpu().item())
+
+    def release(self) -> None:
+        tokenizer = self._tokenizer
+        model = self._model
+        self._tokenizer = None
+        self._model = None
+        self._load_device = None
+        del tokenizer, model
+        gc.collect()
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
 
 
 def build_text_backend(
@@ -322,6 +328,4 @@ def build_text_backend(
             if "use_fast" in config
             else None
         ),
-        load_in_4bit=bool(config.get("load_in_4bit", False)),
-        load_in_8bit=bool(config.get("load_in_8bit", False)),
     )

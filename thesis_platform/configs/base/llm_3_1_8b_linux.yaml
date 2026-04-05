@@ -1,5 +1,4 @@
-# LLM config for RTX 2080 Ti (22GB) - 8B models with 4-bit quantization
-# llama_3_1_8b_instruct requires INT4 quantization to fit in GPU memory
+# LLM config for RTX 2080 Ti (22GB) - 8B models loaded on demand per stage
 llm:
   client:
     engine: transformers
@@ -10,9 +9,6 @@ llm:
     max_new_tokens: 196
     use_chat_template: true
     use_fast: false
-    load_in_4bit: true
-    bnb_4bit_compute_dtype: float16
-    bnb_4bit_use_double_quant: true
   server:
     engine: transformers
     model_name_or_path: thesis_platform/open_model/llama_3_1_8b_instruct
@@ -22,6 +18,3 @@ llm:
     max_new_tokens: 220
     use_chat_template: true
     use_fast: false
-    load_in_4bit: true
-    bnb_4bit_compute_dtype: float16
-    bnb_4bit_use_double_quant: true

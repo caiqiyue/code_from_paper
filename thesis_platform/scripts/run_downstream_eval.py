@@ -74,7 +74,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--large-eval-mode",
-        choices=["auto", "peft_lora", "full_finetune", "gpt2_xl"],
+        choices=["auto", "peft_lora"],
         default=None,
         help="Optional override for large_eval_mode.",
     )

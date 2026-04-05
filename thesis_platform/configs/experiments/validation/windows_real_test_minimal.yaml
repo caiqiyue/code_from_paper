@@ -31,11 +31,11 @@ data:
   eval_limit: 4
   initialization_limit: 4
 
-# All LLM roles use llama_3_2_3b (3B) with device_map='auto' for memory safety
+# All LLM roles use qwen_2_0_5b_instruct with on-demand loading and release
 llm:
   client:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/llama_3_2_3b_instruct
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
     device: auto
     dtype: auto
     temperature: 0.0
@@ -44,7 +44,7 @@ llm:
     use_fast: true
   server:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/llama_3_2_3b_instruct
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
     device: auto
     dtype: auto
     temperature: 0.2

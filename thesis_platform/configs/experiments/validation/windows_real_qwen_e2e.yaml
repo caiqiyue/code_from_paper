@@ -90,16 +90,14 @@ downstream_eval:
   export_filename: llama7b_text_syn.json
   run_large_eval: true
   run_small_eval: false
-  large_eval_mode: gpt2_xl
+  large_eval_mode: peft_lora
   small_eval_mode: gpt2
   dataset_root: thesis_platform/datasets
   model_root: thesis_platform/open_model
   llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
-  llama_3_2_3b_instruct_path: thesis_platform/open_model/llama_3_2_3b_instruct
   minilm_path: thesis_platform/open_model/all_minilm_l6_v2
   roberta_large_path: thesis_platform/open_model/roberta_large
   distilgpt2_path: thesis_platform/open_model/distilgpt2
-  gpt2_xl_path: thesis_platform/open_model/gpt2_xl
   cutoff_len: 48
   grad_accum_steps: 1
   epochs: 1

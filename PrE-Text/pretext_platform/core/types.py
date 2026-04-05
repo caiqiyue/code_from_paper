@@ -14,10 +14,6 @@ class ModelPaths:
     llama2_7b: Path
     distilgpt2: Path
     c4_checkpoint: Path | None = None
-    llama_3_2_3b_instruct: Path | None = None
-    llama_3_1_8b_instruct: Path | None = None
-    meta_llama_2_7b_chat: Path | None = None
-    gpt2_xl: Path | None = None
 
 
 @dataclass(slots=True)

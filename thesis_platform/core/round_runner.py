@@ -14,6 +14,7 @@ from thesis_platform.core.io_utils import ensure_dir, read_json, read_jsonl, wri
 from thesis_platform.core.logging_utils import get_logger
 from thesis_platform.core.privacy import PrivacyLedger
 from thesis_platform.core.prompt_updater import apply_prompt_update, render_cluster_prompt
+from thesis_platform.core.resource_cleanup import release_component_resources
 from thesis_platform.core.schemas import Critique, PairedSample, PromptUpdate, PrototypeFeedback, ScoredSample, Sample
 from thesis_platform.core.selector import select_top_k, select_random
 from thesis_platform.evaluation.metrics import compute_critique_metrics, compute_generation_metrics, compute_system_metrics
@@ -575,6 +576,7 @@ class RoundRunner:
                 client_latency_total_s=0.0,
                 routing_enabled=routing_enabled,
             )
+            release_component_resources(server_ctx, self.generator)
         completed_clients = set(stage_state.get("completed_clients", [])) if current_stage == "client_analysis_in_progress" else set()
 
         if current_stage in {"client_analysis_in_progress", "client_analysis_completed"}:
@@ -612,6 +614,7 @@ class RoundRunner:
                 client_start = time.perf_counter()
                 client_samples = client_assigned_map.get(client_ctx.client_id, [])
                 client_scored = self.scorer.score(client_samples, client_ctx)
+                release_component_resources(self.scorer)
                 scored_samples.extend(client_scored)
                 selector_name = federation_cfg.get("selector", "top_k")
                 top_k = int(federation_cfg.get("top_k_bad", 10))
@@ -630,8 +633,10 @@ class RoundRunner:
                 selected_bad_samples.extend(client_selected)
                 selected_bad_by_client[client_ctx.client_id].extend(client_selected)
                 paired_samples = self.retriever.retrieve(client_selected, client_ctx)
+                release_component_resources(client_ctx.embedder, client_ctx)
                 retrieved_pairs.extend(paired_samples)
                 client_critiques = self.critic.critique(paired_samples, client_ctx)
+                release_component_resources(self.critic, client_ctx.text_backend, client_ctx)
                 critiques.extend(client_critiques)
                 probe_metrics[client_ctx.client_id] = client_ctx.probe_state.get("last_metrics", {})
                 client_latency_total += time.perf_counter() - client_start
@@ -686,6 +691,7 @@ class RoundRunner:
                 write_jsonl(output_dir / "client_prototypes.jsonl", prototype_feedbacks)
             else:
                 prototype_feedbacks = []
+            release_component_resources(*client_contexts)
             self._write_round_privacy_snapshot(output_dir, privacy_ledger)
             self._write_stage_state(
                 output_dir=output_dir,
@@ -717,6 +723,7 @@ class RoundRunner:
         else:
             self.logger.info("Round %d | aggregation complete | prompt unchanged", display_round)
         server_latency = time.perf_counter() - server_after_generation
+        release_component_resources(self.aggregator, server_ctx)
         upload_tokens = sum(len(item.text.split()) for item in critiques)
         previous_generation_texts = server_ctx.generated_history[-1] if server_ctx.generated_history else None
         round_metrics: dict[str, Any] = {}
@@ -877,6 +884,7 @@ class RoundRunner:
             routing_enabled=routing_enabled,
         )
         self.logger.info("Round %d | artifacts persisted", display_round)
+        release_component_resources(self.generator, self.scorer, self.retriever, self.critic, self.aggregator, server_ctx, *client_contexts)
 
         return RoundArtifacts(
             generated_samples=generated_samples,
@@ -893,4 +901,3 @@ class RoundRunner:
             routing_summary=routing_summary,
             privacy_summary=privacy_summary,
         )
-

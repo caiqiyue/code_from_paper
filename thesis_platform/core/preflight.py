@@ -139,9 +139,7 @@ def _cross_domain_eval_runtime_cfg(config) -> dict[str, object]:
         "linux_small_eval_mode",
         "model_root",
         "distilgpt2_path",
-        "gpt2_xl_path",
         "llama2_7b_path",
-        "llama_3_2_3b_instruct_path",
         "c4_checkpoint_path",
         "batch_size",
         "eval_batch_size",
@@ -192,28 +190,14 @@ def _validate_pretext_eval_requirements(
         model_root = config.resolve_path(eval_cfg.get("model_root", "thesis_platform/open_model"))
         if model_root is None or not model_root.exists():
             asset_errors.append(f"missing {label_prefix} model root: {_display_path(model_root or Path('<unset>'))}")
-        if large_eval_mode == "full_finetune":
-            llama32_path = config.resolve_path(
-                eval_cfg.get("llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct")
-            )
-            if llama32_path is None or not llama32_path.exists():
-                asset_errors.append(
-                    f"missing {label_prefix} llama_3_2_3b_instruct model: {_display_path(llama32_path or Path('<unset>'))}"
-                )
-        elif large_eval_mode == "gpt2_xl":
-            gpt2_xl_path = config.resolve_path(eval_cfg.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl"))
-            distilgpt2_path = config.resolve_path(eval_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2"))
-            if (gpt2_xl_path is None or not gpt2_xl_path.exists()) and (
-                distilgpt2_path is None or not distilgpt2_path.exists()
-            ):
-                asset_errors.append(
-                    f"missing {label_prefix} gpt2_xl model and distilgpt2 fallback: "
-                    f"{_display_path(gpt2_xl_path or Path('<unset>'))}, {_display_path(distilgpt2_path or Path('<unset>'))}"
-                )
-        else:
+        if large_eval_mode == "peft_lora":
             llama_path = config.resolve_path(eval_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf"))
             if llama_path is None or not llama_path.exists():
                 asset_errors.append(f"missing {label_prefix} llama2_7b model: {_display_path(llama_path or Path('<unset>'))}")
+        else:
+            asset_errors.append(
+                f"unsupported {label_prefix} large_eval_mode: {large_eval_mode}. Only peft_lora is allowed."
+            )
 
     run_small_eval = bool(eval_cfg.get("run_small_eval"))
     if run_small_eval:

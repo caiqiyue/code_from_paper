@@ -166,10 +166,8 @@ report = (
 |------|------|------|
 | **LLaMA-2-7B** | `open_model/llama_2_7b_hf` | ✅ 可用 |
 | **LLaMA-3.1-8B** | `open_model/llama_3_1_8b_instruct` | ✅ 可用 |
-| **LLaMA-3.2-3B** | `open_model/llama_3_2_3b_instruct` | ✅ 可用 |
 | **RoBERTa-Large** | `open_model/roberta_large` | ✅ 可用 |
 | **MiniLM** | `open_model/all_minilm_l6_v2` | ✅ 可用 |
-| **Phi-1.5** | `open_model/phi_1_5` | ✅ 可用 |
 
 #### 已格式化数据集 ✅
 

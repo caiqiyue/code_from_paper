@@ -30,7 +30,7 @@ data:
   eval_limit: 4
   initialization_limit: 8
 
-# 强制使用真实 LLM（llama_2_7b_hf / llama_2_13b_chat_hf）
+# 强制使用真实 LLM（llama_2_7b_hf / Meta-Llama-3-8B）
 llm:
   client:
     engine: transformers
@@ -43,7 +43,7 @@ llm:
     use_fast: false
   server:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/llama_2_13b_chat_hf
+    model_name_or_path: thesis_platform/open_model/Meta-Llama-3-8B
     device: cuda
     dtype: float16
     temperature: 0.2

@@ -30,7 +30,7 @@ data:
   eval_limit: 4
   initialization_limit: 4
 
-# 强制使用真实 LLM（llama_2_7b_hf / llama_2_13b_chat_hf）
+# 强制使用真实 LLM（llama_2_7b_hf / Meta-Llama-3-8B）
 llm:
   client:
     engine: transformers
@@ -43,14 +43,13 @@ llm:
     use_fast: false
   server:
     engine: transformers
-    model_name_or_path: thesis_platform/open_model/llama_2_13b_chat_hf
+    model_name_or_path: thesis_platform/open_model/Meta-Llama-3-8B
     device: auto
     dtype: auto
     temperature: 0.2
     max_new_tokens: 64
     use_chat_template: true
     use_fast: false
-    load_in_4bit: true
 
 generator:
   name: pretext_prompt_llm

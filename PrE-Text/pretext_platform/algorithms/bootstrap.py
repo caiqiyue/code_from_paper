@@ -1,4 +1,4 @@
-"""Stage 2 bootstrap generation with LLaMA 2."""
+"""Stage 2 bootstrap generation with the local LLaMA-2-7B checkpoint."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Callable
 
 from pretext_platform.core.config import ExperimentConfig
 from pretext_platform.core.io_utils import ensure_dir
+from pretext_platform.core.resource_cleanup import release_gpu_memory
 from pretext_platform.core.types import ModelPaths, StageSummary
 
 
@@ -91,67 +92,63 @@ def generate_bootstrapped_samples_hf(
     torch_dtype = torch.float16 if use_cuda else torch.float32
     # device_map='auto' causes segfaults on Windows with certain PyTorch/CUDA versions
     # Force use_safetensors=True for Windows compatibility (avoids segfault with large bin files)
-    model = AutoModelForCausalLM.from_pretrained(
-        str(model_path),
-        local_files_only=True,
-        torch_dtype=torch_dtype,
-        use_safetensors=True,
-    )
+    model = None
+    try:
+        model = AutoModelForCausalLM.from_pretrained(
+            str(model_path),
+            local_files_only=True,
+            torch_dtype=torch_dtype,
+            use_safetensors=True,
+        )
 
-    if use_cuda:
-        model = model.to("cuda")
+        if use_cuda:
+            model = model.to("cuda")
 
-    temperature = float(bootstrap_cfg.get("temperature", 1.0))
-    top_p = float(bootstrap_cfg.get("top_p", 1.0))
-    max_tokens = int(bootstrap_cfg.get("max_tokens", 85))
-    # Use smaller batch size for large models to avoid OOM
-    batch_size = int(bootstrap_cfg.get("batch_size", 2))
+        temperature = float(bootstrap_cfg.get("temperature", 1.0))
+        top_p = float(bootstrap_cfg.get("top_p", 1.0))
+        max_tokens = int(bootstrap_cfg.get("max_tokens", 85))
+        batch_size = int(bootstrap_cfg.get("batch_size", 2))
 
-    outputs = []
-    model.eval()
+        outputs = []
+        model.eval()
 
-    with torch.no_grad():
-        for i in range(0, len(prompt_list), batch_size):
-            batch_prompts = prompt_list[i : i + batch_size]
-
-            # Tokenize the batch
-            inputs = tokenizer(
-                batch_prompts,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=int(bootstrap_cfg.get("max_model_len", 1000)) - max_tokens,
-            )
-
-            # Move to device
-            if use_cuda:
-                inputs = {k: v.cuda() for k, v in inputs.items()}
-
-            # Generate
-            generated_ids = model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                do_sample=temperature > 0,
-                pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-            )
-
-            # Decode
-            for generated in generated_ids:
-                # Remove the prompt from the beginning
-                prompt_length = inputs["input_ids"].shape[1]
-                generated_text = tokenizer.decode(
-                    generated[prompt_length:], skip_special_tokens=True
+        with torch.no_grad():
+            for i in range(0, len(prompt_list), batch_size):
+                batch_prompts = prompt_list[i : i + batch_size]
+                inputs = tokenizer(
+                    batch_prompts,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=int(bootstrap_cfg.get("max_model_len", 1000)) - max_tokens,
                 )
-                outputs.append(generated_text)
 
-            # Clear CUDA cache after each batch to prevent OOM
-            if use_cuda:
-                torch.cuda.empty_cache()
+                if use_cuda:
+                    inputs = {k: v.cuda() for k, v in inputs.items()}
 
-    return outputs
+                generated_ids = model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    do_sample=temperature > 0,
+                    pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+                    eos_token_id=tokenizer.eos_token_id,
+                )
+
+                for generated in generated_ids:
+                    prompt_length = inputs["input_ids"].shape[1]
+                    generated_text = tokenizer.decode(
+                        generated[prompt_length:], skip_special_tokens=True
+                    )
+                    outputs.append(generated_text)
+
+                if use_cuda:
+                    torch.cuda.empty_cache()
+
+        return outputs
+    finally:
+        release_gpu_memory(model)
 
 
 def generate_bootstrapped_samples(
@@ -208,12 +205,12 @@ def run_bootstrap_stage(
         seed=int(config.meta.get("seed", 42)),
     )
 
-    # Select bootstrap model: "llama2_7b" (default, Linux recommended) or "llama_3_2_3b_instruct" (Windows compatible)
-    bootstrap_model = bootstrap_cfg.get("generator_model", "llama2_7b")
-    if bootstrap_model == "llama_3_2_3b_instruct":
-        model_path = model_paths.llama_3_2_3b_instruct
-    else:
-        model_path = model_paths.llama2_7b
+    bootstrap_model = str(bootstrap_cfg.get("generator_model", "llama2_7b"))
+    if bootstrap_model != "llama2_7b":
+        raise ValueError(
+            "Stage 2 bootstrap only supports generator_model='llama2_7b' on the fixed Linux server."
+        )
+    model_path = model_paths.llama2_7b
 
     output_list = generator_fn(prompt_list, model_path, bootstrap_cfg)
 

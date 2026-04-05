@@ -45,3 +45,8 @@ class DBSCANAttnTSGDMAggregator:
         )
         server_ctx.aggregation_memory = updated_memory
         return prompt_update
+
+    def release(self) -> None:
+        release = getattr(self.embedder, "release", None)
+        if callable(release):
+            release()

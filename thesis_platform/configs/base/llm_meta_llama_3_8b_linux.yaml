@@ -1,5 +1,4 @@
-# Legacy filename retained for compatibility.
-# GC5 and GM3 now use the verified Meta-Llama-3-8B checkpoint with 4-bit quantization.
+# GC5 and GM3 now use the verified Meta-Llama-3-8B checkpoint with on-demand loading.
 llm:
   client:
     engine: transformers
@@ -10,9 +9,6 @@ llm:
     max_new_tokens: 196
     use_chat_template: false
     use_fast: false
-    load_in_4bit: true
-    bnb_4bit_compute_dtype: float16
-    bnb_4bit_use_double_quant: true
   server:
     engine: transformers
     model_name_or_path: thesis_platform/open_model/Meta-Llama-3-8B
@@ -22,6 +18,3 @@ llm:
     max_new_tokens: 220
     use_chat_template: false
     use_fast: false
-    load_in_4bit: true
-    bnb_4bit_compute_dtype: float16
-    bnb_4bit_use_double_quant: true

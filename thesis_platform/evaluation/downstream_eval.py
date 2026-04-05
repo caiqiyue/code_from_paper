@@ -17,7 +17,7 @@ def resolve_large_eval_mode(downstream_cfg: dict[str, Any], *, platform_name: st
     if requested and requested != "auto":
         return requested
     if platform_name.startswith("win"):
-        return str(downstream_cfg.get("windows_large_eval_mode", "gpt2_xl")).strip().lower()
+        return str(downstream_cfg.get("windows_large_eval_mode", "peft_lora")).strip().lower()
     return str(downstream_cfg.get("linux_large_eval_mode", "peft_lora")).strip().lower()
 
 
@@ -196,19 +196,14 @@ def run_pretext_large_eval(thesis_config, *, stage2_dir: Path, output_dir: Path)
 
     from pretext_platform.core.models import resolve_model_paths
     from pretext_platform.data.loaders import load_dataset_bundle
-    from pretext_platform.evaluation.gpt2_xl_eval import run_gpt2_xl_eval
     from pretext_platform.evaluation.llama2_eval import run_llama2_eval
-    from pretext_platform.evaluation.llama32_eval import run_llama32_eval
 
     dataset_bundle = load_dataset_bundle(pretext_config)
     model_paths = resolve_model_paths(pretext_config)
     eval_mode = str(pretext_config.eval_large.get("eval_mode", "peft_lora")).strip().lower()
-    if eval_mode == "gpt2_xl":
-        summary = run_gpt2_xl_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
-    elif eval_mode == "full_finetune":
-        summary = run_llama32_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
-    else:
-        summary = run_llama2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
+    if eval_mode != "peft_lora":
+        raise ValueError("downstream large eval only supports peft_lora on the fixed Linux server.")
+    summary = run_llama2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
     return to_jsonable(summary)
 
 
@@ -642,29 +637,12 @@ class DownstreamEvalManager:
                 self.downstream_cfg.get("model_root", "thesis_platform/open_model")
             ),
         }
-        if eval_mode == "full_finetune":
-            assets["llama_3_2_3b_instruct_path"] = self.thesis_config.resolve_path(
-                self.downstream_cfg.get(
-                    "llama_3_2_3b_instruct_path", "thesis_platform/open_model/llama_3_2_3b_instruct"
-                )
-            )
-        elif eval_mode == "gpt2_xl":
-            gpt2_xl_path = self.thesis_config.resolve_path(
-                self.downstream_cfg.get("gpt2_xl_path", "thesis_platform/open_model/gpt2_xl")
-            )
-            distilgpt2_path = self.thesis_config.resolve_path(
-                self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
-            )
-            if (gpt2_xl_path is None or not gpt2_xl_path.exists()) and (
-                distilgpt2_path is not None and distilgpt2_path.exists()
-            ):
-                assets["distilgpt2_fallback_path"] = distilgpt2_path
-            else:
-                assets["gpt2_xl_path"] = gpt2_xl_path
-        else:
+        if eval_mode == "peft_lora":
             assets["llama2_7b_path"] = self.thesis_config.resolve_path(
                 self.downstream_cfg.get("llama2_7b_path", "thesis_platform/open_model/llama_2_7b_hf")
             )
+        else:
+            raise ValueError(f"Unsupported large eval mode: {eval_mode}")
         return assets
 
     def _required_small_eval_assets(self, eval_mode: str) -> dict[str, Path | None]:

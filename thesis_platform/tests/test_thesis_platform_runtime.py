@@ -158,14 +158,14 @@ class DownstreamEvalManagerTests(unittest.TestCase):
     def test_auto_mode_resolution_is_platform_aware(self) -> None:
         downstream_cfg = {
             "large_eval_mode": "auto",
-            "windows_large_eval_mode": "full_finetune",
+            "windows_large_eval_mode": "peft_lora",
             "linux_large_eval_mode": "peft_lora",
             "small_eval_mode": "auto",
             "windows_small_eval_mode": "gpt2",
             "linux_small_eval_mode": "distilgpt2",
             "c4_checkpoint_path": "",
         }
-        self.assertEqual(resolve_large_eval_mode(downstream_cfg, platform_name="win32"), "full_finetune")
+        self.assertEqual(resolve_large_eval_mode(downstream_cfg, platform_name="win32"), "peft_lora")
         self.assertEqual(resolve_large_eval_mode(downstream_cfg, platform_name="linux"), "peft_lora")
         self.assertEqual(resolve_small_eval_mode(downstream_cfg, platform_name="win32"), "gpt2")
         self.assertEqual(resolve_small_eval_mode(downstream_cfg, platform_name="linux"), "gpt2")
@@ -207,8 +207,8 @@ downstream_eval:
             train_path = tmp_root / "train.json"
             eval_path = tmp_root / "eval.json"
             init_path = tmp_root / "init.json"
-            llama32_dir = tmp_root / "thesis_platform" / "open_model" / "llama_3_2_3b_instruct"
-            llama32_dir.mkdir(parents=True, exist_ok=True)
+            llama2_dir = tmp_root / "thesis_platform" / "open_model" / "llama_2_7b_hf"
+            llama2_dir.mkdir(parents=True, exist_ok=True)
             train_path.write_text(json.dumps({"0": ["sample alpha text"], "1": ["sample beta text"]}), encoding="utf-8")
             eval_path.write_text(json.dumps(["eval gamma text"]), encoding="utf-8")
             init_path.write_text(json.dumps(["seed delta epsilon zeta eta theta iota kappa lambda"]), encoding="utf-8")
@@ -235,9 +235,10 @@ downstream_eval:
   run_large_eval: true
   run_small_eval: false
   large_eval_mode: auto
-  windows_large_eval_mode: full_finetune
+  windows_large_eval_mode: peft_lora
   linux_large_eval_mode: peft_lora
-  llama_3_2_3b_instruct_path: thesis_platform/open_model/llama_3_2_3b_instruct
+  guard_windows_llama2_large_eval: false
+  llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
 """.strip(),
                 encoding="utf-8",
             )
@@ -245,7 +246,7 @@ downstream_eval:
             config = load_experiment_config(config_path)
             fake_eval_summary = {
                 "stage_name": "eval_large",
-                "metrics": {"best_top1": 0.13, "model": "Llama-3.2-3B-Instruct"},
+                "metrics": {"best_top1": 0.13, "model": "Llama-2-7B"},
                 "artifacts": {"stats_dir": str(tmp_root / "fake_stats")},
             }
             with patch("thesis_platform.evaluation.downstream_eval.sys.platform", "win32"), patch(
@@ -258,9 +259,9 @@ downstream_eval:
                     output_dir=tmp_root / "out" / "downstream_eval",
                 ).run(["synthetic one", "synthetic two"])
 
-            self.assertEqual(summary["resolved_modes"]["large_eval_mode"], "full_finetune")
+            self.assertEqual(summary["resolved_modes"]["large_eval_mode"], "peft_lora")
             self.assertEqual(summary["stages"]["large_eval"]["status"], "completed")
-            self.assertEqual(summary["stages"]["large_eval"]["metrics"]["model"], "Llama-3.2-3B-Instruct")
+            self.assertEqual(summary["stages"]["large_eval"]["metrics"]["model"], "Llama-2-7B")
 
     def test_small_eval_reports_missing_checkpoint_explicitly(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

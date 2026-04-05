@@ -1,0 +1,45 @@
+inherits:
+  - ../base/paths.yaml
+  - ../base/models.yaml
+  - ../base/runtime.yaml
+  - ../templates/noise_eps758.yaml
+
+meta:
+  experiment_id: validate_tiny_stage2_only
+  seed: 42
+
+paths:
+  dataset_root: ../thesis_platform/datasets
+  model_root: ../thesis_platform/open_model
+
+data:
+  dataset_name: jobs
+  train_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  max_samples_per_client: 4
+  initialization_min_words: 20
+  train_limit: 32
+  eval_limit: 16
+  initialization_limit: 256
+
+stage1:
+  enabled: false
+
+bootstrap:
+  enabled: true
+  num_prompts: 16
+  generator_backend: huggingface
+  generator_model: llama2_7b
+  batch_size: 1
+  device: cuda
+  max_tokens: 64
+  temperature: 1.0
+  top_p: 1.0
+  max_model_len: 512
+
+eval_small:
+  enabled: false
+
+eval_large:
+  enabled: false

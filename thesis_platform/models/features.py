@@ -1,11 +1,9 @@
 from __future__ import annotations
 
+import gc
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-_FEATURE_MODEL_CACHE: dict[tuple[str, str, int], tuple[Any, Any, Any]] = {}
-
 
 class BaseFeatureEncoder:
     """Abstract text feature encoder used by the v3 real scorers."""
@@ -40,30 +38,33 @@ class TransformerFeatureEncoder(BaseFeatureEncoder):
         self._model_path = model_path
         self._device = device
         self._max_length = max_length
+        self._tokenizer = None
+        self._model = None
+        self._load_device = None
         self.backend_name = f"transformers_feature:{model_path.name}"
 
-        cache_key = (str(model_path), device, max_length)
-        if cache_key not in _FEATURE_MODEL_CACHE:
-            try:
-                import torch
-                from transformers import AutoModel, AutoTokenizer
-            except Exception as exc:  # pragma: no cover - dependency failures are environment-specific
-                raise RuntimeError(
-                    "transformers and torch are required for transformer feature encoding."
-                ) from exc
+    def _ensure_loaded(self) -> tuple[Any, Any, Any]:
+        if self._tokenizer is not None and self._model is not None and self._load_device is not None:
+            return self._tokenizer, self._model, self._load_device
+        try:
+            import torch
+            from transformers import AutoModel, AutoTokenizer
+        except Exception as exc:  # pragma: no cover - dependency failures are environment-specific
+            raise RuntimeError(
+                "transformers and torch are required for transformer feature encoding."
+            ) from exc
 
-            tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
-            model = AutoModel.from_pretrained(str(model_path), local_files_only=True)
-            if device != "auto":
-                model.to(device)
-                load_device = device
-            else:
-                load_device = "cuda" if torch.cuda.is_available() else "cpu"
-                model.to(load_device)
-            model.eval()
-            _FEATURE_MODEL_CACHE[cache_key] = (tokenizer, model, load_device)
-
-        self._tokenizer, self._model, self._load_device = _FEATURE_MODEL_CACHE[cache_key]
+        tokenizer = AutoTokenizer.from_pretrained(str(self._model_path), local_files_only=True)
+        model = AutoModel.from_pretrained(str(self._model_path), local_files_only=True)
+        if self._device != "auto":
+            model.to(self._device)
+            load_device = self._device
+        else:
+            load_device = "cuda" if torch.cuda.is_available() else "cpu"
+            model.to(load_device)
+        model.eval()
+        self._tokenizer, self._model, self._load_device = tokenizer, model, load_device
+        return tokenizer, model, load_device
 
     def encode_texts(self, texts: list[str]) -> list[list[float]]:
         """Mean-pool the last hidden state under the attention mask."""
@@ -74,21 +75,38 @@ class TransformerFeatureEncoder(BaseFeatureEncoder):
         import torch
         import torch.nn.functional as functional
 
-        encoded = self._tokenizer(
+        tokenizer, model, load_device = self._ensure_loaded()
+        encoded = tokenizer(
             texts,
             padding=True,
             truncation=True,
             max_length=self._max_length,
             return_tensors="pt",
         )
-        encoded = {key: value.to(self._load_device) for key, value in encoded.items()}
+        encoded = {key: value.to(load_device) for key, value in encoded.items()}
         with torch.inference_mode():
-            outputs = self._model(**encoded)
+            outputs = model(**encoded)
         hidden = outputs.last_hidden_state
         mask = encoded["attention_mask"].unsqueeze(-1)
         pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
         pooled = functional.normalize(pooled, p=2, dim=1)
         return pooled.detach().cpu().tolist()
+
+    def release(self) -> None:
+        tokenizer = self._tokenizer
+        model = self._model
+        self._tokenizer = None
+        self._model = None
+        self._load_device = None
+        del tokenizer, model
+        gc.collect()
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
 
 
 def build_feature_encoder(

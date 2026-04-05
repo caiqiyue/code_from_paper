@@ -73,3 +73,8 @@ class DataInfRealScorer:
             "validation_count": len(val_texts),
         }
         return scored_samples
+
+    def release(self) -> None:
+        release = getattr(self.feature_encoder, "release", None)
+        if callable(release):
+            release()

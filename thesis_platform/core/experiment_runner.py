@@ -695,9 +695,7 @@ class ExperimentRunner:
                 "linux_small_eval_mode",
                 "model_root",
                 "distilgpt2_path",
-                "gpt2_xl_path",
                 "llama2_7b_path",
-                "llama_3_2_3b_instruct_path",
                 "c4_checkpoint_path",
                 "batch_size",
                 "eval_batch_size",
@@ -1347,7 +1345,6 @@ class ExperimentRunner:
                 progress.close()
             self._restore_signal_handlers()
             close_experiment_file_logger("thesis_platform")
-
 
 
 

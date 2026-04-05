@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import hashlib
 import math
 import re
@@ -52,19 +53,41 @@ class SentenceTransformerEmbedder(BaseEmbedder):
     """SentenceTransformer wrapper used when the local model is available."""
 
     def __init__(self, model_path: Path):
-        """Load a local sentence-transformer model from disk."""
-
-        from sentence_transformers import SentenceTransformer
+        """Store the local sentence-transformer path and load on first use."""
 
         self._model_path = model_path
-        self._model = SentenceTransformer(str(model_path))
+        self._model = None
         self.backend_name = f"sentence_transformer:{model_path.name}"
+
+    def _ensure_loaded(self):
+        if self._model is not None:
+            return self._model
+        from sentence_transformers import SentenceTransformer
+
+        self._model = SentenceTransformer(str(self._model_path))
+        return self._model
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Encode texts with a real sentence-transformer model."""
 
-        embeddings = self._model.encode(texts, normalize_embeddings=True)
+        model = self._ensure_loaded()
+        embeddings = model.encode(texts, normalize_embeddings=True)
         return [list(map(float, row)) for row in embeddings]
+
+    def release(self) -> None:
+        model = self._model
+        self._model = None
+        if model is None:
+            return
+        del model
+        gc.collect()
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
 
 
 def _is_sentence_transformer_dir(path: Path) -> bool:

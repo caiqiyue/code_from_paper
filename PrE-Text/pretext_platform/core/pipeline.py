@@ -6,6 +6,7 @@ from typing import Any
 
 from pretext_platform.core.config import ExperimentConfig, load_experiment_config
 from pretext_platform.core.io_utils import ensure_dir, write_json
+from pretext_platform.core.resource_cleanup import release_gpu_memory
 from pretext_platform.core.types import StageSummary
 
 
@@ -95,10 +96,8 @@ def run_eval_small(config: ExperimentConfig) -> StageSummary:
 def run_eval_large(config: ExperimentConfig) -> StageSummary:
     """Run only the large-model downstream evaluation.
 
-    Supports three modes:
-    - "peft_lora": LLaMA-2-7B + PEFT LoRA (requires Linux for PEFT compatibility)
-    - "full_finetune": Llama-3.2-3B-Instruct full fine-tuning (may segfault on Windows)
-    - "gpt2_xl": GPT-2 XL (1.5B) full fine-tuning (Windows compatible, single-file model)
+    The fixed Linux experiment environment supports only one large-eval mode:
+    - "peft_lora": LLaMA-2-7B + PEFT LoRA
     """
 
     from pretext_platform.core.models import resolve_model_paths
@@ -111,27 +110,16 @@ def run_eval_large(config: ExperimentConfig) -> StageSummary:
     eval_cfg = config.eval_large
     eval_mode = eval_cfg.get("eval_mode", "peft_lora")
 
-    if eval_mode == "gpt2_xl":
-        # GPT-2 XL (1.5B) full fine-tuning (Windows compatible, single-file model)
-        from pretext_platform.evaluation.gpt2_xl_eval import run_gpt2_xl_eval
-
-        summary = run_gpt2_xl_eval(
-            config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large"
+    if eval_mode != "peft_lora":
+        raise ValueError(
+            "eval_large only supports eval_mode='peft_lora' on the fixed Linux server."
         )
-    elif eval_mode == "full_finetune":
-        # Llama-3.2-3B-Instruct full fine-tuning (may segfault on Windows)
-        from pretext_platform.evaluation.llama32_eval import run_llama32_eval
 
-        summary = run_llama32_eval(
-            config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large"
-        )
-    else:
-        # LLaMA-2-7B + PEFT LoRA (Linux recommended)
-        from pretext_platform.evaluation.llama2_eval import run_llama2_eval
+    from pretext_platform.evaluation.llama2_eval import run_llama2_eval
 
-        summary = run_llama2_eval(
-            config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large"
-        )
+    summary = run_llama2_eval(
+        config, dataset_bundle, model_paths, experiment_dir / "stage2", experiment_dir / "eval_large"
+    )
 
     _write_stage_summary(experiment_dir, "eval_large_summary.json", summary)
     write_json(experiment_dir / "resolved_config.json", config.raw)
@@ -206,22 +194,27 @@ def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any
     if bool(stage1_cfg.get("enabled", True)):
         summaries["stage1"] = run_stage1(config)
         _write_stage_summary(experiment_dir, "stage1_summary.json", summaries["stage1"])
+        release_gpu_memory()
 
     if bool(bootstrap_cfg.get("enabled", True)):
         summaries["stage2"] = run_bootstrap(config)
         _write_stage_summary(experiment_dir, "stage2_summary.json", summaries["stage2"])
+        release_gpu_memory()
 
     if bool(eval_small_cfg.get("enabled", False)):
         summaries["eval_small"] = run_eval_small(config)
         _write_stage_summary(experiment_dir, "eval_small_summary.json", summaries["eval_small"])
+        release_gpu_memory()
 
     if bool(eval_large_cfg.get("enabled", False)):
         summaries["eval_large"] = run_eval_large(config)
         _write_stage_summary(experiment_dir, "eval_large_summary.json", summaries["eval_large"])
+        release_gpu_memory()
 
     if bool(eval_glue_cfg.get("enabled", False)):
         glue_summaries = run_glue_eval(config)
         summaries.update(glue_summaries)
+        release_gpu_memory()
 
     summary_payload = {
         "experiment_id": config.experiment_id(),

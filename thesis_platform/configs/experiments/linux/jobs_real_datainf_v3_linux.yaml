@@ -1,5 +1,5 @@
 # Linux RTX 2080 Ti (22GB) experiment config
-# Uses llama_3_2_3b_instruct which fits in GPU memory without quantization
+# Uses qwen_2_0_5b_instruct with on-demand loading and release between phases
 inherits:
   - ../../base/paths.yaml
   - ../../base/runtime.yaml

@@ -250,7 +250,7 @@ class ExperimentConfig:
                 "run_large_eval": False,
                 "run_small_eval": False,
                 "large_eval_mode": "auto",
-                "windows_large_eval_mode": "full_finetune",
+                "windows_large_eval_mode": "peft_lora",
                 "linux_large_eval_mode": "peft_lora",
                 "small_eval_mode": "auto",
                 "windows_small_eval_mode": "gpt2",

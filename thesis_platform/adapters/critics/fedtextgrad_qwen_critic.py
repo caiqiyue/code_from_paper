@@ -60,3 +60,8 @@ class FedTextGradQwenCritic:
             )
             for pair in paired_samples
         ]
+
+    def release(self) -> None:
+        release = getattr(self._text_backend, "release", None)
+        if callable(release):
+            release()

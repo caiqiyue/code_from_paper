@@ -120,13 +120,13 @@ class DownloaderTests(unittest.TestCase):
         self.assertIn("all_minilm_l6_v2", all_model_names)
         self.assertIn("distilgpt2", all_model_names)
         self.assertIn("llama_2_7b_hf", all_model_names)
-        self.assertIn("flan_t5_3b", all_model_names)
+        self.assertIn("qwen_2_0_5b_instruct", all_model_names)
         self.assertIn("roberta_large", all_model_names)
-        self.assertIn("llama_2_13b_chat_hf", all_model_names)
+        self.assertIn("Meta-Llama-3-8B", all_model_names)
         self.assertIn("all_minilm_l6_v2", default_model_names)
         self.assertNotIn("distilgpt2", default_model_names)
-        self.assertNotIn("llama_2_13b_chat_hf", default_model_names)
-        self.assertNotIn("llama_3_1_405b_instruct", default_model_names)
+        self.assertNotIn("Meta-Llama-3-8B", default_model_names)
+        self.assertLess(len(default_model_names), len(all_model_names))
 
     def test_path_helpers_ignore_current_working_directory(self) -> None:
         """Verify default download roots stay anchored to the package, not the shell cwd."""
@@ -351,10 +351,9 @@ class DownloaderTests(unittest.TestCase):
             )
         ]
         self.assertIn("llama_3_1_8b_instruct", default_names)
-        self.assertNotIn("llama_2_13b_chat_hf", default_names)
-        self.assertNotIn("llama_3_1_405b_instruct", default_names)
-        self.assertIn("llama_2_13b_chat_hf", optional_names)
-        self.assertIn("llama_3_1_405b_instruct", large_names)
+        self.assertNotIn("Meta-Llama-3-8B", default_names)
+        self.assertIn("Meta-Llama-3-8B", optional_names)
+        self.assertEqual(set(large_names), set(default_names))
 
     def test_repo_overrides_change_the_resolved_model_source(self) -> None:
         """Verify CLI-style repo overrides win over the default model source."""
@@ -372,7 +371,9 @@ class DownloaderTests(unittest.TestCase):
 
         downloader = create_model_downloader("llama_3_1_8b_instruct", repo_override="user/llama-gguf")
         info = types.SimpleNamespace(library_name=None, pipeline_tag="text-generation", tags=["gguf"], sha="abc")
-        fake_hf = types.SimpleNamespace(model_info=mock.Mock(return_value=info))
+        fake_api = mock.Mock()
+        fake_api.model_info.return_value = info
+        fake_hf = types.SimpleNamespace(HfApi=mock.Mock(return_value=fake_api))
         with mock.patch.dict(sys.modules, {"huggingface_hub": fake_hf}):
             with self.assertRaises(ValueError):
                 downloader.validate_repo()
