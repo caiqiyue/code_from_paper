@@ -56,7 +56,7 @@ eval_small:
   learning_rate: 0.0002
 
 eval_large:
-  enabled: true
+  enabled: false
   eval_mode: peft_lora
   cutoff_len: 64
   grad_accum_steps: 32

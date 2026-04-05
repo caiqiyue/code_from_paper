@@ -25,6 +25,6 @@ eval_small:
   enabled: false
 
 eval_large:
-  enabled: true
+  enabled: false
   batch_size: 2
   eval_batch_size: 1

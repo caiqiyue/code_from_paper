@@ -3,7 +3,7 @@ downstream_eval:
   kind: pretext_large_eval
   export_filename: llama7b_text_syn.json
   run_large_eval: false
-  run_small_eval: false
+  run_small_eval: true
   large_eval_mode: peft_lora
   windows_large_eval_mode: peft_lora
   linux_large_eval_mode: peft_lora

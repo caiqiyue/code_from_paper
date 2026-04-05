@@ -48,7 +48,7 @@ eval_small:
   enabled: false
 
 eval_large:
-  enabled: true
+  enabled: false
   eval_mode: peft_lora
   batch_size: 1
   eval_batch_size: 1

@@ -17,4 +17,4 @@ eval_small:
   enabled: true
 
 eval_large:
-  enabled: true
+  enabled: false
