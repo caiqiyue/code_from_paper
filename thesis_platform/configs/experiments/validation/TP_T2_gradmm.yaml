@@ -1,0 +1,8 @@
+# TP-T2: Scorer多样性测试 - GradMM
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/scorers/gradmm_real.yaml
+
+meta:
+  experiment_id: TP_T2_gradmm
+  description: "TP-T2: GradMM scorer test"

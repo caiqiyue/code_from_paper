@@ -1,0 +1,8 @@
+# TP-T5: Routing开关测试 - routing OFF (none)
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/routing/none.yaml
+
+meta:
+  experiment_id: TP_T5_routing_off
+  description: "TP-T5: Routing disabled test (GA2)"

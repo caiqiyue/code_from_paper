@@ -1,0 +1,8 @@
+# TP-T4: Privacy梯度测试 - epsilon=0.5 (GP1)
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/privacy/jobs_eps05.yaml
+
+meta:
+  experiment_id: TP_T4_eps05
+  description: "TP-T4: Privacy test with epsilon=0.5"

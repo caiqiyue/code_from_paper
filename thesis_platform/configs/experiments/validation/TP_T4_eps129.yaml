@@ -1,0 +1,8 @@
+# TP-T4: Privacy梯度测试 - epsilon=1.29 (GP2, 默认)
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/privacy/jobs_eps129.yaml
+
+meta:
+  experiment_id: TP_T4_eps129
+  description: "TP-T4: Privacy test with epsilon=1.29"

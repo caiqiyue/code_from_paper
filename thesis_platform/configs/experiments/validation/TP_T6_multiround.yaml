@@ -1,0 +1,18 @@
+# TP-T6: 多轮联邦迭代测试 - 3轮完整联邦迭代
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+
+meta:
+  experiment_id: TP_T6_multiround
+  description: "TP-T6: Multi-round (3 rounds) federation test"
+
+federation:
+  rounds: 3
+  top_k_bad: 2
+
+generator:
+  generated_per_round: 6
+  exemplars_per_prompt: 1
+  max_new_tokens: 64
+  temperature: 0.2
+  initial_prompt: "Generate job-related text."

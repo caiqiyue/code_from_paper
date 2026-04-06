@@ -1,0 +1,8 @@
+# TP-T3: Aggregator多样性测试 - dbscan_attn_tsgdm (GAgg1基线)
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+
+meta:
+  experiment_id: TP_T3_dbscan
+  description: "TP-T3: dbscan_attn_tsgdm aggregator test"

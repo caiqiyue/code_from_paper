@@ -1,5 +1,5 @@
-# Linux RTX 2080 Ti (22GB) experiment config - GA4 ablation (no memory)
-# Uses qwen_2_0_5b_instruct with momentum_beta:0 to disable cross-round memory
+# TP-T1: 端到端最小链路测试
+# 验证完整流程: 生成→评分→选择→召回→批评→聚合→Prompt更新→下游评测→GLUE
 inherits:
   - ../../base/paths.yaml
   - ../../base/runtime.yaml
@@ -15,8 +15,8 @@ inherits:
   - ../../methods/downstream_eval/pretext_large_off.yaml
 
 meta:
-  experiment_id: jobs_real_datainf_v3_momentum0_linux
-  stage: v3_real_linux
+  experiment_id: TP_T1_end_to_end_minimal
+  stage: validation
   seed: 42
 
 data:
@@ -29,33 +29,35 @@ data:
   public_seed_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
   initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
   initial_prompt_path: ""
-  max_public_seed_samples: 48
-  num_clients: 16
-  max_samples_per_client: 8
+  max_public_seed_samples: 8
+  num_clients: 4
+  max_samples_per_client: 4
   validation_ratio: 0.25
   initialization_min_words: 20
+  train_limit: 16
+  eval_limit: 8
 
 generator:
-  generated_per_round: 24
-  exemplars_per_prompt: 2
-  max_new_tokens: 192
+  generated_per_round: 4
+  exemplars_per_prompt: 1
+  max_new_tokens: 64
   temperature: 0.2
-  initial_prompt: "Generate job-related text that matches the private client writing style while preserving privacy."
+  initial_prompt: "Generate job-related text."
 
 retriever:
   embedding_model: thesis_platform/open_model/all_minilm_l6_v2
   allow_hashing_fallback: false
-  top_k: 2
+  top_k: 1
 
 aggregator:
   name: dbscan_attn_tsgdm
-  max_rules: 5
+  max_rules: 2
   embedding_model: thesis_platform/open_model/all_minilm_l6_v2
   allow_hashing_fallback: false
   cluster_eps: 0.35
-  cluster_min_samples: 2
-  momentum_beta: 0  # GA4: disable cross-round memory merging
+  cluster_min_samples: 1
+  momentum_beta: 0.7
 
 federation:
-  rounds: 3
-  top_k_bad: 2
+  rounds: 1
+  top_k_bad: 1

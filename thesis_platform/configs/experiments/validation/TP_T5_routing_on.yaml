@@ -1,0 +1,8 @@
+# TP-T5: Routing开关测试 - routing ON (personalized_v3)
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/routing/personalized_v3.yaml
+
+meta:
+  experiment_id: TP_T5_routing_on
+  description: "TP-T5: Routing enabled test"

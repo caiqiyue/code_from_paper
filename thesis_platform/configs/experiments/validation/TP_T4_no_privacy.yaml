@@ -1,0 +1,8 @@
+# TP-T4: Privacy梯度测试 - no privacy (GP4)
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/privacy/jobs_no_privacy.yaml
+
+meta:
+  experiment_id: TP_T4_no_privacy
+  description: "TP-T4: Privacy test with no privacy constraint"

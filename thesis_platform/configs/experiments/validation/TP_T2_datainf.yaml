@@ -1,0 +1,8 @@
+# TP-T2: Scorer多样性测试 - DataInf
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/scorers/datainf_real.yaml
+
+meta:
+  experiment_id: TP_T2_datainf
+  description: "TP-T2: DataInf scorer test"

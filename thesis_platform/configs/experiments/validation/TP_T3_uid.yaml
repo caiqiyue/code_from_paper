@@ -1,0 +1,8 @@
+# TP-T3: Aggregator多样性测试 - uid (GAgg3)
+inherits:
+  - ./TP_T1_end_to_end_minimal.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: TP_T3_uid
+  description: "TP-T3: UID aggregator test"

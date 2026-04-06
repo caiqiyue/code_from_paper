@@ -1,0 +1,60 @@
+# PT-T2: PrE-Text Privacy梯度测试 - epsilon=7.58
+inherits:
+  - ../base/paths.yaml
+  - ../base/models.yaml
+  - ../base/runtime.yaml
+  - ../templates/noise_eps758.yaml
+
+meta:
+  experiment_id: PT_T2_eps758
+  seed: 42
+
+paths:
+  dataset_root: ../thesis_platform/datasets
+  model_root: ../thesis_platform/open_model
+
+data:
+  dataset_name: jobs
+  train_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  max_samples_per_client: 4
+  initialization_min_words: 20
+  train_limit: 32
+  eval_limit: 16
+  initialization_limit: 256
+
+stage1:
+  rounds: 2
+  sensitivity: 8
+  lookahead: 1
+  multiplier: 1
+  batch_size: 16
+  embed_batch_size: 32
+  nearest_neighbors_print: 1
+  num_workers: 0
+
+bootstrap:
+  enabled: true
+  num_prompts: 16
+  generator_backend: huggingface
+  generator_model: distilgpt2
+  batch_size: 4
+  device: cuda
+  max_tokens: 64
+  temperature: 1.0
+  top_p: 1.0
+  max_model_len: 512
+
+eval_small:
+  enabled: true
+  eval_mode: gpt2
+  cutoff_len: 64
+  grad_accum_steps: 16
+  epochs: 3
+  batch_size: 16
+  eval_batch_size: 8
+  learning_rate: 0.0002
+
+eval_large:
+  enabled: false
