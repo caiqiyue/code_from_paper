@@ -374,12 +374,14 @@
       "Bash(grep -l \"pretext_large_off\\\\|pretext_large_on\\\\|pretext_large\\\\|run_large_eval\" /d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/*.yaml)",
       "Bash(grep -l \"eval_large\\\\|run_large_eval\" /d/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/*.yaml)",
       "Bash(grep -r \"pretext_large_off\" /d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/*.yaml)",
-      "Bash(ls /d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/validation/TP_T*.yaml /d/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/PT_T*.yaml)"
+      "Bash(ls /d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/validation/TP_T*.yaml /d/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/PT_T*.yaml)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /c/temp/upload_ira.ps1)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",
       "D:\\temp",
-      "\\tmp"
+      "\\tmp",
+      "C:\\temp"
     ]
   }
 }

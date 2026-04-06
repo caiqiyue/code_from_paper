@@ -9,12 +9,12 @@ def compute_ira_scores(samples: list[Sample], *, text_backend) -> tuple[list[flo
     scores: list[float] = []
     meta: list[dict[str, float]] = []
     for sample in samples:
-        if not sample.response:
-            raise ValueError("IRA requires samples with response fields.")
-        unconditional = float(text_backend.negative_log_likelihood("", sample.response))
-        conditional_prompt = sample.instruction or ""
-        conditional = float(text_backend.negative_log_likelihood(conditional_prompt, sample.response))
+        # Use response if available, otherwise fall back to text field
+        response_text = sample.response if sample.response else sample.text
+        instruction_text = sample.instruction or ""
+        unconditional = float(text_backend.negative_log_likelihood("", response_text))
+        conditional = float(text_backend.negative_log_likelihood(instruction_text, response_text))
         score = conditional - unconditional
         scores.append(score)
-        meta.append({"loss_response_only": unconditional, "loss_response_given_instruction": conditional})
+        meta.append({"loss_response_only": unconditional, "loss_response_given_instruction": conditional, "response_source": "response" if sample.response else "text_fallback"})
     return scores, meta
