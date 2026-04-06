@@ -1,7 +1,7 @@
 aggregator:
   name: dbscan_attn
   max_rules: 5
-  embedding_model: models/all-MiniLM-L6-v2
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
   allow_hashing_fallback: false
   cluster_eps: 0.35
   cluster_min_samples: 2

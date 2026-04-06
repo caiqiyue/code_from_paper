@@ -375,7 +375,18 @@
       "Bash(grep -l \"eval_large\\\\|run_large_eval\" /d/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/*.yaml)",
       "Bash(grep -r \"pretext_large_off\" /d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/*.yaml)",
       "Bash(ls /d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/validation/TP_T*.yaml /d/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/PT_T*.yaml)",
-      "Bash(powershell -ExecutionPolicy Bypass -File /c/temp/upload_ira.ps1)"
+      "Bash(powershell -ExecutionPolicy Bypass -File /c/temp/upload_ira.ps1)",
+      "Bash(ping -n 2 10.60.87.248)",
+      "Bash(ping -n 3 10.60.87.248)",
+      "Read(//c/Users/Administrator/**)",
+      "Read(//c/Windows/System32/drivers/etc/**)",
+      "Bash(grep -v \"^$\")",
+      "Bash(ping -n 2 connect.nmb1.seetacloud.com)",
+      "Bash(tracert -h 5 10.60.87.248)",
+      "Bash(ls configs/experiments/PT_*.yaml configs/experiments/TP_*.yaml)",
+      "Bash(ls configs/experiments/TP_T3*.yaml)",
+      "Bash(scp -P 26732 -o StrictHostKeyChecking=no D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/methods/aggregators/dbscan_attn_tsgdm.yaml root@connect.nmb1.seetacloud.com:/root/autodl-tmp/caiqiyue/code_from_paper/thesis_platform/configs/methods/aggregators/dbscan_attn_tsgdm.yaml)",
+      "Bash(scp -P 26732 -o StrictHostKeyChecking=no D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/methods/aggregators/dbscan_attn.yaml root@connect.nmb1.seetacloud.com:/root/autodl-tmp/caiqiyue/code_from_paper/thesis_platform/configs/methods/aggregators/dbscan_attn.yaml)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",
