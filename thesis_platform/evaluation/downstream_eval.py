@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import gc
 import json
 import sys
 from pathlib import Path
@@ -7,6 +8,23 @@ from typing import Any
 
 from thesis_platform.core.artifact_manifest import ARTIFACT_SCHEMA_VERSION
 from thesis_platform.core.io_utils import ensure_dir, read_json, to_jsonable, write_json
+
+try:
+    import torch
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
+
+
+def _clear_gpu_memory() -> None:
+    """Explicitly clear GPU memory between stages to avoid OOM."""
+    if not _TORCH_AVAILABLE:
+        return
+    if not torch.cuda.is_available():
+        return
+    torch.cuda.empty_cache()
+    torch.cuda.synchronize()
+    gc.collect()
 
 
 def resolve_large_eval_mode(downstream_cfg: dict[str, Any], *, platform_name: str | None = None) -> str:
@@ -572,6 +590,8 @@ class DownstreamEvalManager:
         )
         canonical_corpus_path = self._write_pretext_alias(corpus_path)
         large_stage = self._run_large_stage(stage2_dir=stage2_dir)
+        # Clear GPU memory between stages to avoid OOM
+        _clear_gpu_memory()
         small_stage = self._run_small_stage(stage2_dir=stage2_dir)
         baseline_paths = list(self.downstream_cfg.get("baseline_summary_paths", []))
         baseline_summaries = collect_baseline_summaries(self.repo_root, baseline_paths, output_dir=self.output_dir)

@@ -409,7 +409,16 @@
       "Bash(/d/anconda/python.exe)",
       "Bash(grep -l \"rounds: 3\\\\|rounds:3\" d:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/*.yaml)",
       "Bash(grep -rn \"rounds: 3\\\\|max_samples_per_client: 8\\\\|generated_per_round: 24\" d:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/linux/*.yaml)",
-      "Bash(grep -rn \"max_samples_per_client: 8\\\\|num_prompts: 50000\" d:/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/*.yaml)"
+      "Bash(grep -rn \"max_samples_per_client: 8\\\\|num_prompts: 50000\" d:/学习记录/导师项目/研究/caiqiyue_file/PrE-Text/configs/experiments/*.yaml)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_connect.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_connect2.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_connect7.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_connect8.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_connect10.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_connect11.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_check_ga6_status.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_check_ga6_full.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_ga6_result.ps1)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",

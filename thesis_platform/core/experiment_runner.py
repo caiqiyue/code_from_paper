@@ -2,6 +2,7 @@
 
 import copy
 from datetime import datetime, timezone
+import gc
 import os
 from pathlib import Path
 import platform
@@ -14,6 +15,12 @@ from typing import Any
 import json
 
 import thesis_platform.adapters  # Populate the adapter registry via import side effects.
+
+try:
+    import torch
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
 
 from thesis_platform.core.artifact_manifest import (
     ARTIFACT_SCHEMA_VERSION,
@@ -465,6 +472,19 @@ class ExperimentRunner:
         for signum, handler in self._original_signal_handlers.items():
             signal.signal(signum, handler)
         self._original_signal_handlers.clear()
+
+    @staticmethod
+    def _clear_gpu_memory() -> None:
+        """Explicitly clear GPU memory between phases to avoid OOM during downstream eval."""
+        if not _TORCH_AVAILABLE:
+            return
+        if not torch.cuda.is_available():
+            return
+        # Clear CUDA cache
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        # Run garbage collection to free any unreferenced tensors
+        gc.collect()
 
     def _build_text_backends(self) -> tuple[Any, Any]:
         """Build shared client/server text backends when configured."""
@@ -1116,6 +1136,9 @@ class ExperimentRunner:
                 progress.close()
                 progress = None
 
+            # Clear GPU memory before downstream evaluation to avoid OOM
+            self._clear_gpu_memory()
+
             if self._stop_requested:
                 interrupted_downstream = self._build_downstream_stub(
                     enabled=bool(downstream_cfg.get("enabled")),
@@ -1197,6 +1220,9 @@ class ExperimentRunner:
                     status="disabled",
                     kind=downstream_cfg.get("kind", "none"),
                 )
+
+            # Clear GPU memory before cross-domain evaluation
+            self._clear_gpu_memory()
 
             # Run cross-domain evaluation if enabled (for transfer learning experiments)
             cross_domain_summary = None
