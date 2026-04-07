@@ -997,6 +997,7 @@ class ExperimentRunner:
                         else f"{self.experiment_id}"
                     ),
                     unit="round",
+                    file=sys.stderr,
                 )
                 if tqdm is not None
                 else None
@@ -1043,11 +1044,15 @@ class ExperimentRunner:
                     )
                 )
                 if progress is not None:
-                    progress.set_postfix(
-                        generated=artifacts.round_metrics.get("generated_count", 0),
-                        critiques=artifacts.round_metrics.get("critique_count", 0),
-                    )
-                    progress.update(1)
+                    try:
+                        progress.set_postfix(
+                            generated=artifacts.round_metrics.get("generated_count", 0),
+                            critiques=artifacts.round_metrics.get("critique_count", 0),
+                        )
+                        progress.update(1)
+                    except BrokenPipeError:
+                        progress.close()
+                        progress = None
                 self.logger.info(
                     "Round %d/%d | complete | generated=%s selected_bad=%d critiques=%d output=%s",
                     round_id + 1,

@@ -386,7 +386,20 @@
       "Bash(ls configs/experiments/PT_*.yaml configs/experiments/TP_*.yaml)",
       "Bash(ls configs/experiments/TP_T3*.yaml)",
       "Bash(scp -P 26732 -o StrictHostKeyChecking=no D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/methods/aggregators/dbscan_attn_tsgdm.yaml root@connect.nmb1.seetacloud.com:/root/autodl-tmp/caiqiyue/code_from_paper/thesis_platform/configs/methods/aggregators/dbscan_attn_tsgdm.yaml)",
-      "Bash(scp -P 26732 -o StrictHostKeyChecking=no D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/methods/aggregators/dbscan_attn.yaml root@connect.nmb1.seetacloud.com:/root/autodl-tmp/caiqiyue/code_from_paper/thesis_platform/configs/methods/aggregators/dbscan_attn.yaml)"
+      "Bash(scp -P 26732 -o StrictHostKeyChecking=no D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/methods/aggregators/dbscan_attn.yaml root@connect.nmb1.seetacloud.com:/root/autodl-tmp/caiqiyue/code_from_paper/thesis_platform/configs/methods/aggregators/dbscan_attn.yaml)",
+      "Bash(export SSH_ASKPASS=./ssh_pass.sh)",
+      "Bash(ls -la ~/.autodl*)",
+      "Bash(powershell -Command '@:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File C:\\\\temp\\\\create_askpass.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:/temp/create_askpass.ps1\")",
+      "Bash(cd /d \"D:/学习记录/导师项目/研究/caiqiyue_file\")",
+      "Bash(cmd /c \"dir \\\\\"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\logs\\\\\" /b /ad 2>nul\")",
+      "Bash(cmd /c \"dir \\\\\"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\logs\\\\\" /b\")",
+      "Bash(cmd /c \"for %i in \\(\\\\\"D:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\thesis_platform\\\\logs\\\\\"\\) do @echo %~si\")",
+      "Bash(bash -c 'cd \"/d/学习记录/导师项目/研究/caiqiyue_file\" && ls thesis_platform/logs/')",
+      "Bash(bash -c 'ls -la \"/d/学习记录/导师项目/研究/caiqiyue_file/\"')",
+      "Bash(bash -c 'ls -la \"/d/学习记录/导师项目/研究/caiqiyue_file/scripts/\"')",
+      "Bash(bash -c 'ls -la \"/d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/\"')"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",
