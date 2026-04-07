@@ -237,7 +237,7 @@ def run_llama2_eval(
             if best_accuracy < top_k_accuracies[1]:
                 best_accuracy = top_k_accuracies[1]
                 best_dict = stats
-            save_checkpoint(model, optimizer, accelerator, epoch, filename=str(log_dir / f"checkpoint{epoch}.pth"))
+                save_checkpoint(model, optimizer, accelerator, epoch, filename=str(log_dir / f"checkpoint{epoch}.pth"))
 
     if accelerator.is_main_process and best_dict is not None:
         with (log_dir / "best_stats.json").open("w", encoding="utf-8") as handle:

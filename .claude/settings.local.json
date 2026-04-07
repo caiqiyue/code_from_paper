@@ -399,7 +399,13 @@
       "Bash(bash -c 'cd \"/d/学习记录/导师项目/研究/caiqiyue_file\" && ls thesis_platform/logs/')",
       "Bash(bash -c 'ls -la \"/d/学习记录/导师项目/研究/caiqiyue_file/\"')",
       "Bash(bash -c 'ls -la \"/d/学习记录/导师项目/研究/caiqiyue_file/scripts/\"')",
-      "Bash(bash -c 'ls -la \"/d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/\"')"
+      "Bash(bash -c 'ls -la \"/d/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/\"')",
+      "Bash(python -c \"import paramiko; print\\(paramiko.__file__\\)\")",
+      "Bash(D:\\\\anaconda\\\\python.exe -c \"import paramiko; print\\('ok'\\)\")",
+      "Bash(/d/anaconda/python.exe -c \"import paramiko; print\\('ok'\\)\")",
+      "Read(//mnt/**)",
+      "Read(//d/anconda//**)",
+      "Bash(/d/anconda/python.exe -c \"import paramiko; print\\('ok'\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",
