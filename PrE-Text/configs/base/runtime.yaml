@@ -3,7 +3,7 @@ runtime:
 
 stage1:
   enabled: true
-  rounds: 11
+  rounds: 25
   mask: 0.3
   lookahead: 4
   multiplier: 4
@@ -21,7 +21,7 @@ stage1:
 
 bootstrap:
   enabled: true
-  num_prompts: 50000
+  num_prompts: 80000
   generator_model: llama2_7b
   temperature: 1.0
   top_p: 1.0

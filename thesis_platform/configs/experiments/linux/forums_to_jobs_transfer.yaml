@@ -33,7 +33,7 @@ data:
   initial_prompt_path: ""
   max_public_seed_samples: 48
   num_clients: 16
-  max_samples_per_client: 8
+  max_samples_per_client: 16
   validation_ratio: 0.25
   initialization_min_words: 20
 
@@ -45,7 +45,7 @@ cross_domain_eval:
   target_eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
 
 generator:
-  generated_per_round: 24
+  generated_per_round: 32
   exemplars_per_prompt: 2
   max_new_tokens: 192
   temperature: 0.2
@@ -66,5 +66,5 @@ aggregator:
   momentum_beta: 0.7
 
 federation:
-  rounds: 3
+  rounds: 10
   top_k_bad: 2

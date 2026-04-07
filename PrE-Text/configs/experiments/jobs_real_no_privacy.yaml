@@ -16,7 +16,7 @@ data:
   train_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
   eval_path: ../thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
   initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
-  max_samples_per_client: 8
+  max_samples_per_client: 16
   initialization_min_words: 20
 
 stage1:
@@ -24,7 +24,7 @@ stage1:
   privacy_disabled: true
 
 bootstrap:
-  num_prompts: 50000
+  num_prompts: 80000
 
 eval_small:
   enabled: false

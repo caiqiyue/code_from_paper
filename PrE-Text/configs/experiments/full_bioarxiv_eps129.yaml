@@ -10,7 +10,7 @@ meta:
 
 data:
   dataset_name: bioarxiv
-  max_samples_per_client: 8
+  max_samples_per_client: 16
   initialization_min_words: 20
 
 eval_small:
