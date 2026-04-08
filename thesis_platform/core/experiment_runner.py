@@ -39,6 +39,7 @@ from thesis_platform.core.logging_utils import (
 from thesis_platform.core.preflight import validate_preflight
 from thesis_platform.core.privacy import PrivacyLedger, PrivacyPolicy
 from thesis_platform.core.registry import create
+from thesis_platform.core.resource_cleanup import release_component_resources
 from thesis_platform.core.round_runner import RoundRunner
 from thesis_platform.data.loaders import load_samples
 from thesis_platform.data.partition import partition_samples
@@ -472,6 +473,36 @@ class ExperimentRunner:
         for signum, handler in self._original_signal_handlers.items():
             signal.signal(signum, handler)
         self._original_signal_handlers.clear()
+
+    def _release_fl_resources(
+        self,
+        server_ctx: Any,
+        client_contexts: list[Any],
+        generator: Any,
+        scorer: Any,
+        retriever: Any,
+        critic: Any,
+        aggregator: Any,
+    ) -> None:
+        """Release all GPU resources held by FL training components before downstream eval."""
+        release_component_resources(
+            server_ctx,
+            *client_contexts,
+            generator,
+            scorer,
+            retriever,
+            critic,
+            aggregator,
+        )
+
+        # Break strong references held by the long-lived experiment contexts.
+        if server_ctx is not None and hasattr(server_ctx, "text_backend") and server_ctx.text_backend is not None:
+            server_ctx.text_backend = None
+        for ctx in client_contexts:
+            if hasattr(ctx, "text_backend") and ctx.text_backend is not None:
+                ctx.text_backend = None
+            if hasattr(ctx, "embedder") and ctx.embedder is not None:
+                ctx.embedder = None
 
     @staticmethod
     def _clear_gpu_memory() -> None:
@@ -1141,7 +1172,17 @@ class ExperimentRunner:
                 progress.close()
                 progress = None
 
-            # Clear GPU memory before downstream evaluation to avoid OOM
+            # Release all FL training GPU resources before downstream evaluation
+            self._release_fl_resources(
+                server_ctx=server_ctx,
+                client_contexts=client_contexts,
+                generator=generator,
+                scorer=scorer,
+                retriever=retriever,
+                critic=critic,
+                aggregator=aggregator,
+            )
+            # Clear GPU memory after releasing resources
             self._clear_gpu_memory()
 
             if self._stop_requested:
@@ -1381,6 +1422,5 @@ class ExperimentRunner:
                 progress.close()
             self._restore_signal_handlers()
             close_experiment_file_logger("thesis_platform")
-
 
 

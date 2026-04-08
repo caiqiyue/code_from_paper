@@ -420,7 +420,8 @@
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_check_ga6_full.ps1)",
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_ga6_result.ps1)",
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_gpu_now.ps1)",
-      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_del_registry.ps1)"
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_del_registry.ps1)",
+      "Bash(export SSH_ASKPASS=\"C:/temp/ssh_askpass.exe\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",

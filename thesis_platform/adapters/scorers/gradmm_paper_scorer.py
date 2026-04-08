@@ -418,3 +418,31 @@ class GradMMPaperScorer:
         }
 
         return scored_samples
+
+    def release(self) -> None:
+        """Release any cached GPU-backed model state held by the scorer."""
+
+        current_cache = getattr(self, "_model_cache", None)
+        model_cache = dict(current_cache or {})
+        if isinstance(current_cache, dict):
+            current_cache.clear()
+        for model, tokenizer, _device in model_cache.values():
+            del model, tokenizer
+
+        feature_encoder = getattr(self, "feature_encoder", None)
+        self.feature_encoder = None
+        release = getattr(feature_encoder, "release", None)
+        if callable(release):
+            release()
+
+        try:
+            torch = _require_torch()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except RuntimeError:
+            pass
+
+    def __del__(self):
+        """Best-effort cleanup when the scorer is garbage-collected."""
+
+        self.release()

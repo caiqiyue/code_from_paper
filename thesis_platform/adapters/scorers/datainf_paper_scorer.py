@@ -359,3 +359,22 @@ class DataInfPaperScorer:
         }
 
         return scored_samples
+
+    def release(self) -> None:
+        """Release any cached GPU-backed model state held by the scorer."""
+
+        gradient_extractor = getattr(self, "_gradient_extractor", None)
+        self._gradient_extractor = None
+        if gradient_extractor is not None:
+            gradient_extractor.release()
+
+        feature_encoder = getattr(self, "feature_encoder", None)
+        self.feature_encoder = None
+        release = getattr(feature_encoder, "release", None)
+        if callable(release):
+            release()
+
+    def __del__(self):
+        """Best-effort cleanup when the scorer is garbage-collected."""
+
+        self.release()

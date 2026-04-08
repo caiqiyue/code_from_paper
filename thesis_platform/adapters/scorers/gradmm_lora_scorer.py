@@ -278,11 +278,26 @@ class GradMMRealScorer:
         cache[cache_key] = {"texts": list(texts), "vectors": vectors}
         return vectors
 
-    def __del__(self):
-        """Cleanup resources."""
+    def release(self) -> None:
+        """Release any cached GPU-backed model state held by the scorer."""
+
         gradient_extractor = getattr(self, "_gradient_extractor", None)
+        self._gradient_extractor = None
+        grad_cache = getattr(self, "_grad_cache", None)
+        if isinstance(grad_cache, dict):
+            grad_cache.clear()
         if gradient_extractor is not None:
             gradient_extractor.release()
+
+        feature_encoder = getattr(self, "feature_encoder", None)
+        self.feature_encoder = None
+        release = getattr(feature_encoder, "release", None)
+        if callable(release):
+            release()
+
+    def __del__(self):
+        """Cleanup resources."""
+        self.release()
 
 
 class GreedyGradMMSelector:

@@ -161,6 +161,7 @@ def run_glue_eval(config: ExperimentConfig) -> dict[str, StageSummary]:
         )
         summaries[f"glue_{task}"] = summary
         _write_stage_summary(experiment_dir, f"glue_{task}_summary.json", summary)
+        release_gpu_memory()
 
     glue_summary_payload = {
         task: {
