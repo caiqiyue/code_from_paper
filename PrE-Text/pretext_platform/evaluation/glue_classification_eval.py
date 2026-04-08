@@ -218,7 +218,8 @@ def run_glue_classification_eval(
         grad_accum_steps = int(eval_cfg.get("grad_accum_steps", 16))
         classifier_epochs = int(eval_cfg.get("epochs", 3))
         adaptation_epochs = int(eval_cfg.get("lm_epochs", 1))
-        batch_size = int(eval_cfg.get("batch_size", 16))
+        batch_size = int(eval_cfg.get("batch_size", 8))
+        eval_batch_size = int(eval_cfg.get("eval_batch_size", 4))
         learning_rate = float(eval_cfg.get("learning_rate", 5e-5))
         num_synthetic_samples = int(eval_cfg.get("num_synthetic_samples", 10000))
         seed = int(config.meta.get("seed", 42))
@@ -267,7 +268,7 @@ def run_glue_classification_eval(
         model = model.to(device)
 
         train_loader = DataLoader(train_tokenized, batch_size=batch_size, shuffle=True, num_workers=0)
-        eval_loader = DataLoader(eval_tokenized, batch_size=batch_size, shuffle=False, num_workers=0)
+        eval_loader = DataLoader(eval_tokenized, batch_size=eval_batch_size, shuffle=False, num_workers=0)
         optimizer = AdamW(model.parameters(), lr=learning_rate)
 
         best_accuracy = 0.0

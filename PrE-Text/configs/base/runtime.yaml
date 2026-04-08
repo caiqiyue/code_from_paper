@@ -9,8 +9,8 @@ stage1:
   multiplier: 4
   seq_len: 64
   t_steps: 2
-  batch_size: 256
-  embed_batch_size: 512
+  batch_size: 64
+  embed_batch_size: 128
   temperature: 1.0
   top_p: 1.0
   top_k: 0
@@ -32,10 +32,10 @@ eval_small:
   enabled: true
   eval_mode: gpt2
   cutoff_len: 64
-  grad_accum_steps: 64
+  grad_accum_steps: 8
   epochs: 20
-  batch_size: 256
-  eval_batch_size: 8
+  batch_size: 8
+  eval_batch_size: 2
   learning_rate: 0.0002
   num_proc: 1
 

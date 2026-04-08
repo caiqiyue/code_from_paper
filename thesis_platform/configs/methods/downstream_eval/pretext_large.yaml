@@ -17,6 +17,14 @@ downstream_eval:
   roberta_large_path: thesis_platform/open_model/roberta_large
   distilgpt2_path: thesis_platform/open_model/distilgpt2
   c4_checkpoint_path: ""
+  # Safe defaults for the fixed RTX 2080 Ti (22GB) server.
+  small_cutoff_len: 64
+  small_grad_accum_steps: 8
+  small_epochs: 20
+  small_batch_size: 8
+  small_eval_batch_size: 2
+  small_learning_rate: 0.0002
+  small_num_proc: 1
   cutoff_len: 64
   grad_accum_steps: 16
   epochs: 1
