@@ -418,7 +418,9 @@
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_connect11.ps1)",
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_check_ga6_status.ps1)",
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_check_ga6_full.ps1)",
-      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_ga6_result.ps1)"
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_ga6_result.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_gpu_now.ps1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_del_registry.ps1)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",

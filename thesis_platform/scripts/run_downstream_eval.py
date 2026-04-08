@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+
+# Set PyTorch CUDA allocator config BEFORE importing torch to prevent memory fragmentation
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 from thesis_platform.core.config import ExperimentConfig
 from thesis_platform.core.io_utils import read_json, read_jsonl, write_json, ensure_dir

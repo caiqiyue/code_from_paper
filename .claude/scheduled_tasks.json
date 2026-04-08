@@ -5,7 +5,7 @@
       "cron": "*/30 * * * *",
       "prompt": "连接服务器检查GA6实验状态：\n1. 执行: source ~/miniconda3/etc/profile.d/conda.sh && conda activate caiqiyue && ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 -o ConnectTimeout=20 -o StrictHostKeyChecking=no -p 26732 root@connect.nmb1.seetacloud.com \"tail -30 /tmp/ga6.log 2>/dev/null && ps aux | grep run_experiment | grep -v grep\"\n2. 判断GA6是否完成（看日志中是否有\"experiment complete\"或metrics_summary.json已生成，或进程已结束）\n3. 如果GA6完成：\n   - 保持GA6实验输出不动\n   - 直接启动GC1: cd /root/autodl-tmp/caiqiyue/code_from_paper && nohup python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/linux/jobs_real_datainf_v3_linux.yaml > /tmp/gc1.log 2>&1 &\n   - 报告: \"GA6已完成，已启动GC1实验（PID已记录）\"\n   - 用CronDelete删除此任务（ID: ga6_monitor_new）\n4. 如果GA6未完成：\n   - 从日志提取当前进度（Round X/10，已完成哪些round）\n   - 报告: \"GA6进行中，当前Round X/10，状态报告\"",
       "createdAt": 1775573854893,
-      "lastFiredAt": 1775604870236,
+      "lastFiredAt": 1775606953794,
       "recurring": true
     }
   ]

@@ -2,6 +2,10 @@
 
 import argparse
 import json
+import os
+
+# Set PyTorch CUDA allocator config BEFORE importing torch to prevent memory fragmentation
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 from thesis_platform.core.pipeline import run_pipeline
 

@@ -475,16 +475,21 @@ class ExperimentRunner:
 
     @staticmethod
     def _clear_gpu_memory() -> None:
-        """Explicitly clear GPU memory between phases to avoid OOM during downstream eval."""
+        """Thoroughly clear GPU memory between phases to avoid OOM during downstream eval."""
         if not _TORCH_AVAILABLE:
             return
         if not torch.cuda.is_available():
             return
-        # Clear CUDA cache
-        torch.cuda.empty_cache()
+        # Synchronize before cleanup to ensure all GPU operations complete
         torch.cuda.synchronize()
-        # Run garbage collection to free any unreferenced tensors
+        # Empty the CUDA cache - this releases cached memory back to the OS
+        torch.cuda.empty_cache()
+        # Run garbage collection to free any unreferenced Python objects
         gc.collect()
+        # Additional pass to ensure all pending deletions complete
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def _build_text_backends(self) -> tuple[Any, Any]:
         """Build shared client/server text backends when configured."""
