@@ -421,7 +421,11 @@
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_ga6_result.ps1)",
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_gpu_now.ps1)",
       "Bash(powershell -ExecutionPolicy Bypass -File /tmp/ssh_del_registry.ps1)",
-      "Bash(export SSH_ASKPASS=\"C:/temp/ssh_askpass.exe\")"
+      "Bash(export SSH_ASKPASS=\"C:/temp/ssh_askpass.exe\")",
+      "Bash(powershell -Command ':*)",
+      "Bash(powershell -File C:/temp/ssh_status.ps1)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\Administrator\\\\.claude\\\\projects\\\\d---------------caiqiyue-file\\\\d3744d1c-7243-478a-a558-042058baaad6\\\\tool-results\\\\b0ln96ont.txt' -Tail 50\")",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\Administrator\\\\.claude\\\\projects\\\\d---------------caiqiyue-file\\\\d3744d1c-7243-478a-a558-042058baaad6\\\\tool-results\\\\blix51x6t.txt' -Tail 40\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",

@@ -9,6 +9,7 @@ DEFAULT_INTERVAL_SECONDS=1800
 INTERVAL_SECONDS="${DEFAULT_INTERVAL_SECONDS}"
 START_FROM=""
 DRY_RUN=0
+STARTED_PID=""
 
 usage() {
   cat <<'EOF'
@@ -367,6 +368,7 @@ start_experiment() {
 
   if [[ "${DRY_RUN}" -eq 1 ]]; then
     log "DRY RUN ${experiment_id}: env=${env_name} workdir=${workdir} cmd=${inner_cmd}"
+    STARTED_PID=""
     return 0
   fi
 
@@ -374,7 +376,7 @@ start_experiment() {
   exp_log "${log_path}" "ENV=${env_name} WORKDIR=${workdir}"
   exp_log "${log_path}" "COMMAND=${inner_cmd}"
   setsid bash -lc "source '${CONDA_SH}' && conda activate '${env_name}' && cd '${workdir}' && ${inner_cmd}" >> "${log_path}" 2>&1 &
-  echo "$!"
+  STARTED_PID="$!"
 }
 
 monitor_experiment() {
@@ -440,7 +442,7 @@ for i in "${!QUEUE[@]}"; do
   log "START ${experiment_id} (${project})"
   exp_log "${log_path}" "START_TIME=${started_at}"
 
-  pid_or_zero="$(start_experiment "${experiment_id}")"
+  start_experiment "${experiment_id}"
   if [[ "${DRY_RUN}" -eq 1 ]]; then
     finished_at="$(date '+%Y-%m-%d %H:%M:%S')"
     exp_log "${log_path}" "END_TIME=${finished_at}"
@@ -449,7 +451,7 @@ for i in "${!QUEUE[@]}"; do
     continue
   fi
 
-  pid="${pid_or_zero}"
+  pid="${STARTED_PID}"
   monitor_experiment "${experiment_id}" "${pid}"
   wait "${pid}"
   exit_code="$?"
