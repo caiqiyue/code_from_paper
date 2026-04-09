@@ -21,7 +21,8 @@ stage1:
 
 bootstrap:
   enabled: true
-  num_prompts: 80000
+  generator_backend: vllm
+  num_prompts: 10000
   generator_model: llama2_7b
   temperature: 1.0
   top_p: 1.0

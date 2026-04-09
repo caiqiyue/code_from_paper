@@ -68,8 +68,7 @@ def _required_modules(config: ExperimentConfig, *, with_glue: bool) -> dict[str,
         }
 
     if bool(config.bootstrap.get("enabled", True)):
-        backend = str(config.bootstrap.get("generator_backend", "auto"))
-        stage2_modules = {"torch", "transformers"}
+        stage2_modules = {"torch", "transformers", "vllm"}
         generator_model = str(config.bootstrap.get("generator_model", "llama2_7b"))
         # Support both llama2_7b and distilgpt2 for testing
         if generator_model == "llama2_7b":
@@ -78,8 +77,6 @@ def _required_modules(config: ExperimentConfig, *, with_glue: bool) -> dict[str,
             raise ValueError(
                 "bootstrap.generator_model must be 'llama2_7b' or 'distilgpt2'."
             )
-        if backend == "vllm":
-            stage2_modules.add("vllm")
         required["stage2"] = stage2_modules
 
     if bool(config.eval_small.get("enabled", False)):
@@ -310,24 +307,34 @@ def _check_stage_dependencies(
             )
 
 
+def _check_bootstrap_backend(config: ExperimentConfig, *, errors: list[PreflightIssue]) -> None:
+    if not bool(config.bootstrap.get("enabled", True)):
+        return
+
+    backend = str(config.bootstrap.get("generator_backend", "vllm")).strip().lower()
+    if backend != "vllm":
+        _add_issue(
+            errors,
+            severity="error",
+            category="config",
+            message=(
+                "Stage 2 bootstrap requires bootstrap.generator_backend='vllm'. "
+                "HuggingFace fallback is disabled for PrE-Text experiments."
+            ),
+        )
+
+
 def _check_platform_risks(config: ExperimentConfig, *, warnings: list[PreflightIssue]) -> None:
     system_name = platform.system()
     if system_name == "Windows":
         if bool(config.bootstrap.get("enabled", True)):
-            generator_backend = str(config.bootstrap.get("generator_backend", "auto"))
-            if generator_backend == "auto":
+            generator_backend = str(config.bootstrap.get("generator_backend", "vllm"))
+            if generator_backend == "vllm":
                 _add_issue(
                     warnings,
                     severity="warning",
                     category="platform",
-                    message="Windows cannot use vLLM; Stage 2 will fall back to local Transformers generation and run much slower.",
-                )
-            elif generator_backend == "vllm":
-                _add_issue(
-                    warnings,
-                    severity="warning",
-                    category="platform",
-                    message="bootstrap.generator_backend=vllm is not supported on Windows. Switch to huggingface or auto.",
+                    message="bootstrap.generator_backend=vllm is not supported on Windows. PrE-Text Stage 2 must run in a Linux environment with local vLLM access.",
                 )
 
         eval_mode = str(config.eval_large.get("eval_mode", "peft_lora"))
@@ -354,6 +361,7 @@ def run_preflight(
     _check_glue_datasets(config, with_glue=with_glue, errors=errors)
     _check_model_paths(config, with_glue=with_glue, errors=errors, warnings=warnings)
     _check_stage_dependencies(config, with_glue=with_glue, errors=errors)
+    _check_bootstrap_backend(config, errors=errors)
     _check_platform_risks(config, warnings=warnings)
 
     return PreflightReport(

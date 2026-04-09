@@ -34,7 +34,7 @@ def _build_config(root: Path, *, stage1: bool = True, stage2: bool = True, eval_
                 "initialization_path": "./datasets/init.json",
             },
             "stage1": {"enabled": stage1, "rounds": 2},
-            "bootstrap": {"enabled": stage2},
+            "bootstrap": {"enabled": stage2, "generator_backend": "vllm"},
             "eval_small": {"enabled": False},
             "eval_large": {"enabled": eval_large, "eval_mode": "peft_lora"},
         },
@@ -86,6 +86,43 @@ class PreflightTests(unittest.TestCase):
 
         self.assertFalse(report.ready)
         self.assertTrue(any(issue.category == "artifact" for issue in report.errors))
+
+    def test_preflight_rejects_non_vllm_bootstrap_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _touch_json(root / "datasets" / "jobs_train.json", '["train"]')
+            _touch_json(root / "datasets" / "jobs_eval.json", '["eval"]')
+            _touch_json(root / "datasets" / "init.json", '["seed text with enough words for initialization"]')
+            for model_dir in ["all_minilm_l6_v2", "roberta_large", "llama_2_7b_hf", "distilgpt2"]:
+                (root / "models" / model_dir).mkdir(parents=True, exist_ok=True)
+
+            config = ExperimentConfig.from_mapping(
+                {
+                    "meta": {"experiment_id": "demo"},
+                    "paths": {
+                        "repo_root": ".",
+                        "output_root": "./outputs",
+                        "dataset_root": "./datasets",
+                        "model_root": "./models",
+                    },
+                    "data": {
+                        "dataset_name": "jobs",
+                        "train_path": "./datasets/jobs_train.json",
+                        "eval_path": "./datasets/jobs_eval.json",
+                        "initialization_path": "./datasets/init.json",
+                    },
+                    "stage1": {"enabled": True, "rounds": 2},
+                    "bootstrap": {"enabled": True, "generator_backend": "huggingface"},
+                    "eval_small": {"enabled": False},
+                    "eval_large": {"enabled": False},
+                },
+                base_dir=root,
+            )
+            with patch("pretext_platform.core.preflight._module_available", return_value=True):
+                report = run_preflight(config)
+
+        self.assertFalse(report.ready)
+        self.assertTrue(any(issue.category == "config" for issue in report.errors))
 
     def test_glue_validation_accepts_local_rotten_tomatoes_raw_dataset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -24,7 +24,7 @@ stage1:
   sensitivity: 8
 
 bootstrap:
-  num_prompts: 80000
+  num_prompts: 10000
 
 eval_small:
   enabled: false

@@ -158,35 +158,22 @@ def generate_bootstrapped_samples_hf(
 def generate_bootstrapped_samples(
     prompt_list: list[str], model_path: Path, bootstrap_cfg: dict
 ) -> list[str]:
-    """Run generation for the bootstrap prompts using the best available backend.
+    """Run generation for the bootstrap prompts with a mandatory vLLM backend."""
 
-    On Linux/macOS with vLLM installed: uses vLLM for fast batched inference.
-    On Windows or when vLLM is unavailable: falls back to HuggingFace Transformers.
+    backend = str(bootstrap_cfg.get("generator_backend", "vllm")).strip().lower()
+    if backend != "vllm":
+        raise RuntimeError(
+            "Stage 2 bootstrap requires bootstrap.generator_backend='vllm'. "
+            "HuggingFace fallback is disabled so bootstrap failures surface immediately."
+        )
 
-    To explicitly choose a backend, set `bootstrap.generator_backend` in config:
-    - "vllm": Use vLLM (Linux only)
-    - "huggingface": Use HuggingFace Transformers (cross-platform)
-    """
-
-    backend = bootstrap_cfg.get("generator_backend", "auto")
-
-    if backend == "vllm":
+    try:
         return generate_bootstrapped_samples_vllm(prompt_list, model_path, bootstrap_cfg)
-    elif backend == "huggingface":
-        return generate_bootstrapped_samples_hf(prompt_list, model_path, bootstrap_cfg)
-    else:  # "auto"
-        # Try vLLM first, fall back to HuggingFace
-        try:
-            return generate_bootstrapped_samples_vllm(prompt_list, model_path, bootstrap_cfg)
-        except ImportError:
-            import platform
-
-            if platform.system() == "Windows":
-                print(
-                    "vLLM not available on Windows, falling back to HuggingFace Transformers. "
-                    "Note: This is slower than vLLM but produces equivalent results."
-                )
-            return generate_bootstrapped_samples_hf(prompt_list, model_path, bootstrap_cfg)
+    except ImportError as exc:
+        raise RuntimeError(
+            "Stage 2 bootstrap requires the 'vllm' package in the active environment. "
+            "Install vllm in this environment or run the experiment in the pretext environment."
+        ) from exc
 
 
 def run_bootstrap_stage(
