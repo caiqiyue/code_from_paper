@@ -208,6 +208,25 @@ emit_gpu_status() {
   fi
 }
 
+kill_descendants() {
+  local parent_pid="$1"
+  local child_pids
+
+  child_pids="$(pgrep -P "${parent_pid}" 2>/dev/null || true)"
+  if [[ -n "${child_pids}" ]]; then
+    while IFS= read -r child_pid; do
+      [[ -z "${child_pid}" ]] && continue
+      kill_descendants "${child_pid}"
+      kill -TERM "${child_pid}" >/dev/null 2>&1 || true
+    done <<< "${child_pids}"
+    sleep 2
+    while IFS= read -r child_pid; do
+      [[ -z "${child_pid}" ]] && continue
+      kill -KILL "${child_pid}" >/dev/null 2>&1 || true
+    done <<< "${child_pids}"
+  fi
+}
+
 cleanup_gpu_context() {
   local env_name="$1"
   local workdir="$2"
@@ -248,10 +267,12 @@ cleanup_after_experiment() {
   exp_log "${log_path}" "CLEANUP started for ${experiment_id}."
 
   if kill -0 "${pid}" >/dev/null 2>&1; then
-    kill -TERM "-${pid}" >/dev/null 2>&1 || true
+    kill_descendants "${pid}"
+    kill -TERM "${pid}" >/dev/null 2>&1 || true
     sleep 5
   fi
-  kill -KILL "-${pid}" >/dev/null 2>&1 || true
+  kill_descendants "${pid}"
+  kill -KILL "${pid}" >/dev/null 2>&1 || true
 
   cleanup_gpu_context "${env_name}" "${workdir}"
   emit_gpu_status
@@ -311,7 +332,7 @@ PY" 2>/dev/null | tee -a "${MASTER_LOG}" >/dev/null || true
   fi
 }
 
-verify_success() {
+inspect_experiment_status() {
   local experiment_id="$1"
   local kind="${EXP_KIND[${experiment_id}]}"
   local config_path="${EXP_CONFIG[${experiment_id}]}"
@@ -329,13 +350,14 @@ config = load_experiment_config(sys.argv[1])
 experiment_id = str(config.meta.get('experiment_id', config.path.stem))
 pointer = Path(config.output_root()) / f'{experiment_id}_latest.json'
 if not pointer.exists():
-    raise SystemExit(1)
+    print('failed_artifact_check')
+    raise SystemExit(0)
 payload = json.loads(pointer.read_text(encoding='utf-8'))
 status = payload.get('status')
 experiment_dir = Path(payload.get('experiment_dir', ''))
 metrics = experiment_dir / 'metrics_summary.json'
-raise SystemExit(0 if status == 'completed' and metrics.exists() else 1)
-PY" >/dev/null 2>&1
+print('success' if status == 'completed' and metrics.exists() else 'failed_artifact_check')
+PY" 2>/dev/null
   else
     bash -lc "source '${CONDA_SH}' && conda activate '${env_name}' && cd '${workdir}' && python - '${config_path}' <<'PY'
 import sys
@@ -344,11 +366,39 @@ from pretext_platform.core.config import load_experiment_config
 
 config = load_experiment_config(sys.argv[1])
 run_dir = Path(config.output_root()) / config.experiment_id()
+stage1 = run_dir / 'stage1_summary.json'
+stage2 = run_dir / 'stage2_summary.json'
 stage2_json = run_dir / 'stage2' / 'llama7b_text_syn.json'
 eval_small = run_dir / 'eval_small_summary.json'
-raise SystemExit(0 if stage2_json.exists() and eval_small.exists() else 1)
-PY" >/dev/null 2>&1
+if stage1.exists() and stage2.exists() and stage2_json.exists() and eval_small.exists():
+    print('success')
+elif stage1.exists() and stage2.exists() and stage2_json.exists():
+    print('partial_success')
+else:
+    print('failed_artifact_check')
+PY" 2>/dev/null
   fi
+}
+
+pretext_resume_mode() {
+  local config_path="$1"
+  local workdir="$2"
+  local env_name="$3"
+
+  bash -lc "source '${CONDA_SH}' && conda activate '${env_name}' && cd '${workdir}' && python - '${config_path}' <<'PY'
+import sys
+from pathlib import Path
+from pretext_platform.core.config import load_experiment_config
+
+config = load_experiment_config(sys.argv[1])
+run_dir = Path(config.output_root()) / config.experiment_id()
+stage2_json = run_dir / 'stage2' / 'llama7b_text_syn.json'
+eval_small = run_dir / 'eval_small_summary.json'
+if stage2_json.exists() and not eval_small.exists():
+    print('resume_eval_small_only')
+else:
+    print('run_full_pipeline')
+PY" 2>/dev/null
 }
 
 start_experiment() {
@@ -360,10 +410,16 @@ start_experiment() {
   local log_path="${RUN_ROOT}/${experiment_id}.log"
 
   local inner_cmd=""
+  local mode=""
   if [[ "${kind}" == "thesis" ]]; then
     inner_cmd="python -m thesis_platform.scripts.run_experiment --config '${config_path}'"
   else
-    inner_cmd="python -m pretext_platform.scripts.run_pipeline --config '${config_path}' && python -m pretext_platform.scripts.run_eval_small --config '${config_path}'"
+    mode="$(pretext_resume_mode "${config_path}" "${workdir}" "${env_name}" | tail -n 1 | tr -d '\r')"
+    if [[ "${mode}" == "resume_eval_small_only" ]]; then
+      inner_cmd="python -m pretext_platform.scripts.run_eval_small --config '${config_path}'"
+    else
+      inner_cmd="python -m pretext_platform.scripts.run_pipeline --config '${config_path}' && python -m pretext_platform.scripts.run_eval_small --config '${config_path}'"
+    fi
   fi
 
   if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -375,7 +431,7 @@ start_experiment() {
   exp_log "${log_path}" "EXPERIMENT ${experiment_id} started."
   exp_log "${log_path}" "ENV=${env_name} WORKDIR=${workdir}"
   exp_log "${log_path}" "COMMAND=${inner_cmd}"
-  setsid bash -lc "source '${CONDA_SH}' && conda activate '${env_name}' && cd '${workdir}' && ${inner_cmd}" >> "${log_path}" 2>&1 &
+  bash -lc "source '${CONDA_SH}' && conda activate '${env_name}' && cd '${workdir}' && ${inner_cmd}" >> "${log_path}" 2>&1 &
   STARTED_PID="$!"
 }
 
@@ -398,10 +454,12 @@ record_aliases() {
     local target_id="${EXP_ALIAS_OF[${experiment_id}]}"
     local status="alias_waiting"
     local exit_code="-"
-    if grep -q "^${target_id}"$'\t'"${EXP_PROJECT[${target_id}]}"$'\t'"success"$'\t' "${SUMMARY_TSV}" 2>/dev/null; then
+    if grep -Eq "^${target_id}"$'\t'"${EXP_PROJECT[${target_id}]}"$'\t'"success"$'\t' "${SUMMARY_TSV}" 2>/dev/null; then
       status="alias_reused"
-    elif grep -q "^${target_id}"$'\t'"${EXP_PROJECT[${target_id}]}"$'\t'"failed"$'\t' "${SUMMARY_TSV}" 2>/dev/null; then
+    elif grep -Eq "^${target_id}"$'\t'"${EXP_PROJECT[${target_id}]}"$'\t'"(failed_runtime|failed_artifact_check)"$'\t' "${SUMMARY_TSV}" 2>/dev/null; then
       status="alias_source_failed"
+    elif grep -Eq "^${target_id}"$'\t'"${EXP_PROJECT[${target_id}]}"$'\t'"partial_success"$'\t' "${SUMMARY_TSV}" 2>/dev/null; then
+      status="alias_source_partial"
     fi
     append_summary "${experiment_id}" "${EXP_PROJECT[${experiment_id}]}" "${status}" "${exit_code}" "${target_id}" "-" "-" "-"
   done
@@ -457,19 +515,40 @@ for i in "${!QUEUE[@]}"; do
   exit_code="$?"
   cleanup_after_experiment "${experiment_id}" "${pid}" "${env_name}" "${workdir}" "${log_path}"
   finished_at="$(date '+%Y-%m-%d %H:%M:%S')"
+  artifact_status="$(inspect_experiment_status "${experiment_id}" | tail -n 1 | tr -d '\r')"
+  final_status=""
 
-  if [[ "${exit_code}" -eq 0 ]] && verify_success "${experiment_id}"; then
-    log "DONE ${experiment_id} succeeded."
-    exp_log "${log_path}" "END_TIME=${finished_at}"
-    exp_log "${log_path}" "RESULT=success"
-    append_summary "${experiment_id}" "${project}" "success" "${exit_code}" "-" "${started_at}" "${finished_at}" "${RUN_ROOT}/${experiment_id}.log"
+  if [[ "${exit_code}" -ne 0 ]]; then
+    if [[ "${artifact_status}" == "success" ]]; then
+      final_status="success"
+    elif [[ "${artifact_status}" == "partial_success" ]]; then
+      final_status="partial_success"
+    else
+      final_status="failed_runtime"
+    fi
   else
-    log "FAIL ${experiment_id} exited with code ${exit_code}; continuing to next experiment."
-    exp_log "${log_path}" "END_TIME=${finished_at}"
-    exp_log "${log_path}" "RESULT=failed"
-    exp_log "${log_path}" "EXIT_CODE=${exit_code}"
-    append_summary "${experiment_id}" "${project}" "failed" "${exit_code}" "-" "${started_at}" "${finished_at}" "${RUN_ROOT}/${experiment_id}.log"
+    if [[ "${artifact_status}" == "success" ]]; then
+      final_status="success"
+    elif [[ "${artifact_status}" == "partial_success" ]]; then
+      final_status="partial_success"
+    else
+      final_status="failed_artifact_check"
+    fi
   fi
+
+  if [[ "${final_status}" == "success" ]]; then
+    log "DONE ${experiment_id} succeeded."
+  elif [[ "${final_status}" == "partial_success" ]]; then
+    log "PARTIAL ${experiment_id}: main flow finished but formal artifacts are incomplete."
+  else
+    log "FAIL ${experiment_id}: status=${final_status} exit_code=${exit_code}; continuing to next experiment."
+  fi
+
+  exp_log "${log_path}" "END_TIME=${finished_at}"
+  exp_log "${log_path}" "RESULT=${final_status}"
+  exp_log "${log_path}" "EXIT_CODE=${exit_code}"
+  exp_log "${log_path}" "ARTIFACT_STATUS=${artifact_status}"
+  append_summary "${experiment_id}" "${project}" "${final_status}" "${exit_code}" "-" "${started_at}" "${finished_at}" "${RUN_ROOT}/${experiment_id}.log"
 done
 
 record_aliases

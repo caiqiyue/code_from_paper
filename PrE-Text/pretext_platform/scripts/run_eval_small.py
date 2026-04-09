@@ -5,6 +5,7 @@ import json
 from dataclasses import asdict
 
 from pretext_platform.core.config import load_experiment_config
+from pretext_platform.core.io_utils import write_json
 
 
 def _convert_paths(obj):
@@ -59,6 +60,9 @@ def main() -> None:
         if eval_mode != "gpt2":
             print(f"Unknown eval_small.eval_mode={eval_mode!r}, falling back to GPT-2.")
         summary = run_gpt2_eval(config, dataset_bundle, model_paths, stage2_dir, output_dir)
+
+    write_json(experiment_dir / "eval_small_summary.json", summary)
+    write_json(experiment_dir / "resolved_config.json", config.raw)
 
     summary_dict = _convert_paths(asdict(summary))
     print(json.dumps(summary_dict, ensure_ascii=False, indent=2))
