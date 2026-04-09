@@ -21,8 +21,9 @@ def _convert_paths(obj):
 def main() -> None:
     """Run only the small-model downstream evaluation (GPT-2 or DistilGPT2).
 
-    If c4_checkpoint.pth exists, uses DistilGPT2 with warm-start.
-    Otherwise, uses GPT-2 directly from HuggingFace (no checkpoint needed).
+    The execution mode follows `eval_small.eval_mode` in the resolved config:
+    - `gpt2`: always use base GPT-2 from HuggingFace
+    - `distilgpt2`: require `c4_checkpoint.pth`, otherwise fail fast
     """
 
     from pretext_platform.core.models import resolve_model_paths
@@ -40,25 +41,23 @@ def main() -> None:
     model_paths = resolve_model_paths(config)
     dataset_bundle = load_dataset_bundle(config)
 
-    # Determine which evaluation function to use
-    if model_paths.c4_checkpoint is not None and model_paths.c4_checkpoint.is_file():
-        # Use DistilGPT2 with warm-start checkpoint
-        from pretext_platform.core.pipeline import _experiment_dir
-        from pretext_platform.core.io_utils import ensure_dir
+    eval_mode = str(config.eval_small.get("eval_mode", "gpt2")).strip().lower()
+    from pretext_platform.core.pipeline import _experiment_dir
+    from pretext_platform.core.io_utils import ensure_dir
 
-        experiment_dir = _experiment_dir(config)
-        stage2_dir = experiment_dir / "stage2"
-        output_dir = experiment_dir / "eval_small"
+    experiment_dir = _experiment_dir(config)
+    stage2_dir = experiment_dir / "stage2"
+    output_dir = ensure_dir(experiment_dir / "eval_small")
+
+    if eval_mode == "distilgpt2":
+        if model_paths.c4_checkpoint is None or not model_paths.c4_checkpoint.is_file():
+            raise FileNotFoundError(
+                "eval_small.eval_mode=distilgpt2 requires c4_checkpoint.pth, but no checkpoint was found."
+            )
         summary = run_distilgpt2_eval(config, dataset_bundle, model_paths, stage2_dir, output_dir)
     else:
-        # Use GPT-2 without checkpoint (Windows compatible)
-        print("c4_checkpoint.pth not found, using GPT-2 from HuggingFace instead")
-        from pretext_platform.core.pipeline import _experiment_dir
-        from pretext_platform.core.io_utils import ensure_dir
-
-        experiment_dir = _experiment_dir(config)
-        stage2_dir = experiment_dir / "stage2"
-        output_dir = ensure_dir(experiment_dir / "eval_small")
+        if eval_mode != "gpt2":
+            print(f"Unknown eval_small.eval_mode={eval_mode!r}, falling back to GPT-2.")
         summary = run_gpt2_eval(config, dataset_bundle, model_paths, stage2_dir, output_dir)
 
     summary_dict = _convert_paths(asdict(summary))
