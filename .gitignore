@@ -37,3 +37,13 @@ GRADMM/addax/ft/
 GRADMM/addax/result/
 GRADMM/gradmm/s/
 GRADMM/m/
+
+# Local automation runner artifacts
+automation/manual_experiment_queue.py
+automation/run_manual_experiment_queue.cmd
+automation/manual_experiment_queue_state.json
+automation/manual_experiment_queue.log
+automation/
+.ruff_cache/
+.pytest_cache/
+execute/
