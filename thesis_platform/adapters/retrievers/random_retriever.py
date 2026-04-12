@@ -20,7 +20,12 @@ class RandomRetriever:
 
         corpus = client_ctx.train_samples or client_ctx.all_samples
         pairs: list[PairedSample] = []
-        rng = random.Random(self.seed + (client_ctx.round_id or 0))
+        if not bad_samples:
+            return pairs
+
+        # ClientContext is per-client state; the round is carried by samples.
+        round_id = int(bad_samples[0].round_id or 0)
+        rng = random.Random(self.seed + round_id)
 
         for idx, bad_sample in enumerate(bad_samples):
             if corpus:

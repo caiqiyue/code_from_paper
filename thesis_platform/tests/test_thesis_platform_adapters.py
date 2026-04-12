@@ -6,6 +6,7 @@ from thesis_platform.adapters.aggregators.uid import UIDAggregator
 from thesis_platform.adapters.critics.fedtextgrad_critic import FedTextGradCritic
 from thesis_platform.adapters.generators.pretext_generator import PretextSeedGenerator
 from thesis_platform.adapters.retrievers.knn_retriever import KNNRetriever
+from thesis_platform.adapters.retrievers.random_retriever import RandomRetriever
 from thesis_platform.adapters.scorers.datainf_scorer import DataInfScorer
 from thesis_platform.adapters.scorers.gradmm_scorer import GradMMScorer
 from thesis_platform.adapters.scorers.pretext_histogram import PretextHistogramScorer
@@ -70,6 +71,15 @@ class AdapterSmokeTests(unittest.TestCase):
         self.assertEqual(len(pairs), 1)
         self.assertIsInstance(critiques[0], Critique)
         self.assertTrue(update is None or update.rules)
+
+    def test_random_retriever_uses_sample_round_id(self) -> None:
+        """Verify random retrieval does not require round metadata on ClientContext."""
+
+        scored = GradMMScorer({"alpha": 0.5}, None).score(self.synthetic, self.client_ctx)
+        pairs = RandomRetriever({"top_k": 1, "seed": 42}, None).retrieve(scored[:1], self.client_ctx)
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0].round_id, scored[0].round_id)
+        self.assertEqual(len(pairs[0].real_samples), 1)
 
 
 if __name__ == "__main__":
