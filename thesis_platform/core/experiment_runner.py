@@ -1288,14 +1288,26 @@ class ExperimentRunner:
             # Run cross-domain evaluation if enabled (for transfer learning experiments)
             cross_domain_summary = None
             cross_domain_cfg = self.config.cross_domain_eval
-            if bool(cross_domain_cfg.get("enabled", False)) and synthetic_texts:
-                cross_domain_summary = self._run_cross_domain_eval(
-                    synthetic_texts=synthetic_texts,
-                    cross_domain_cfg=cross_domain_cfg,
-                    current_round=current_round,
-                    rounds_total=rounds,
-                    checkpoint_path=last_checkpoint_path,
-                )
+            cross_domain_enabled = bool(cross_domain_cfg.get("enabled", False))
+            if cross_domain_enabled:
+                if not synthetic_texts:
+                    cross_domain_summary = {
+                        "schema_version": ARTIFACT_SCHEMA_VERSION,
+                        "artifact_type": "cross_domain_eval_summary",
+                        "experiment_id": self.experiment_id,
+                        "enabled": True,
+                        "status": "failed",
+                        "message": "cross_domain_eval is enabled but no synthetic corpus could be restored.",
+                        "target_dataset": cross_domain_cfg.get("target_dataset"),
+                    }
+                else:
+                    cross_domain_summary = self._run_cross_domain_eval(
+                        synthetic_texts=synthetic_texts,
+                        cross_domain_cfg=cross_domain_cfg,
+                        current_round=current_round,
+                        rounds_total=rounds,
+                        checkpoint_path=last_checkpoint_path,
+                    )
 
             final_status = "completed"
             final_phase = "finished"
@@ -1305,17 +1317,18 @@ class ExperimentRunner:
             )
             if cross_domain_summary is not None:
                 cross_domain_status = str(cross_domain_summary.get("status", ""))
-                if cross_domain_status == "failed":
+                if cross_domain_status != "completed":
                     final_status = "failed"
                     final_phase = "cross_domain_failed"
                     final_downstream_status = "cross_domain_failed"
                     final_error = {
                         "type": "CrossDomainEvalFailed",
-                        "message": str(cross_domain_summary.get("message", "")),
+                        "message": str(
+                            cross_domain_summary.get("message", "")
+                            or f"cross_domain_eval ended with status={cross_domain_status or 'missing'}"
+                        ),
+                        "cross_domain_status": cross_domain_status or "missing",
                     }
-                elif cross_domain_status == "skipped":
-                    final_status = "completed_with_skipped_cross_domain"
-                    final_downstream_status = "cross_domain_skipped"
 
             self._write_privacy_ledger_snapshot(privacy_ledger)
             summary = self._build_metrics_summary(
@@ -1460,4 +1473,3 @@ class ExperimentRunner:
                 progress.close()
             self._restore_signal_handlers()
             close_experiment_file_logger("thesis_platform")
-
