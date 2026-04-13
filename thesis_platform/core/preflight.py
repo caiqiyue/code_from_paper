@@ -127,9 +127,13 @@ def _cross_domain_eval_runtime_cfg(config) -> dict[str, object]:
 
     derived = dict(config.downstream_eval)
     derived["enabled"] = True
-    derived["kind"] = str(cross_domain_eval.get("kind", "pretext_large_eval"))
-    derived["run_large_eval"] = bool(cross_domain_eval.get("run_large_eval", True))
-    derived["run_small_eval"] = bool(cross_domain_eval.get("run_small_eval", False))
+    derived["kind"] = str(cross_domain_eval.get("kind", derived.get("kind", "pretext_large_eval")))
+    derived["run_large_eval"] = bool(
+        cross_domain_eval.get("run_large_eval", derived.get("run_large_eval", False))
+    )
+    derived["run_small_eval"] = bool(
+        cross_domain_eval.get("run_small_eval", derived.get("run_small_eval", False))
+    )
     for key in (
         "large_eval_mode",
         "windows_large_eval_mode",

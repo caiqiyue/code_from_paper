@@ -141,12 +141,14 @@ class TransformersTextBackend(BaseTextBackend):
             "low_cpu_mem_usage": True,
             "local_files_only": True,
             "torch_dtype": torch_dtype,
+            "attn_implementation": "eager",
         }
         if self._device == "auto":
             load_kwargs["device_map"] = "auto"
             model = AutoModelForCausalLM.from_pretrained(str(self._model_path), **load_kwargs)
             load_device = "auto"
         else:
+            load_kwargs["device_map"] = None
             model = AutoModelForCausalLM.from_pretrained(str(self._model_path), **load_kwargs)
             model.to(self._device)
             load_device = self._device

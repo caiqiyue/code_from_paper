@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from thesis_platform.core.config import load_experiment_config
+from thesis_platform.core.preflight import _cross_domain_eval_runtime_cfg
 
 
 class ConfigTests(unittest.TestCase):
@@ -46,6 +47,25 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(config.downstream_eval["enabled"])
         self.assertTrue(config.downstream_eval["run_large_eval"])
         self.assertFalse(config.downstream_eval["run_small_eval"])
+
+    def test_transfer_configs_run_cross_domain_small_eval(self) -> None:
+        """Verify transfer configs do not silently fall back to large eval."""
+
+        for config_path in (
+            "thesis_platform/configs/experiments/linux/jobs_to_forums_transfer.yaml",
+            "thesis_platform/configs/experiments/linux/jobs_to_microblog_transfer.yaml",
+            "thesis_platform/configs/experiments/linux/jobs_to_congressional_transfer.yaml",
+            "thesis_platform/configs/experiments/linux/forums_to_jobs_transfer.yaml",
+            "thesis_platform/configs/experiments/linux/microblog_to_jobs_transfer.yaml",
+            "thesis_platform/configs/experiments/linux/congressional_to_jobs_transfer.yaml",
+        ):
+            with self.subTest(config_path=config_path):
+                config = load_experiment_config(config_path)
+                eval_cfg = _cross_domain_eval_runtime_cfg(config)
+                self.assertTrue(eval_cfg["enabled"])
+                self.assertFalse(eval_cfg["run_large_eval"])
+                self.assertTrue(eval_cfg["run_small_eval"])
+                self.assertEqual(eval_cfg["small_eval_mode"], "gpt2")
 
     def test_resolve_path_normalizes_windows_style_relative_paths(self) -> None:
         """Verify backslash-separated relative paths resolve correctly across platforms."""

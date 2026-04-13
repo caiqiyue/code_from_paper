@@ -428,7 +428,16 @@
       "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\Administrator\\\\.claude\\\\projects\\\\d---------------caiqiyue-file\\\\d3744d1c-7243-478a-a558-042058baaad6\\\\tool-results\\\\blix51x6t.txt' -Tail 40\")",
       "Bash(powershell -File C:/temp/ssh_gc1_log.ps1)",
       "Bash(powershell -File C:/temp/ssh_check_experiments.ps1)",
-      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\Administrator\\\\.claude\\\\projects\\\\d---------------caiqiyue-file\\\\d3744d1c-7243-478a-a558-042058baaad6\\\\tool-results\\\\bfp21ojbx.txt' -Tail 50\")"
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\Administrator\\\\.claude\\\\projects\\\\d---------------caiqiyue-file\\\\d3744d1c-7243-478a-a558-042058baaad6\\\\tool-results\\\\bfp21ojbx.txt' -Tail 50\")",
+      "Bash(cmd.exe /c \"plink.exe -batch -hostkey ssh-ed25519 255 SHA256:K8SqbQTOKQ0/9mWxXIflld9+WhK3P1CHzQABxiFkfGo -ssh -P 54360 -l k8smaster -pw k8s 58.217.205.244 whoami\")",
+      "Bash(powershell.exe -Command \"& 'd:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\execute\\\\plink.exe' -batch -hostkey 'ssh-ed25519 255 SHA256:K8SqbQTOKQ0/9mWxXIflld9+WhK3P1CHzQABxiFkfGo' -ssh -P 54360 -l k8smaster -pw k8s 58.217.205.244 whoami\")",
+      "Bash(powershell.exe -Command \"& 'd:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\execute\\\\plink.exe' -batch -hostkey 'ssh-ed25519 255 SHA256:K8SqbQTOKQ0/9mWxXIflld9+WhK3P1CHzQABxiFkfGo' -ssh -P 54360 -l k8smaster -pw k8s 58.217.205.244 hostname\")",
+      "Bash(python -c \"import paramiko; print\\('ok'\\)\")",
+      "Bash(powershell.exe -Command \"& 'd:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\execute\\\\plink.exe' -batch -hostkey 'ssh-ed25519 255 SHA256:K8SqbQTOKQ0/9mWxXIflld9+WhK3P1CHzQABxiFkfGo' -ssh -P 54360 -l k8smaster -pw k8s 58.217.205.244 'ps aux | grep -E \\\\\"finish_caiqiyue|pip install\\\\\" | grep -v grep'\")",
+      "Bash(powershell.exe -Command \"& 'd:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\execute\\\\plink.exe' -batch -hostkey 'ssh-ed25519 255 SHA256:K8SqbQTOKQ0/9mWxXIflld9+WhK3P1CHzQABxiFkfGo' -ssh -P 54360 -l k8smaster -pw k8s 58.217.205.244 bash -c \\\\\"ps aux | grep pip\\\\\"\")",
+      "Bash(powershell.exe -Command \"& 'd:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\execute\\\\plink.exe' -batch -hostkey 'ssh-ed25519 255 SHA256:K8SqbQTOKQ0/9mWxXIflld9+WhK3P1CHzQABxiFkfGo' -ssh -P 54360 -l k8smaster -pw k8s 58.217.205.244 bash -c \\\\\"ps aux\\\\\"\")",
+      "Bash(powershell.exe -Command \"& 'd:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\execute\\\\plink.exe' -batch -hostkey 'ssh-ed25519 255 SHA256:K8SqbQTOKQ0/9mWxXIflld9+WhK3P1CHzQABxiFkfGo' -ssh -P 54360 -l k8smaster -pw k8s 58.217.205.244 bash -c \\\\\"conda info --envs\\\\\"\")",
+      "Bash(powershell.exe -Command \"& 'd:\\\\学习记录\\\\导师项目\\\\研究\\\\caiqiyue_file\\\\execute\\\\plink.exe' -batch -hostkey 'ssh-ed25519 SHA256:y2DhrdHAWfTCoY9uLz0ve3EzTKYtWNBBWm80QUTOkXg' -ssh -P 26732 -l root -pw 'banpFV2mtSjO' 116.136.52.182 'pip list 2>/dev/null'\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\plans",

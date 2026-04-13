@@ -40,6 +40,10 @@ data:
 # Cross-domain evaluation target
 cross_domain_eval:
   enabled: true
+  run_large_eval: false
+  run_small_eval: true
+  small_eval_mode: gpt2
+  linux_small_eval_mode: gpt2
   target_dataset: jobs
   target_train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
   target_eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json

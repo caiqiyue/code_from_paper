@@ -739,9 +739,24 @@ class ExperimentRunner:
 
             target_downstream_cfg = dict(target_raw.get("downstream_eval", {}))
             target_downstream_cfg["enabled"] = True
-            target_downstream_cfg["kind"] = str(cross_domain_cfg.get("kind", "pretext_large_eval"))
-            target_downstream_cfg["run_large_eval"] = bool(cross_domain_cfg.get("run_large_eval", True))
-            target_downstream_cfg["run_small_eval"] = bool(cross_domain_cfg.get("run_small_eval", False))
+            target_downstream_cfg["kind"] = str(
+                cross_domain_cfg.get(
+                    "kind",
+                    target_downstream_cfg.get("kind", "pretext_large_eval"),
+                )
+            )
+            target_downstream_cfg["run_large_eval"] = bool(
+                cross_domain_cfg.get(
+                    "run_large_eval",
+                    target_downstream_cfg.get("run_large_eval", False),
+                )
+            )
+            target_downstream_cfg["run_small_eval"] = bool(
+                cross_domain_cfg.get(
+                    "run_small_eval",
+                    target_downstream_cfg.get("run_small_eval", False),
+                )
+            )
             for key in (
                 "large_eval_mode",
                 "windows_large_eval_mode",
@@ -1282,17 +1297,39 @@ class ExperimentRunner:
                     checkpoint_path=last_checkpoint_path,
                 )
 
+            final_status = "completed"
+            final_phase = "finished"
+            final_error: dict[str, Any] | None = None
+            final_downstream_status = (
+                downstream_summary.get("status") if downstream_summary is not None else None
+            )
+            if cross_domain_summary is not None:
+                cross_domain_status = str(cross_domain_summary.get("status", ""))
+                if cross_domain_status == "failed":
+                    final_status = "failed"
+                    final_phase = "cross_domain_failed"
+                    final_downstream_status = "cross_domain_failed"
+                    final_error = {
+                        "type": "CrossDomainEvalFailed",
+                        "message": str(cross_domain_summary.get("message", "")),
+                    }
+                elif cross_domain_status == "skipped":
+                    final_status = "completed_with_skipped_cross_domain"
+                    final_downstream_status = "cross_domain_skipped"
+
             self._write_privacy_ledger_snapshot(privacy_ledger)
             summary = self._build_metrics_summary(
                 rounds_total=rounds,
                 server_ctx=server_ctx,
                 all_round_metrics=all_round_metrics,
                 privacy_ledger=privacy_ledger,
-                status="completed",
+                status=final_status,
                 downstream_summary=downstream_summary,
                 last_completed_round=all_round_metrics[-1]["round_id"] if all_round_metrics else None,
                 resume_requested=resume,
             )
+            if cross_domain_summary is not None:
+                summary["cross_domain_eval"] = cross_domain_summary
             if downstream_summary is not None:
                 summary["synthetic_corpus_path"] = downstream_summary.get(
                     "synthetic_corpus_path"
@@ -1306,13 +1343,14 @@ class ExperimentRunner:
                 downstream_summary=downstream_summary,
             )
             self._write_run_state(
-                status="completed",
-                phase="finished",
+                status=final_status,
+                phase=final_phase,
                 rounds_total=rounds,
                 completed_rounds=len(all_round_metrics),
                 current_round=current_round,
                 checkpoint_path=last_checkpoint_path,
-                downstream_status=downstream_summary.get("status") if downstream_summary is not None else None,
+                downstream_status=final_downstream_status,
+                last_error=final_error,
                 resume_requested=resume,
             )
             self.logger.info(
@@ -1422,5 +1460,4 @@ class ExperimentRunner:
                 progress.close()
             self._restore_signal_handlers()
             close_experiment_file_logger("thesis_platform")
-
 
