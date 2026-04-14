@@ -1,4 +1,4 @@
-# Environment files
+﻿# Environment files
 .env
 .env.*
 
@@ -44,6 +44,7 @@ automation/run_manual_experiment_queue.cmd
 automation/manual_experiment_queue_state.json
 automation/manual_experiment_queue.log
 automation/
+old_automation/
 .ruff_cache/
 .pytest_cache/
 execute/
@@ -53,3 +54,4 @@ execute/
 clash_for_linux/
 scripts/
 start/
+
