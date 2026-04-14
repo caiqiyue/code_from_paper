@@ -47,3 +47,9 @@ automation/
 .ruff_cache/
 .pytest_cache/
 execute/
+
+# Local ignored directories
+.claude/
+clash_for_linux/
+scripts/
+start/
