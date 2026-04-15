@@ -163,10 +163,12 @@ class SingleNodeRunner:
             "total_scored": len(scored_samples),
         })
 
-        # Release Stage A resources (Generator + Scorer)
-        self.logger.info("Stage A: Releasing Generator and Scorer resources")
+        # Release Stage A resources (Generator + Scorer + ClientContext)
+        # Note: client_ctx is only needed for scoring in Stage A; its embedder (MiniLM)
+        # and text_backend (Qwen client) are no longer needed after scoring completes.
+        self.logger.info("Stage A: Releasing Generator, Scorer, and ClientContext resources")
         from thesis_platform.core.resource_cleanup import release_component_resources
-        release_component_resources(self.generator, self.scorer)
+        release_component_resources(self.generator, self.scorer, client_ctx)
         self.generator = None
         self.scorer = None
 
@@ -291,10 +293,12 @@ class SingleNodeRunner:
         write_json(stage_b_dir / "prompt_update.json", final_result)
         write_jsonl(stage_b_dir / "critiques.jsonl", all_critiques)
 
-        # Release Stage B resources (Retriever + Critic + Aggregator)
-        self.logger.info("Stage B: Releasing Retriever, Critic, and Aggregator resources")
+        # Release Stage B resources (Retriever + Critic + Aggregator + ClientContext)
+        # Note: client_ctx holds the embedder (MiniLM) and text_backend (Qwen client)
+        # which are no longer needed after Stage B completes.
+        self.logger.info("Stage B: Releasing Retriever, Critic, Aggregator, and ClientContext resources")
         from thesis_platform.core.resource_cleanup import release_component_resources
-        release_component_resources(self.retriever, self.critic, self.aggregator)
+        release_component_resources(self.retriever, self.critic, self.aggregator, client_ctx, server_ctx)
         self.retriever = None
         self.critic = None
         self.aggregator = None
@@ -537,7 +541,12 @@ class SingleNodeRunner:
         return self._build_client_context(train_samples, all_samples)
 
     def _build_server_context(self) -> ServerContext:
-        """Build a single-node ServerContext."""
+        """Build a single-node ServerContext.
+
+        Note: In single-node Stage B, server_ctx.text_backend is NOT used -
+        all LLM calls go through client_ctx.text_backend instead.
+        We pass None to avoid loading the server Qwen model unnecessarily.
+        """
         generator_cfg = self.config.generator or {}
         initial_prompt = generator_cfg.get("initial_prompt", "Generate text that matches the target dataset style.")
 
@@ -547,7 +556,7 @@ class SingleNodeRunner:
             prompt_history=[],
             config=dict(self.config.raw),
             output_dir=self._get_output_dir(),
-            text_backend=self._build_text_backend(),
+            text_backend=None,  # Not used in single-node Stage B - client_ctx.text_backend is used instead
             aggregation_memory={"entries": []},
             generated_history=[],
             base_prompt=initial_prompt,
