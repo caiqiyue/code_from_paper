@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from thesis_platform.core.context import ClientContext, RoundContext, ServerContext
-from thesis_platform.core.io_utils import ensure_dir, read_json, read_jsonl, write_json, write_jsonl
+from thesis_platform.core.io_utils import ensure_dir, read_json, write_json, write_jsonl
 from thesis_platform.core.logging_utils import get_logger
 from thesis_platform.core.schemas import Critique, PairedSample, PromptUpdate, Sample, ScoredSample
 from thesis_platform.models.embedding import build_embedder
@@ -52,41 +52,39 @@ class SingleNodeRunner:
         self.logger.info("Output directory: %s", output_dir)
         self.logger.info("=" * 60)
 
-        # Stage A: Large-scale generation and scoring
+        # Stage A: Prompt optimization through iterative critique and aggregation
         stage_a_start = time.perf_counter()
-        scored_samples = self.run_stage_a(output_dir)
+        stage_a_result = self.run_stage_a(output_dir)
         stage_a_elapsed = time.perf_counter() - stage_a_start
-        self.logger.info("Stage A completed in %.1f seconds | scored_samples=%d", stage_a_elapsed, len(scored_samples))
+        self.logger.info("Stage A completed in %.1f seconds | iterations=%d | final_prompt_len=%d",
+                        stage_a_elapsed, stage_a_result.get("iterations", 0), len(stage_a_result.get("optimized_prompt", "")))
 
-        # Stage B: Critique-retrieval-aggregation loop
+        # Stage B: Generate final synthetic corpus with optimized prompt
         stage_b_start = time.perf_counter()
-        stage_b_result = self.run_stage_b(output_dir, scored_samples)
+        synthetic_texts = self.run_stage_b(output_dir, stage_a_result)
         stage_b_elapsed = time.perf_counter() - stage_b_start
-        self.logger.info("Stage B completed in %.1f seconds", stage_b_elapsed)
+        self.logger.info("Stage B completed in %.1f seconds | synthetic_samples=%d", stage_b_elapsed, len(synthetic_texts))
 
-        # Stage C: Bootstrap expansion
+        # Stage C: Downstream evaluation (GPT-2 fine-tuning and evaluation)
         stage_c_start = time.perf_counter()
-        synthetic_texts = self.run_stage_c(output_dir, stage_b_result)
-        stage_c_elapsed = time.perf_counter() - stage_c_start
-        self.logger.info("Stage C completed in %.1f seconds | synthetic_samples=%d", stage_c_elapsed, len(synthetic_texts))
-
-        # Evaluation
         eval_result = self.run_evaluation(output_dir, synthetic_texts)
+        stage_c_elapsed = time.perf_counter() - stage_c_start
+        self.logger.info("Stage C completed in %.1f seconds", stage_c_elapsed)
 
         # Write final summary
         summary = {
             "experiment_id": self.config.meta.get("experiment_id"),
             "stage_a": {
-                "scored_samples": len(scored_samples),
+                "iterations": stage_a_result.get("iterations", 0),
+                "final_prompt": stage_a_result.get("optimized_prompt", ""),
+                "prompt_history": stage_a_result.get("prompt_history", []),
                 "elapsed_seconds": stage_a_elapsed,
             },
             "stage_b": {
-                "num_iterations": len(stage_b_result.get("history", [])),
-                "final_prompt_length": len(stage_b_result.get("prompt", "")),
+                "synthetic_samples": len(synthetic_texts),
                 "elapsed_seconds": stage_b_elapsed,
             },
             "stage_c": {
-                "synthetic_samples": len(synthetic_texts),
                 "elapsed_seconds": stage_c_elapsed,
             },
             "evaluation": eval_result,
@@ -102,27 +100,39 @@ class SingleNodeRunner:
         return summary
 
     # -------------------------------------------------------------------------
-    # Stage A: Large-scale generation and scoring
+    # Stage A: Prompt optimization through iterative critique and aggregation
     # -------------------------------------------------------------------------
 
-    def run_stage_a(self, output_dir: Path) -> list[ScoredSample]:
-        """Generate synthetic samples and score them using DataInf.
+    def run_stage_a(self, output_dir: Path) -> dict[str, Any]:
+        """Optimize prompt through iterative critique and aggregation.
+
+        Process:
+        1. Generate 100 samples with current prompt
+        2. Score with DataInf, select worst 10
+        3. Generate 10 critiques for worst samples
+        4. Aggregate critiques, update prompt
+        5. Repeat until convergence or max iterations
 
         Args:
             output_dir: Directory to write stage artifacts
 
         Returns:
-            List of ScoredSample objects sorted by influence score (ascending)
+            Dict with 'optimized_prompt', 'prompt_history', and 'iterations' keys
         """
 
         stage_a_dir = ensure_dir(output_dir / "stage_a")
-        self.logger.info("Stage A: Large-scale generation and scoring")
+        self.logger.info("Stage A: Prompt optimization through iterative critique")
 
         # Check for cached results
-        cached_path = stage_a_dir / "scored_samples.jsonl"
+        cached_path = stage_a_dir / "prompt_update.json"
         if cached_path.exists():
-            self.logger.info("Stage A: Loading cached scored samples from %s", cached_path)
-            return [ScoredSample(**row) for row in read_jsonl(cached_path)]
+            self.logger.info("Stage A: Loading cached prompt optimization result from %s", cached_path)
+            data = read_json(cached_path)
+            return {
+                "optimized_prompt": data.get("final_prompt", ""),
+                "prompt_history": data.get("prompt_history", []),
+                "iterations": data.get("iterations", 0),
+            }
 
         # Load seed corpus
         train_path = self.config.resolve_path(self.config.data.get("train_path"))
@@ -130,259 +140,209 @@ class SingleNodeRunner:
         self.logger.info("Stage A: Loaded %d seed samples from %s", len(seed_corpus), train_path)
 
         # Get configuration
-        generated_count = int(self.config.stage_a.get("generated_count", 10000))
-        batch_size = int(self.config.stage_a.get("batch_size", 1000))
-        select_top_k = int(self.config.stage_a.get("select_top_k", 8000))
+        generated_count = int(self.config.stage_a.get("generated_count", 100))
+        select_top_k = int(self.config.stage_a.get("select_top_k", 10))
+        max_iterations = int(self.config.stage_a.get("max_iterations", 10))
+        convergence_threshold = float(self.config.stage_a.get("convergence_threshold", 0.1))
+        max_probe_samples = int(self.config.stage_a.get("max_probe_samples", 500))
 
-        # Stage A generation (using PretextPromptLLMGenerator)
-        all_generated = self._generate_batched(seed_corpus, generated_count)
-        self.logger.info("Stage A: Generated %d samples", len(all_generated))
+        # Initial prompt from generator config
+        current_prompt = self.config.generator.get("initial_prompt", "Generate text that matches the target dataset style.")
+        prompt_history = [current_prompt]
 
-        # Build single-node client context (limit train samples for probe to avoid OOM)
-        max_probe_samples = int(self.config.stage_a.get("max_probe_samples", 10000))
+        # Build client context once for all iterations (includes MiniLM embedder)
         train_for_probe = seed_corpus[:max_probe_samples]
-        self.logger.info("Stage A: Using %d train samples for DataInf probe (of %d total)", len(train_for_probe), len(seed_corpus))
-        client_ctx = self._build_client_context(train_for_probe, all_generated)
+        self.logger.info("Stage A: Using %d train samples for DataInf probe", len(train_for_probe))
 
-        # Score all generated samples
-        scored_samples = self._score_batched(all_generated, client_ctx, batch_size)
-        self.logger.info("Stage A: Scored %d samples", len(scored_samples))
+        # Iterative prompt optimization
+        all_critiques = []
+        # Initialize context variables to None for safe cleanup at end
+        client_ctx = None
+        critique_ctx = None
+        server_ctx = None
 
-        # Sort by score (descending: worst/largest first) and select top-k
-        # DataInf: score_direction="larger_is_worse", so larger score = worse sample
-        scored_samples.sort(key=lambda x: x.score, reverse=True)
-        selected_samples = scored_samples[:select_top_k]
-        self.logger.info("Stage A: Selected top %d worst samples for Stage B", len(selected_samples))
+        for iteration in range(max_iterations):
+            self.logger.info("Stage A iteration %d/%d", iteration + 1, max_iterations)
 
-        # Save stage artifacts
-        write_jsonl(stage_a_dir / "scored_samples.jsonl", selected_samples)
-        write_json(stage_a_dir / "stage_config.json", {
-            "generated_count": generated_count,
-            "batch_size": batch_size,
-            "select_top_k": select_top_k,
-            "total_scored": len(scored_samples),
-        })
+            # Step 1: Generate samples with current prompt
+            self.logger.info("Stage A: Generating %d samples with current prompt...", generated_count)
+            generated_samples = self._generate_with_prompt(seed_corpus, generated_count, current_prompt)
 
-        # Release Stage A resources (Generator + Scorer + ClientContext)
-        # Note: client_ctx is only needed for scoring in Stage A; its embedder (MiniLM)
-        # and text_backend (Qwen client) are no longer needed after scoring completes.
-        self.logger.info("Stage A: Releasing Generator, Scorer, and ClientContext resources")
-        from thesis_platform.core.resource_cleanup import release_component_resources
-        release_component_resources(self.generator, self.scorer, client_ctx)
-        self.generator = None
-        self.scorer = None
+            # Step 2: Score samples with DataInf
+            all_generated = generated_samples  # For probe context
+            client_ctx = self._build_client_context(train_for_probe, all_generated)
+            scored_samples = self._score_batched(generated_samples, client_ctx, batch_size=generated_count)
 
-        return selected_samples
+            # Sort by score (descending: worst/largest first)
+            scored_samples.sort(key=lambda x: x.score, reverse=True)
+            worst_samples = scored_samples[:select_top_k]
+            self.logger.info("Stage A: Selected top %d worst samples (worst score: %.4f)", len(worst_samples), worst_samples[0].score if worst_samples else 0)
 
-    # -------------------------------------------------------------------------
-    # Stage B: Critique-retrieval-aggregation loop
-    # -------------------------------------------------------------------------
+            # Step 3: Check convergence - if worst score is below threshold, we've converged
+            if worst_samples:
+                current_worst_score = worst_samples[0].score
+                if current_worst_score < convergence_threshold:
+                    self.logger.info("Stage A: Converged! Worst score %.4f < threshold %.4f", current_worst_score, convergence_threshold)
+                    break
 
-    def run_stage_b(self, output_dir: Path, scored_samples: list[ScoredSample]) -> dict[str, Any]:
-        """Execute the critique-retrieval-aggregation loop.
+            # Step 4: Generate critiques for worst samples
+            self.logger.info("Stage A: Generating critiques for %d worst samples...", len(worst_samples))
 
-        Args:
-            output_dir: Directory to write stage artifacts
-            scored_samples: Samples from Stage A to process
+            # Convert ScoredSample to Sample for retrieval
+            samples_for_critique = [Sample(
+                sample_id=s.sample_id,
+                client_id=s.client_id,
+                round_id=s.round_id,
+                source=s.source,
+                dataset_name=s.dataset_name,
+                task_type=s.task_type,
+                text=s.text,
+                instruction=s.instruction,
+                response=s.response,
+                label=s.label,
+                meta=dict(s.meta),
+            ) for s in worst_samples]
 
-        Returns:
-            Dict with 'prompt', 'history', and 'memory' keys
-        """
+            # Build new context with worst samples for critique
+            critique_ctx = self._build_client_context(train_for_probe, samples_for_critique)
 
-        stage_b_dir = ensure_dir(output_dir / "stage_b")
-        self.logger.info("Stage B: Critique-retrieval-aggregation loop")
+            # Retrieve anchor samples for each worst sample
+            paired_samples = self._retrieve_batched(samples_for_critique, critique_ctx)
 
-        # Check for cached results
-        cached_path = stage_b_dir / "prompt_update.json"
-        if cached_path.exists():
-            self.logger.info("Stage B: Loading cached prompt update from %s", cached_path)
-            data = read_json(cached_path)
-            return {
-                "prompt": data.get("final_prompt", ""),
-                "history": data.get("prompt_history", []),
-                "memory": data.get("aggregation_memory", {}),
-            }
-
-        # Get configuration
-        num_iterations = int(self.config.stage_b.get("num_iterations", 5))
-        batch_size = int(self.config.stage_b.get("batch_size", 500))
-        selection_mode = str(self.config.stage_b.get("selection_mode", "worst"))
-
-        # Select samples based on mode
-        # scored_samples from Stage A is sorted descending (worst/largest first)
-        # For "worst": use as-is (worst-first)
-        # For "best": reverse to get best-first (ascending)
-        # For "all": use as-is
-        if selection_mode == "worst":
-            b_samples = list(scored_samples)
-        elif selection_mode == "best":
-            b_samples = list(reversed(scored_samples))
-        else:  # "all"
-            b_samples = list(scored_samples)
-
-        # Build contexts
-        client_ctx = self._build_client_context_for_stage_b(scored_samples)
-        server_ctx = self._build_server_context()
-
-        # Iterative critique-retrieval-aggregation
-        all_critiques: list[Critique] = []
-        for iteration in range(num_iterations):
-            self.logger.info("Stage B iteration %d/%d", iteration + 1, num_iterations)
-
-            # Select batch for this iteration with cycling
-            # Use modulo to cycle through samples when batch_size > len(b_samples)
-            start_idx = (iteration * batch_size) % len(b_samples)
-            end_idx = start_idx + batch_size
-
-            if end_idx <= len(b_samples):
-                # No cycling needed - batch is contiguous
-                batch = b_samples[start_idx:end_idx]
-            else:
-                # Cycling needed - wrap around to beginning
-                batch = b_samples[start_idx:]
-                remaining_needed = batch_size - len(batch)
-                batch = batch + b_samples[:remaining_needed]
-
-            # Retrieval
-            paired_samples = self._retrieve_batched(batch, client_ctx)
-
-            # Critique
-            critiques = self._critique_batched(paired_samples, client_ctx)
+            # Generate critiques
+            critiques = self._critique_batched(paired_samples, critique_ctx)
             all_critiques.extend(critiques)
+            self.logger.info("Stage A: Generated %d critiques (total: %d)", len(critiques), len(all_critiques))
 
-            # Aggregation (use aggregate_dbscan_critiques directly)
+            # Step 5: Aggregate critiques and update prompt
             from thesis_platform.algorithms.aggregators.dbscan_core import aggregate_dbscan_critiques
+
+            # Build a simple server context for aggregation
+            server_ctx = self._build_server_context()
+            server_ctx.prompt_text = current_prompt
 
             prompt_update, new_memory = aggregate_dbscan_critiques(
                 critiques=all_critiques,
                 round_id=iteration,
                 max_rules=int(self.config.aggregator.get("max_rules", 5)),
-                embedder=client_ctx.embedder,
-                text_backend=client_ctx.text_backend,
+                embedder=critique_ctx.embedder,
+                text_backend=critique_ctx.text_backend,
                 eps=float(self.config.aggregator.get("cluster_eps", 0.35)),
                 min_samples=int(self.config.aggregator.get("cluster_min_samples", 2)),
                 use_memory=True,
                 memory=server_ctx.aggregation_memory,
                 momentum_beta=float(self.config.aggregator.get("momentum_beta", 0.7)),
-                base_prompt=server_ctx.base_prompt,
+                base_prompt=current_prompt,
                 prototype_feedbacks=list(server_ctx.prototype_feedbacks),
                 prototype_cluster_method="dbscan",
             )
 
-            # Update prompt
+            # Update prompt if we have rules
             if prompt_update and prompt_update.rules:
-                server_ctx.prompt_text = self._apply_prompt_update(server_ctx.prompt_text, prompt_update)
-                server_ctx.prompt_history.append(server_ctx.prompt_text)
+                new_prompt = self._apply_prompt_update(current_prompt, prompt_update)
+                if new_prompt != current_prompt:
+                    current_prompt = new_prompt
+                    prompt_history.append(current_prompt)
+                    self.logger.info("Stage A: Prompt updated (length: %d)", len(current_prompt))
+                else:
+                    self.logger.info("Stage A: Prompt unchanged, stopping")
+                    break
+            else:
+                self.logger.info("Stage A: No rules from aggregation, stopping")
+                break
 
+            # Update memory
             server_ctx.aggregation_memory = new_memory
 
             # Save iteration artifacts
-            iter_dir = ensure_dir(stage_b_dir / f"iteration_{iteration}")
+            iter_dir = ensure_dir(stage_a_dir / f"iteration_{iteration}")
             write_jsonl(iter_dir / "critiques.jsonl", critiques)
+            write_jsonl(iter_dir / "worst_samples.jsonl", worst_samples)
             if prompt_update:
                 write_json(iter_dir / "prompt_update.json", prompt_update)
 
-        # Save final Stage B artifacts
-        final_result = {
-            "final_prompt": server_ctx.prompt_text,
-            "prompt_history": server_ctx.prompt_history,
-            "num_iterations": num_iterations,
-            "total_critiques": len(all_critiques),
-            "aggregation_memory": server_ctx.aggregation_memory,
-        }
-        write_json(stage_b_dir / "prompt_update.json", final_result)
-        write_jsonl(stage_b_dir / "critiques.jsonl", all_critiques)
+            # Release iteration resources (client_ctx for scoring, critique_ctx for retrieval/critique, server_ctx for aggregation)
+            from thesis_platform.core.resource_cleanup import release_component_resources
+            release_component_resources(client_ctx, critique_ctx, server_ctx)
 
-        # Release Stage B resources (Retriever + Critic + Aggregator + ClientContext)
-        # Note: client_ctx holds the embedder (MiniLM) and text_backend (Qwen client)
-        # which are no longer needed after Stage B completes.
-        self.logger.info("Stage B: Releasing Retriever, Critic, Aggregator, and ClientContext resources")
+        # Save final Stage A artifacts
+        final_result = {
+            "final_prompt": current_prompt,
+            "prompt_history": prompt_history,
+            "iterations": iteration + 1,
+            "total_critiques": len(all_critiques),
+        }
+        write_json(stage_a_dir / "prompt_update.json", final_result)
+        write_jsonl(stage_a_dir / "critiques.jsonl", all_critiques)
+
+        # Release Stage A resources
+        self.logger.info("Stage A: Releasing resources")
         from thesis_platform.core.resource_cleanup import release_component_resources
-        release_component_resources(self.retriever, self.critic, self.aggregator, client_ctx, server_ctx)
-        self.retriever = None
-        self.critic = None
-        self.aggregator = None
+        # Release generator, scorer, and all contexts (safe even if some were never created)
+        release_component_resources(self.generator, self.scorer, client_ctx, critique_ctx, server_ctx)
 
         return {
-            "prompt": server_ctx.prompt_text,
-            "history": server_ctx.prompt_history,
-            "memory": server_ctx.aggregation_memory,
+            "optimized_prompt": current_prompt,
+            "prompt_history": prompt_history,
+            "iterations": iteration + 1,
         }
 
     # -------------------------------------------------------------------------
-    # Stage C: Bootstrap expansion
+    # Stage B: Final synthetic corpus generation with optimized prompt
     # -------------------------------------------------------------------------
 
-    def run_stage_c(self, output_dir: Path, stage_b_result: dict[str, Any]) -> list[str]:
-        """Execute bootstrap expansion to generate final synthetic corpus.
+    def run_stage_b(self, output_dir: Path, stage_a_result: dict[str, Any]) -> list[str]:
+        """Generate final synthetic corpus using the optimized prompt from Stage A.
 
         Args:
             output_dir: Directory to write stage artifacts
-            stage_b_result: Output from Stage B containing the aggregated prompt.
-                           Currently reserved for future rule-guided bootstrap generation.
+            stage_a_result: Output from Stage A containing the optimized prompt
 
         Returns:
             List of synthetic text strings
         """
 
-        stage_c_dir = ensure_dir(output_dir / "stage_c")
-        self.logger.info("Stage C: Bootstrap expansion")
+        stage_b_dir = ensure_dir(output_dir / "stage_b")
+        self.logger.info("Stage B: Final synthetic corpus generation")
 
         # Check for cached results
-        cached_path = stage_c_dir / "llama7b_text_syn.json"
+        cached_path = stage_b_dir / "llama7b_text_syn.json"
         if cached_path.exists():
-            self.logger.info("Stage C: Loading cached synthetic texts from %s", cached_path)
+            self.logger.info("Stage B: Loading cached synthetic texts from %s", cached_path)
             with open(cached_path, "r", encoding="utf-8") as f:
                 return json.load(f)
 
+        # Get optimized prompt from Stage A
+        optimized_prompt = stage_a_result.get("optimized_prompt", "")
+        if not optimized_prompt:
+            self.logger.warning("Stage B: No optimized prompt from Stage A, using initial prompt")
+            optimized_prompt = self.config.generator.get("initial_prompt", "Generate text that matches the target dataset style.")
+
         # Get configuration
-        num_prompts = int(self.config.stage_c.get("num_prompts", 10000))
-        generator_backend = str(self.config.stage_c.get("generator_backend", "huggingface"))
-        generator_model = str(self.config.stage_c.get("generator_model", "distilgpt2"))
-        max_tokens = int(self.config.stage_c.get("max_tokens", 64))
-        temperature = float(self.config.stage_c.get("temperature", 1.0))
-        top_p = float(self.config.stage_c.get("top_p", 1.0))
+        generated_count = int(self.config.stage_b.get("generated_count", 1000))
+        self.logger.info("Stage B: Generating %d samples with optimized prompt", generated_count)
 
-        # Load seed texts for bootstrap prompts
+        # Load seed corpus
         train_path = self.config.resolve_path(self.config.data.get("train_path"))
-        seed_texts = self._load_seed_texts(train_path, limit=min(num_prompts, 10000))
+        seed_corpus = self._load_seed_corpus(train_path)
+        self.logger.info("Stage B: Loaded %d seed samples", len(seed_corpus))
 
-        # Build bootstrap prompts (reuse PrE-Text's build_bootstrap_prompts)
-        try:
-            # Add PrE-Text to sys.path before importing
-            from thesis_platform.evaluation.downstream_eval import _ensure_pretext_import
-            repo_root = self.config.repo_root()
-            _ensure_pretext_import(repo_root)
+        # Generate synthetic samples using the optimized prompt
+        synthetic_samples = self._generate_with_prompt(seed_corpus, generated_count, optimized_prompt)
+        synthetic_texts = [s.render_text() for s in synthetic_samples]
 
-            from pretext_platform.algorithms.bootstrap import build_bootstrap_prompts
-            prompts = build_bootstrap_prompts(
-                seed_texts=seed_texts,
-                num_prompts=num_prompts,
-                seed=int(self.config.meta.get("seed", 42)),
-            )
-        except ImportError as e:
-            self.logger.warning("PrE-Text bootstrap not available (%s), using simple prompts", e)
-            prompts = self._build_simple_prompts(seed_texts, num_prompts, stage_b_result)
-
-        # Generate with configured backend
-        synthetic_texts = self._generate_bootstrap(prompts, generator_backend, generator_model, max_tokens, temperature, top_p)
-
-        # Light filtering (keep ~95%)
+        # Light filtering
         filtered = [t for t in synthetic_texts if self._is_valid_sample(t)]
-        self.logger.info("Stage C: Generated %d, kept %d after filtering", len(synthetic_texts), len(filtered))
+        self.logger.info("Stage B: Generated %d, kept %d after filtering", len(synthetic_texts), len(filtered))
 
         # Save artifacts
         with open(cached_path, "w", encoding="utf-8") as f:
             json.dump(filtered, f, ensure_ascii=False, indent=2)
-        write_json(stage_c_dir / "stage_config.json", {
-            "num_prompts": num_prompts,
-            "generator_backend": generator_backend,
-            "generator_model": generator_model,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
+        write_json(stage_b_dir / "stage_config.json", {
+            "generated_count": generated_count,
             "total_generated": len(synthetic_texts),
             "total_filtered": len(filtered),
+            "optimized_prompt": optimized_prompt,
         })
 
         return filtered
@@ -653,6 +613,88 @@ class SingleNodeRunner:
             all_generated.extend(batch_samples[:remainder])
 
         self.logger.info("Stage A: Generated %d samples (target was %d)", len(all_generated), total_count)
+
+        # Release text_backend used during generation
+        if text_backend is not None:
+            from thesis_platform.core.resource_cleanup import release_component_resources
+            release_component_resources(text_backend)
+
+        return all_generated
+
+    def _generate_with_prompt(self, seed_corpus: list[Sample], total_count: int, prompt_text: str) -> list[Sample]:
+        """Generate synthetic samples using a custom prompt.
+
+        Similar to _generate_batched but uses a custom prompt text instead of the config's initial prompt.
+
+        Args:
+            seed_corpus: Seed samples to use as few-shot examples
+            total_count: Total number of samples to generate
+            prompt_text: Custom prompt text to use for generation
+
+        Returns:
+            List of generated Sample objects
+        """
+        all_generated = []
+        generated_per_round = getattr(self.generator, 'generated_per_round', 16)
+        num_full_rounds = total_count // generated_per_round
+        remainder = total_count % generated_per_round
+
+        round_id = 0
+
+        # Pre-create text_backend once to avoid reloading model every round
+        text_backend = self._build_text_backend()
+
+        # Full rounds
+        for round_idx in range(num_full_rounds):
+            # Rotate seed samples for this round to increase diversity
+            start_idx = (round_idx * generated_per_round) % len(seed_corpus)
+            seed_subset = [
+                seed_corpus[(start_idx + i) % len(seed_corpus)]
+                for i in range(self.generator.exemplars_per_prompt)
+            ]
+
+            round_ctx = RoundContext(
+                round_id=round_id,
+                prompt_text=prompt_text,
+                public_seed_samples=seed_subset,
+                config=dict(self.config.raw),
+                output_dir=self._get_output_dir(),
+                text_backend=text_backend,
+                sample_id_prefix=f"syn_opt_r{round_id}",
+                sample_source="synthetic_optimized",
+            )
+
+            batch_samples = self.generator.generate(round_ctx)
+            all_generated.extend(batch_samples)
+            round_id += 1
+
+            if (round_idx + 1) % 50 == 0:
+                self.logger.info("Generation progress: %d / %d samples", len(all_generated), total_count)
+
+        # Partial round if needed
+        if remainder > 0 and remainder != generated_per_round:
+            start_idx = (num_full_rounds * generated_per_round) % len(seed_corpus)
+            seed_subset = [
+                seed_corpus[(start_idx + i) % len(seed_corpus)]
+                for i in range(self.generator.exemplars_per_prompt)
+            ]
+
+            round_ctx = RoundContext(
+                round_id=round_id,
+                prompt_text=prompt_text,
+                public_seed_samples=seed_subset,
+                config=dict(self.config.raw),
+                output_dir=self._get_output_dir(),
+                text_backend=text_backend,
+                sample_id_prefix=f"syn_opt_r{round_id}",
+                sample_source="synthetic_optimized",
+            )
+
+            batch_samples = self.generator.generate(round_ctx)
+            # Take only the remainder
+            all_generated.extend(batch_samples[:remainder])
+
+        self.logger.info("Generated %d samples with custom prompt (target was %d)", len(all_generated), total_count)
 
         # Release text_backend used during generation
         if text_backend is not None:

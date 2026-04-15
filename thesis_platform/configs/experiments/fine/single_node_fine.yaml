@@ -4,7 +4,7 @@
 inherits:
   - ../../base/paths.yaml
   - ../../base/runtime.yaml
-  - ../../base/llm_qwen_windows.yaml
+  - ../../base/llm_7b_linux.yaml
   - ../../methods/generators/pretext_prompt_llm.yaml
   - ../../methods/scorers/datainf.yaml
   - ../../methods/retrievers/knn.yaml
@@ -27,33 +27,34 @@ meta:
 
 # Data configuration (single node, no client partition)
 data:
-  dataset_name: congressional
+  dataset_name: jobs
   task_type: instruction_tuning
   sample_format: raw_text
-  train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
-  eval_path: thesis_platform/datasets/congressional/formatted/congressional_eval.json
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
   max_samples_per_client: 10000    # Single node owns all data
   initialization_min_words: 20
   initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
 
-# Stage A: Large-scale generation and scoring
+# Stage A: Prompt optimization (small scale for critique-based refinement)
 stage_a:
   enabled: true
-  generated_count: 10000          # Generate 10000 samples
-  batch_size: 1000                # Batch size for generation
-  select_top_k: 8000              # Select 8000 for Stage B
-  max_probe_samples: 5000        # Limit train samples for DataInf probe building
+  generated_count: 100           # Generate 100 samples for prompt optimization
+  batch_size: 100                 # Batch size for generation
+  select_top_k: 10               # Select 10 worst samples for critique
+  max_probe_samples: 500         # Limit train samples for DataInf probe building
+  max_iterations: 10             # Max prompt optimization iterations
+  convergence_threshold: 0.1      # Convergence threshold for prompt refinement
 
-# Stage B: Critique-retrieval-aggregation loop
+# Stage B: Final generation with optimized prompt
 stage_b:
   enabled: true
-  num_iterations: 5              # 5 iterations
-  batch_size: 500                # Batch size per iteration
-  selection_mode: worst          # Select worst samples
+  generated_count: 1000         # Generate 1000 samples with optimized prompt
 
-# Stage C: Bootstrap expansion
+
+# Stage C: Bootstrap expansion (deprecated - disabled for new flow)
 stage_c:
-  enabled: true
+  enabled: false
   num_prompts: 10000            # Generate 10000 prompts
   generator_backend: local
   generator_model: thesis_platform/open_model/distilgpt2
