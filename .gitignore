@@ -52,6 +52,7 @@ execute/
 # Local ignored directories
 .claude/
 clash_for_linux/
-scripts/
+# scripts/ (tracked - thesis_platform/scripts/)
+!thesis_platform/scripts/
 start/
 
