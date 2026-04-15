@@ -174,7 +174,11 @@ def _build_pretext_raw(
             "distilgpt2_path": str(
                 thesis_config.resolve_path(downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2"))
             ),
-            "c4_checkpoint_path": downstream_cfg.get("c4_checkpoint_path", ""),
+            "c4_checkpoint_path": str(
+                thesis_config.resolve_path(downstream_cfg["c4_checkpoint_path"])
+                if downstream_cfg.get("c4_checkpoint_path")
+                else ""
+            ),
         },
         "stage1": {"enabled": False, "rounds": 1},
         "bootstrap": {"enabled": False},
@@ -693,18 +697,17 @@ class DownstreamEvalManager:
     def _required_small_eval_assets(self, eval_mode: str) -> dict[str, Path | None]:
         """Resolve the asset set required by the chosen small-eval mode."""
 
-        if eval_mode == "gpt2":
-            return {
-                "distilgpt2_path": self.thesis_config.resolve_path(
-                    self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
-                ),
-            }
-        return {
+        assets: dict[str, Path | None] = {
             "distilgpt2_path": self.thesis_config.resolve_path(
                 self.downstream_cfg.get("distilgpt2_path", "thesis_platform/open_model/distilgpt2")
             ),
-            "c4_checkpoint_path": self.thesis_config.resolve_path(self.downstream_cfg.get("c4_checkpoint_path")),
         }
+        # c4_checkpoint_path is only needed for distilgpt2 mode, not for gpt2 mode
+        if eval_mode != "gpt2":
+            c4_path = self.downstream_cfg.get("c4_checkpoint_path")
+            if c4_path:
+                assets["c4_checkpoint_path"] = self.thesis_config.resolve_path(c4_path)
+        return assets
 
 
 

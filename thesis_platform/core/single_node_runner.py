@@ -133,8 +133,11 @@ class SingleNodeRunner:
         all_generated = self._generate_batched(seed_corpus, generated_count)
         self.logger.info("Stage A: Generated %d samples", len(all_generated))
 
-        # Build single-node client context
-        client_ctx = self._build_client_context(seed_corpus, all_generated)
+        # Build single-node client context (limit train samples for probe to avoid OOM)
+        max_probe_samples = int(self.config.stage_a.get("max_probe_samples", 10000))
+        train_for_probe = seed_corpus[:max_probe_samples]
+        self.logger.info("Stage A: Using %d train samples for DataInf probe (of %d total)", len(train_for_probe), len(seed_corpus))
+        client_ctx = self._build_client_context(train_for_probe, all_generated)
 
         # Score all generated samples
         scored_samples = self._score_batched(all_generated, client_ctx, batch_size)
@@ -649,13 +652,13 @@ class SingleNodeRunner:
         top_p: float,
     ) -> list[str]:
         """Generate synthetic texts from bootstrap prompts."""
-        if backend == "huggingface":
-            return self._generate_huggingface(prompts, model, max_tokens, temperature, top_p)
+        if backend == "local":
+            return self._generate_local(prompts, model, max_tokens, temperature, top_p)
         else:
-            self.logger.warning("Unsupported backend %s, using huggingface", backend)
-            return self._generate_huggingface(prompts, model, max_tokens, temperature, top_p)
+            self.logger.warning("Unsupported backend %s, using local model", backend)
+            return self._generate_local(prompts, model, max_tokens, temperature, top_p)
 
-    def _generate_huggingface(
+    def _generate_local(
         self,
         prompts: list[str],
         model: str,
@@ -663,16 +666,18 @@ class SingleNodeRunner:
         temperature: float,
         top_p: float,
     ) -> list[str]:
-        """Generate using HuggingFace Transformers."""
+        """Generate using a local HuggingFace model."""
         try:
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            tokenizer = AutoTokenizer.from_pretrained(model)
+            repo_root = self.config.repo_root()
+            model_path = str(repo_root / model)
+            tokenizer = AutoTokenizer.from_pretrained(model_path)
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
-            model_instance = AutoModelForCausalLM.from_pretrained(model).to(device)
+            model_instance = AutoModelForCausalLM.from_pretrained(model_path).to(device)
 
             outputs = []
             batch_size = 8
@@ -695,7 +700,7 @@ class SingleNodeRunner:
 
             return outputs
         except Exception as e:
-            self.logger.error("HuggingFace generation failed: %s", e)
+            self.logger.error("Local model generation failed: %s", e)
             return []
 
     def _build_simple_prompts(

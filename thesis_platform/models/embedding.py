@@ -145,21 +145,23 @@ def build_embedder(
         cwd = os.getcwd()
         # Navigate up from cwd to find the project root containing thesis_platform
         candidate_dir = Path(cwd)
+        candidate = None
+        found = False
         for _ in range(10):
             if (candidate_dir / "thesis_platform").is_dir():
                 # Found the project root - use it as base
                 correct_candidate = candidate_dir / model_name_or_path
                 if correct_candidate.exists():
                     candidate = correct_candidate.resolve()
-                    if candidate.exists():
-                        break
+                    found = True
+                    break
             parent = candidate_dir.parent
             if parent == candidate_dir:
                 break
             candidate_dir = parent
-        else:
+        if not found:
             candidate = raw_candidate.resolve()
-        if candidate.exists():
+        if candidate and candidate.exists():
             try:
                 return SentenceTransformerEmbedder(resolve_sentence_transformer_path(candidate))
             except Exception as exc:

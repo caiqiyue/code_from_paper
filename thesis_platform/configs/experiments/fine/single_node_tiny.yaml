@@ -41,6 +41,7 @@ stage_a:
   generated_count: 100           # Generate 100 samples
   batch_size: 50                 # Batch size for generation
   select_top_k: 80               # Select 80 for Stage B
+  max_probe_samples: 500         # Limit train samples for DataInf probe building
 
 # Stage B: Critique-retrieval-aggregation loop (minimal for testing)
 stage_b:
@@ -53,8 +54,8 @@ stage_b:
 stage_c:
   enabled: true
   num_prompts: 100               # Generate 100 prompts
-  generator_backend: huggingface
-  generator_model: distilgpt2
+  generator_backend: local
+  generator_model: thesis_platform/open_model/distilgpt2
   max_tokens: 64
   temperature: 1.0
   top_p: 1.0

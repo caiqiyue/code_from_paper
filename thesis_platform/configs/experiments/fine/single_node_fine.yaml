@@ -4,7 +4,7 @@
 inherits:
   - ../../base/paths.yaml
   - ../../base/runtime.yaml
-  - ../../base/llm_mock.yaml
+  - ../../base/llm_qwen_windows.yaml
   - ../../methods/generators/pretext_prompt_llm.yaml
   - ../../methods/scorers/datainf.yaml
   - ../../methods/retrievers/knn.yaml
@@ -15,10 +15,9 @@ inherits:
 paths:
   repo_root: ../../../..
 
-# Override aggregator embedding_model (already in thesis_platform/ prefix from base,
-# but repo_root already points to thesis_platform so remove the prefix)
+# Override aggregator embedding_model (repo_root now points to caiqiyue_file)
 aggregator:
-  embedding_model: open_model/all_minilm_l6_v2
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
   allow_hashing_fallback: false
 
 meta:
@@ -42,6 +41,7 @@ stage_a:
   generated_count: 10000          # Generate 10000 samples
   batch_size: 1000                # Batch size for generation
   select_top_k: 8000              # Select 8000 for Stage B
+  max_probe_samples: 5000        # Limit train samples for DataInf probe building
 
 # Stage B: Critique-retrieval-aggregation loop
 stage_b:
@@ -54,8 +54,8 @@ stage_b:
 stage_c:
   enabled: true
   num_prompts: 10000            # Generate 10000 prompts
-  generator_backend: huggingface
-  generator_model: distilgpt2
+  generator_backend: local
+  generator_model: thesis_platform/open_model/distilgpt2
   max_tokens: 64
   temperature: 1.0
   top_p: 1.0
@@ -64,9 +64,25 @@ stage_c:
 privacy:
   enabled: false
 
-# Evaluation configuration
-evaluation:
-  run_small_eval: true
-  small_eval_batch_size: 8
-  small_eval_mode: gpt2
+# Downstream evaluation via PrE-Text (pretext_platform is at ../PrE-Text/pretext_platform)
+downstream_eval:
+  enabled: true
+  kind: pretext_small_eval
+  export_filename: llama7b_text_syn.json
   run_large_eval: false
+  run_small_eval: true
+  small_eval_mode: gpt2
+  dataset_root: thesis_platform/datasets
+  model_root: thesis_platform/open_model
+  distilgpt2_path: thesis_platform/open_model/distilgpt2
+  minilm_path: thesis_platform/open_model/all_minilm_l6_v2
+  roberta_large_path: thesis_platform/open_model/roberta_large
+  llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
+  cutoff_len: 48
+  small_cutoff_len: 48
+  small_epochs: 1
+  small_batch_size: 8
+  small_eval_batch_size: 8
+  small_learning_rate: 0.0002
+  small_num_proc: 1
+  small_grad_accum_steps: 1
