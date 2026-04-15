@@ -287,20 +287,75 @@ class ExperimentConfig:
 
         return self.raw.get("runtime", {})
 
+    @property
+    def stage_a(self) -> dict[str, Any]:
+        """Return the Stage A config section."""
+
+        return self.raw.get("stage_a", {})
+
+    @property
+    def stage_b(self) -> dict[str, Any]:
+        """Return the Stage B config section."""
+
+        return self.raw.get("stage_b", {})
+
+    @property
+    def stage_c(self) -> dict[str, Any]:
+        """Return the Stage C config section."""
+
+        return self.raw.get("stage_c", {})
+
     def repo_root(self) -> Path:
         """Resolve the repository root relative to the current config file."""
-
         raw_repo_root = _normalize_config_path(self.paths.get("repo_root", "."))
         return (self.path.parent / raw_repo_root).resolve()
 
     def resolve_path(self, value: str | Path | None) -> Path | None:
-        """Resolve a configured path relative to the repository root."""
+        """Resolve a configured path relative to the repository root.
 
+        On Windows, absolute paths with non-ASCII characters may be garbled in Path
+        string representations. Use cwd-based reconstruction for such paths.
+        """
+        import os
         if value in (None, ""):
             return None
         path = Path(_normalize_config_path(value))
         if path.is_absolute():
-            return path
+            str_path = str(path)
+            # Check if path contains garbled chars (non-ASCII chars appear as replacement chars)
+            if '�' in str_path or not os.path.exists(path):
+                # Try to reconstruct from cwd
+                cwd = os.getcwd()
+                parts = str_path.split(os.sep)
+                # Find 'thesis_platform' in path and reconstruct from cwd
+                for i, part in enumerate(parts):
+                    if 'thesis_platform' in part.lower():
+                        base = Path(cwd)
+                        for _ in range(10):
+                            if (base / "thesis_platform").is_dir():
+                                break
+                            base = base.parent
+                        reconstructed = base.joinpath(*parts[i:])
+                        if reconstructed.exists():
+                            return reconstructed.resolve()
+                # Also try with 'datasets' as marker
+                for i, part in enumerate(parts):
+                    if 'datasets' in part.lower():
+                        base = Path(cwd)
+                        for _ in range(10):
+                            if (base / "datasets").is_dir():
+                                return base.resolve()
+                            base = base.parent
+                # Try cwd as base
+                base = Path(cwd)
+                for _ in range(10):
+                    tp = base / "thesis_platform"
+                    if tp.is_dir():
+                        reconstructed = tp.joinpath(*parts[i+1:])
+                        if reconstructed.exists():
+                            return reconstructed.resolve()
+                    base = base.parent
+            return path.resolve() if path.exists() else path
         return (self.repo_root() / path).resolve()
 
     def output_root(self) -> Path:

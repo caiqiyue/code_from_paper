@@ -1,0 +1,88 @@
+# Minimal test configuration for single-node fine version
+# Used to verify the pipeline runs end-to-end with minimal resources
+
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../base/llm_qwen_windows.yaml
+  - ../../methods/generators/pretext_prompt_llm.yaml
+  - ../../methods/scorers/datainf.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_llm.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+
+# Override repo_root to point to caiqiyue_file (parent of thesis_platform/)
+paths:
+  repo_root: ../../../..
+
+# Override aggregator embedding_model (repo_root now points to caiqiyue_file)
+aggregator:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+
+meta:
+  experiment_id: single_node_tiny
+  stage: fine
+  seed: 42
+
+# Data configuration (single node, no client partition)
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  sample_format: raw_text
+  train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
+  max_samples_per_client: 10000    # Single node owns all data
+  initialization_min_words: 20
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+
+# Stage A: Large-scale generation and scoring (minimal for testing)
+stage_a:
+  enabled: true
+  generated_count: 100           # Generate 100 samples
+  batch_size: 50                 # Batch size for generation
+  select_top_k: 80               # Select 80 for Stage B
+
+# Stage B: Critique-retrieval-aggregation loop (minimal for testing)
+stage_b:
+  enabled: true
+  num_iterations: 1               # Only 1 iteration
+  batch_size: 40                 # Batch size per iteration
+  selection_mode: worst           # Select worst samples
+
+# Stage C: Bootstrap expansion (minimal for testing)
+stage_c:
+  enabled: true
+  num_prompts: 100               # Generate 100 prompts
+  generator_backend: huggingface
+  generator_model: distilgpt2
+  max_tokens: 64
+  temperature: 1.0
+  top_p: 1.0
+
+# Privacy (disabled by default for single node)
+privacy:
+  enabled: false
+
+# Downstream evaluation via PrE-Text (pretext_platform is at ../PrE-Text/pretext_platform)
+downstream_eval:
+  enabled: true
+  kind: pretext_small_eval
+  export_filename: llama7b_text_syn.json
+  run_large_eval: false
+  run_small_eval: true
+  small_eval_mode: gpt2
+  windows_small_eval_mode: gpt2
+  dataset_root: thesis_platform/datasets
+  model_root: thesis_platform/open_model
+  distilgpt2_path: thesis_platform/open_model/distilgpt2
+  minilm_path: thesis_platform/open_model/all_minilm_l6_v2
+  roberta_large_path: thesis_platform/open_model/roberta_large
+  llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
+  cutoff_len: 48
+  small_cutoff_len: 48
+  small_epochs: 1
+  small_batch_size: 8
+  small_eval_batch_size: 8
+  small_learning_rate: 0.0002
+  small_num_proc: 1
+  small_grad_accum_steps: 1

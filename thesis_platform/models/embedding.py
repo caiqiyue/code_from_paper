@@ -136,7 +136,29 @@ def build_embedder(
     """Build the best available embedding backend for the current environment."""
 
     if model_name_or_path:
-        candidate = (repo_root / model_name_or_path).resolve()
+        # On Windows, repo_root may have garbled non-ASCII chars in its Path string
+        # representation, causing join/resolve to produce wrong paths.
+        # Use cwd-based resolution: find the correct project root by navigating up.
+        import os
+        raw_candidate = repo_root / model_name_or_path
+        # Try using os.getcwd() to find the correct base, then build the correct path
+        cwd = os.getcwd()
+        # Navigate up from cwd to find the project root containing thesis_platform
+        candidate_dir = Path(cwd)
+        for _ in range(10):
+            if (candidate_dir / "thesis_platform").is_dir():
+                # Found the project root - use it as base
+                correct_candidate = candidate_dir / model_name_or_path
+                if correct_candidate.exists():
+                    candidate = correct_candidate.resolve()
+                    if candidate.exists():
+                        break
+            parent = candidate_dir.parent
+            if parent == candidate_dir:
+                break
+            candidate_dir = parent
+        else:
+            candidate = raw_candidate.resolve()
         if candidate.exists():
             try:
                 return SentenceTransformerEmbedder(resolve_sentence_transformer_path(candidate))

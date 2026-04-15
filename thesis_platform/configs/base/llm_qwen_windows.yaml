@@ -1,0 +1,20 @@
+# LLM configuration for Windows using Qwen 2.0 5B Instruct
+# Used for single-node fine experiments on Windows
+
+llm:
+  client:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.0
+    max_new_tokens: 64
+    use_chat_template: true
+  server:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/qwen_2_0_5b_instruct
+    device: auto
+    dtype: auto
+    temperature: 0.2
+    max_new_tokens: 96
+    use_chat_template: true

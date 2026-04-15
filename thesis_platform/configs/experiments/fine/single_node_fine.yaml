@@ -1,0 +1,72 @@
+# Formal experiment configuration for single-node fine version
+# Target: >= 8000 synthetic samples, top1 >= 0% (not worse than baseline)
+
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../base/llm_mock.yaml
+  - ../../methods/generators/pretext_prompt_llm.yaml
+  - ../../methods/scorers/datainf.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_llm.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+
+# Override repo_root to point to caiqiyue_file (parent of thesis_platform/)
+paths:
+  repo_root: ../../../..
+
+# Override aggregator embedding_model (already in thesis_platform/ prefix from base,
+# but repo_root already points to thesis_platform so remove the prefix)
+aggregator:
+  embedding_model: open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+
+meta:
+  experiment_id: single_node_fine
+  stage: fine
+  seed: 42
+
+# Data configuration (single node, no client partition)
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  sample_format: raw_text
+  train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
+  max_samples_per_client: 10000    # Single node owns all data
+  initialization_min_words: 20
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+
+# Stage A: Large-scale generation and scoring
+stage_a:
+  enabled: true
+  generated_count: 10000          # Generate 10000 samples
+  batch_size: 1000                # Batch size for generation
+  select_top_k: 8000              # Select 8000 for Stage B
+
+# Stage B: Critique-retrieval-aggregation loop
+stage_b:
+  enabled: true
+  num_iterations: 5              # 5 iterations
+  batch_size: 500                # Batch size per iteration
+  selection_mode: worst          # Select worst samples
+
+# Stage C: Bootstrap expansion
+stage_c:
+  enabled: true
+  num_prompts: 10000            # Generate 10000 prompts
+  generator_backend: huggingface
+  generator_model: distilgpt2
+  max_tokens: 64
+  temperature: 1.0
+  top_p: 1.0
+
+# Privacy (disabled by default for single node)
+privacy:
+  enabled: false
+
+# Evaluation configuration
+evaluation:
+  run_small_eval: true
+  small_eval_batch_size: 8
+  small_eval_mode: gpt2
+  run_large_eval: false
