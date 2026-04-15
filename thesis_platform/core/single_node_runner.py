@@ -94,6 +94,11 @@ class SingleNodeRunner:
         write_json(output_dir / "metrics_summary.json", summary)
         self.logger.info("Metrics summary written to %s", output_dir / "metrics_summary.json")
 
+        # Final GPU memory cleanup
+        self.logger.info("Cleaning up GPU memory")
+        from thesis_platform.core.resource_cleanup import release_component_resources
+        release_component_resources()
+
         return summary
 
     # -------------------------------------------------------------------------
@@ -157,6 +162,13 @@ class SingleNodeRunner:
             "select_top_k": select_top_k,
             "total_scored": len(scored_samples),
         })
+
+        # Release Stage A resources (Generator + Scorer)
+        self.logger.info("Stage A: Releasing Generator and Scorer resources")
+        from thesis_platform.core.resource_cleanup import release_component_resources
+        release_component_resources(self.generator, self.scorer)
+        self.generator = None
+        self.scorer = None
 
         return selected_samples
 
@@ -278,6 +290,14 @@ class SingleNodeRunner:
         }
         write_json(stage_b_dir / "prompt_update.json", final_result)
         write_jsonl(stage_b_dir / "critiques.jsonl", all_critiques)
+
+        # Release Stage B resources (Retriever + Critic + Aggregator)
+        self.logger.info("Stage B: Releasing Retriever, Critic, and Aggregator resources")
+        from thesis_platform.core.resource_cleanup import release_component_resources
+        release_component_resources(self.retriever, self.critic, self.aggregator)
+        self.retriever = None
+        self.critic = None
+        self.aggregator = None
 
         return {
             "prompt": server_ctx.prompt_text,
@@ -569,6 +589,9 @@ class SingleNodeRunner:
         round_id = 0
         sample_offset = 0
 
+        # Pre-create text_backend once to avoid reloading model every round
+        text_backend = self._build_text_backend()
+
         # Full rounds
         for round_idx in range(num_full_rounds):
             # Rotate seed samples for this round to increase diversity
@@ -584,7 +607,7 @@ class SingleNodeRunner:
                 public_seed_samples=seed_subset,
                 config=dict(self.config.raw),
                 output_dir=self._get_output_dir(),
-                text_backend=self._build_text_backend(),
+                text_backend=text_backend,
                 sample_id_prefix=f"syn_single_r{round_id}",
                 sample_source="synthetic_single_node",
             )
@@ -611,7 +634,7 @@ class SingleNodeRunner:
                 public_seed_samples=seed_subset,
                 config=dict(self.config.raw),
                 output_dir=self._get_output_dir(),
-                text_backend=self._build_text_backend(),
+                text_backend=text_backend,
                 sample_id_prefix=f"syn_single_r{round_id}",
                 sample_source="synthetic_single_node",
             )
@@ -621,6 +644,12 @@ class SingleNodeRunner:
             all_generated.extend(batch_samples[:remainder])
 
         self.logger.info("Stage A: Generated %d samples (target was %d)", len(all_generated), total_count)
+
+        # Release text_backend used during generation
+        if text_backend is not None:
+            from thesis_platform.core.resource_cleanup import release_component_resources
+            release_component_resources(text_backend)
+
         return all_generated
 
     def _score_batched(self, samples: list[Sample], client_ctx: ClientContext, batch_size: int) -> list[ScoredSample]:
@@ -697,6 +726,11 @@ class SingleNodeRunner:
                     )
                 batch_outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
                 outputs.extend(batch_outputs)
+
+            # Release bootstrap model resources
+            del model_instance
+            del tokenizer
+            torch.cuda.empty_cache()
 
             return outputs
         except Exception as e:
