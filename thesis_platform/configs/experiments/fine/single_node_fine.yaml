@@ -31,6 +31,7 @@ data:
   task_type: instruction_tuning
   sample_format: raw_text
   train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
+  eval_path: thesis_platform/datasets/congressional/formatted/congressional_eval.json
   max_samples_per_client: 10000    # Single node owns all data
   initialization_min_words: 20
   initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
@@ -64,10 +65,10 @@ stage_c:
 privacy:
   enabled: false
 
-# Downstream evaluation via PrE-Text (pretext_platform is at ../PrE-Text/pretext_platform)
+# Downstream evaluation via PrE-Text (aligned with GC2)
 downstream_eval:
   enabled: true
-  kind: pretext_small_eval
+  kind: pretext_large
   export_filename: llama7b_text_syn.json
   run_large_eval: false
   run_small_eval: true
@@ -78,11 +79,11 @@ downstream_eval:
   minilm_path: thesis_platform/open_model/all_minilm_l6_v2
   roberta_large_path: thesis_platform/open_model/roberta_large
   llama2_7b_path: thesis_platform/open_model/llama_2_7b_hf
-  cutoff_len: 48
-  small_cutoff_len: 48
-  small_epochs: 1
+  cutoff_len: 64
+  small_cutoff_len: 64
+  small_epochs: 20
   small_batch_size: 8
-  small_eval_batch_size: 8
+  small_eval_batch_size: 2
   small_learning_rate: 0.0002
   small_num_proc: 1
-  small_grad_accum_steps: 1
+  small_grad_accum_steps: 8

@@ -550,7 +550,7 @@ class SingleNodeRunner:
                 self.logger.warning("No %s LLM config found, text backend will be None", role)
                 return None
             repo_root = self.config.repo_root()
-            return build_text_backend({**role_cfg, "role": role}, repo_root)
+            return build_text_backend({**role_cfg, "role": role}, repo_root=repo_root)
         except Exception as e:
             self.logger.warning("Could not build %s text backend: %s", role, e)
             return None
