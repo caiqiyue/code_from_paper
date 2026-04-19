@@ -1,0 +1,9 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+  - ../../methods/aggregators/uid.yaml
+
+meta:
+  experiment_id: sn_a4_jobs_uid
+
+aggregator:
+  name: uid

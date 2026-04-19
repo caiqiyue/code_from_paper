@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import random
+import statistics
 import time
 from pathlib import Path
 from typing import Any
@@ -10,6 +12,7 @@ from typing import Any
 from thesis_platform.core.context import ClientContext, RoundContext, ServerContext
 from thesis_platform.core.io_utils import ensure_dir, read_json, write_json, write_jsonl
 from thesis_platform.core.logging_utils import get_logger
+from thesis_platform.core.registry import create
 from thesis_platform.core.schemas import Critique, PairedSample, PromptUpdate, Sample, ScoredSample
 from thesis_platform.models.embedding import build_embedder
 
@@ -122,17 +125,20 @@ class SingleNodeRunner:
 
         stage_a_dir = ensure_dir(output_dir / "stage_a")
         self.logger.info("Stage A: Prompt optimization through iterative critique")
+        cache_signature = self._stage_a_cache_signature()
 
         # Check for cached results
         cached_path = stage_a_dir / "prompt_update.json"
         if cached_path.exists():
-            self.logger.info("Stage A: Loading cached prompt optimization result from %s", cached_path)
             data = read_json(cached_path)
-            return {
-                "optimized_prompt": data.get("final_prompt", ""),
-                "prompt_history": data.get("prompt_history", []),
-                "iterations": data.get("iterations", 0),
-            }
+            if data.get("cache_signature") == cache_signature:
+                self.logger.info("Stage A: Loading cached prompt optimization result from %s", cached_path)
+                return {
+                    "optimized_prompt": data.get("final_prompt", ""),
+                    "prompt_history": data.get("prompt_history", []),
+                    "iterations": data.get("iterations", 0),
+                }
+            self.logger.info("Stage A: Ignoring stale cached prompt optimization result at %s", cached_path)
 
         # Load seed corpus
         train_path = self.config.resolve_path(self.config.data.get("train_path"))
@@ -160,6 +166,7 @@ class SingleNodeRunner:
         client_ctx = None
         critique_ctx = None
         server_ctx = None
+        stage_a_scorer, resolved_stage_a_scorer_name = self._resolve_stage_a_scorer()
 
         for iteration in range(max_iterations):
             self.logger.info("Stage A iteration %d/%d", iteration + 1, max_iterations)
@@ -170,13 +177,31 @@ class SingleNodeRunner:
 
             # Step 2: Score samples with DataInf
             all_generated = generated_samples  # For probe context
-            client_ctx = self._build_client_context(train_for_probe, all_generated)
-            scored_samples = self._score_batched(generated_samples, client_ctx, batch_size=generated_count)
+            client_ctx = self._build_client_context(
+                train_for_probe,
+                all_generated,
+                objective_type="pair_alignment" if resolved_stage_a_scorer_name == "ira" else "domain_probe",
+            )
+            scored_samples = self._score_batched(
+                generated_samples,
+                client_ctx,
+                batch_size=generated_count,
+                scorer=stage_a_scorer,
+            )
 
-            # Sort by score (descending: worst/largest first)
-            scored_samples.sort(key=lambda x: x.score, reverse=True)
-            worst_samples = scored_samples[:select_top_k]
+            worst_samples, selection_meta = self._select_stage_a_samples(
+                scored_samples,
+                select_top_k=select_top_k,
+                iteration=iteration,
+            )
+            iter_dir = ensure_dir(stage_a_dir / f"iteration_{iteration}")
+            selection_meta["scorer_name"] = resolved_stage_a_scorer_name
+            selection_meta["aggregator_name"] = str(self.config.aggregator.get("name", ""))
+            write_json(iter_dir / "selection_summary.json", selection_meta)
+            write_jsonl(iter_dir / "worst_samples.jsonl", worst_samples)
             self.logger.info("Stage A: Selected top %d worst samples (worst score: %.4f)", len(worst_samples), worst_samples[0].score if worst_samples else 0)
+            if selection_meta.get("selection_mode") == "random_fallback":
+                self.logger.info("Stage A: Falling back to random selection (%s)", selection_meta.get("failure_reason", "unknown"))
 
             # Step 3: Check convergence - if worst score is below threshold, we've converged
             if worst_samples:
@@ -204,7 +229,11 @@ class SingleNodeRunner:
             ) for s in worst_samples]
 
             # Build new context with worst samples for critique
-            critique_ctx = self._build_client_context(train_for_probe, samples_for_critique)
+            critique_ctx = self._build_client_context(
+                train_for_probe,
+                samples_for_critique,
+                objective_type="pair_alignment" if resolved_stage_a_scorer_name == "ira" else "domain_probe",
+            )
 
             # Retrieve anchor samples for each worst sample
             paired_samples = self._retrieve_batched(samples_for_critique, critique_ctx)
@@ -215,27 +244,12 @@ class SingleNodeRunner:
             self.logger.info("Stage A: Generated %d critiques (total: %d)", len(critiques), len(all_critiques))
 
             # Step 5: Aggregate critiques and update prompt
-            from thesis_platform.algorithms.aggregators.dbscan_core import aggregate_dbscan_critiques
-
             # Build a simple server context for aggregation
             server_ctx = self._build_server_context()
             server_ctx.prompt_text = current_prompt
-
-            prompt_update, new_memory = aggregate_dbscan_critiques(
-                critiques=all_critiques,
-                round_id=iteration,
-                max_rules=int(self.config.aggregator.get("max_rules", 5)),
-                embedder=critique_ctx.embedder,
-                text_backend=critique_ctx.text_backend,
-                eps=float(self.config.aggregator.get("cluster_eps", 0.35)),
-                min_samples=int(self.config.aggregator.get("cluster_min_samples", 2)),
-                use_memory=True,
-                memory=server_ctx.aggregation_memory,
-                momentum_beta=float(self.config.aggregator.get("momentum_beta", 0.7)),
-                base_prompt=current_prompt,
-                prototype_feedbacks=list(server_ctx.prototype_feedbacks),
-                prototype_cluster_method="dbscan",
-            )
+            server_ctx.prompt_history = list(prompt_history)
+            server_ctx.text_backend = critique_ctx.text_backend
+            prompt_update = self.aggregator.aggregate(all_critiques, server_ctx)
 
             # Update prompt if we have rules
             if prompt_update and prompt_update.rules:
@@ -251,13 +265,8 @@ class SingleNodeRunner:
                 self.logger.info("Stage A: No rules from aggregation, stopping")
                 break
 
-            # Update memory
-            server_ctx.aggregation_memory = new_memory
-
             # Save iteration artifacts
-            iter_dir = ensure_dir(stage_a_dir / f"iteration_{iteration}")
             write_jsonl(iter_dir / "critiques.jsonl", critiques)
-            write_jsonl(iter_dir / "worst_samples.jsonl", worst_samples)
             if prompt_update:
                 write_json(iter_dir / "prompt_update.json", prompt_update)
 
@@ -271,6 +280,7 @@ class SingleNodeRunner:
             "prompt_history": prompt_history,
             "iterations": iteration + 1,
             "total_critiques": len(all_critiques),
+            "cache_signature": cache_signature,
         }
         write_json(stage_a_dir / "prompt_update.json", final_result)
         write_jsonl(stage_a_dir / "critiques.jsonl", all_critiques)
@@ -304,13 +314,18 @@ class SingleNodeRunner:
 
         stage_b_dir = ensure_dir(output_dir / "stage_b")
         self.logger.info("Stage B: Final synthetic corpus generation")
+        cache_signature = self._stage_b_cache_signature(stage_a_result)
 
         # Check for cached results
         cached_path = stage_b_dir / "llama7b_text_syn.json"
-        if cached_path.exists():
-            self.logger.info("Stage B: Loading cached synthetic texts from %s", cached_path)
-            with open(cached_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+        stage_config_path = stage_b_dir / "stage_config.json"
+        if cached_path.exists() and stage_config_path.exists():
+            stage_config = read_json(stage_config_path)
+            if stage_config.get("cache_signature") == cache_signature:
+                self.logger.info("Stage B: Loading cached synthetic texts from %s", cached_path)
+                with open(cached_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            self.logger.info("Stage B: Ignoring stale cached synthetic texts at %s", cached_path)
 
         # Get optimized prompt from Stage A
         optimized_prompt = stage_a_result.get("optimized_prompt", "")
@@ -343,6 +358,7 @@ class SingleNodeRunner:
             "total_generated": len(synthetic_texts),
             "total_filtered": len(filtered),
             "optimized_prompt": optimized_prompt,
+            "cache_signature": cache_signature,
         })
 
         return filtered
@@ -455,7 +471,7 @@ class SingleNodeRunner:
         texts = [s.render_text() for s in samples[:limit]]
         return texts
 
-    def _build_client_context(self, train_samples: list[Sample], all_samples: list[Sample]) -> ClientContext:
+    def _build_client_context(self, train_samples: list[Sample], all_samples: list[Sample], *, objective_type: str = "domain_probe") -> ClientContext:
         """Build a single-node ClientContext with embedder and text backend."""
         embedder_cfg = self.config.retriever or {}
         embedding_model = embedder_cfg.get("embedding_model", "models/all-MiniLM-L6-v2")
@@ -477,6 +493,7 @@ class SingleNodeRunner:
             embedder=embedder,
             config=dict(self.config.raw),
             text_backend=text_backend,
+            objective_type=objective_type,
         )
         return client_ctx
 
@@ -703,16 +720,109 @@ class SingleNodeRunner:
 
         return all_generated
 
-    def _score_batched(self, samples: list[Sample], client_ctx: ClientContext, batch_size: int) -> list[ScoredSample]:
+    def _score_batched(self, samples: list[Sample], client_ctx: ClientContext, batch_size: int, *, scorer: Any | None = None) -> list[ScoredSample]:
         """Score samples in batches using the configured scorer."""
+        scorer = scorer or self.scorer
         all_scored = []
         for i in range(0, len(samples), batch_size):
             batch = samples[i:i + batch_size]
-            scored = self.scorer.score(batch, client_ctx)
+            scored = scorer.score(batch, client_ctx)
             all_scored.extend(scored)
             self.logger.info("Stage A scoring batch %d-%d / %d: %d samples",
                            i, min(i + batch_size, len(samples)), len(samples), len(scored))
         return all_scored
+
+    def _resolve_stage_a_scorer(self) -> tuple[Any, str]:
+        """Return the scorer instance that Stage A should use."""
+
+        import thesis_platform.adapters  # noqa: F401 - ensure registry is populated for direct runner use
+
+        stage_a_scorer_name = str(self.config.stage_a.get("scorer", "") or "").strip()
+        base_scorer_name = str(self.config.scorer.get("name", "") or "").strip()
+        requested_name = stage_a_scorer_name or base_scorer_name
+        sample_format = str(self.config.data.get("sample_format", "raw_text")).strip().lower()
+
+        resolved_name = requested_name
+        if sample_format != "instruction_response":
+            if requested_name == "datainf":
+                raise ValueError("Single-node raw_text Stage A should use scorer 'datainf_real' instead of 'datainf'.")
+            elif requested_name == "gradmm":
+                raise ValueError("Single-node raw_text Stage A should use scorer 'gradmm_real' instead of 'gradmm'.")
+
+        scorer_config = dict(self.config.scorer)
+        scorer_config.update(dict(self.config.stage_a.get("scorer_config", {})))
+        scorer_config["name"] = resolved_name
+        if resolved_name == base_scorer_name and not stage_a_scorer_name and not self.config.stage_a.get("scorer_config"):
+            return self.scorer, resolved_name
+        if resolved_name == base_scorer_name and requested_name == base_scorer_name and not self.config.stage_a.get("scorer_config"):
+            return self.scorer, resolved_name
+        return create("scorer", resolved_name, scorer_config, self.config.repo_root()), resolved_name
+
+    def _stage_a_cache_signature(self) -> dict[str, Any]:
+        """Return the cache signature for Stage A artifacts."""
+
+        return {
+            "stage_a": dict(self.config.stage_a),
+            "scorer": dict(self.config.scorer),
+            "aggregator": dict(self.config.aggregator),
+            "data_sample_format": str(self.config.data.get("sample_format", "raw_text")),
+        }
+
+    def _stage_b_cache_signature(self, stage_a_result: dict[str, Any]) -> dict[str, Any]:
+        """Return the cache signature for Stage B artifacts."""
+
+        return {
+            "stage_b": dict(self.config.stage_b),
+            "optimized_prompt": str(stage_a_result.get("optimized_prompt", "")),
+        }
+
+    def _select_stage_a_samples(
+        self,
+        scored_samples: list[ScoredSample],
+        *,
+        select_top_k: int,
+        iteration: int,
+    ) -> tuple[list[ScoredSample], dict[str, Any]]:
+        """Select Stage A bad samples, with random fallback when scoring has no signal."""
+
+        scored_samples = list(scored_samples)
+        scored_samples.sort(key=lambda x: x.score, reverse=True)
+        failure_reason = self._detect_stage_a_failure(scored_samples, select_top_k=select_top_k)
+        if failure_reason is None:
+            return scored_samples[:select_top_k], {
+                "selection_mode": "scored",
+                "failure_reason": "",
+                "selected_sample_ids": [sample.sample_id for sample in scored_samples[:select_top_k]],
+                "scores": [float(sample.score) for sample in scored_samples],
+            }
+
+        seed = int(self.config.stage_a.get("random_fallback_seed", self.config.meta.get("seed", 42)))
+        rng = random.Random(seed + iteration)
+        selected = rng.sample(scored_samples, min(select_top_k, len(scored_samples)))
+        return selected, {
+            "selection_mode": "random_fallback",
+            "failure_reason": failure_reason,
+            "selected_sample_ids": [sample.sample_id for sample in selected],
+            "scores": [float(sample.score) for sample in scored_samples],
+        }
+
+    def _detect_stage_a_failure(self, scored_samples: list[ScoredSample], *, select_top_k: int) -> str | None:
+        """Return a failure reason when the Stage A ranking has no useful signal."""
+
+        if not scored_samples:
+            return "empty_scores"
+        scores = [float(sample.score) for sample in scored_samples]
+        epsilon = float(self.config.stage_a.get("failure_equal_epsilon", 1e-9))
+        if max(scores) - min(scores) <= epsilon:
+            return "scores_nearly_equal"
+        if len(scores) >= 2:
+            margin_threshold = float(self.config.stage_a.get("failure_margin_threshold", 0.0))
+            top_region = scores[: max(1, min(select_top_k, len(scores)))]
+            median_score = float(statistics.median(scores))
+            top_region_score = float(statistics.mean(top_region))
+            if top_region_score - median_score <= margin_threshold:
+                return "weak_top_k_separation"
+        return None
 
     def _retrieve_batched(self, samples: list[Sample], client_ctx: ClientContext) -> list[PairedSample]:
         """Retrieve anchor samples for a batch."""

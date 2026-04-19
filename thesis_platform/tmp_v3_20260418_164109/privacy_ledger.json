@@ -1,0 +1,36 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "privacy_ledger",
+  "experiment_id": "tmp_v3",
+  "policy": {
+    "enabled": false,
+    "mode": "sample_critique_upload_proxy",
+    "epsilon": 1.29,
+    "delta": 3e-06,
+    "sample_cost": 0.0,
+    "critique_cost": 0.0,
+    "upload_token_cost": 0.0,
+    "enforce_budget": false,
+    "max_grad_norm": 1.0,
+    "noise_multiplier": 1.0,
+    "dp_enabled": false
+  },
+  "summary": {
+    "enabled": false,
+    "mode": "disabled",
+    "epsilon": 1.29,
+    "delta": 3e-06,
+    "spent_total": 0.0,
+    "proxy_spent_total": 0.0,
+    "budget_left": null,
+    "budget_exceeded": false,
+    "real_dp_enabled": false,
+    "real_dp_epsilon_spent": null,
+    "real_dp_query_count": null,
+    "round_count": 0,
+    "last_round_proxy_budget_left": null
+  },
+  "cumulative_spent": 0.0,
+  "dp_runtime_state": null,
+  "entries": []
+}

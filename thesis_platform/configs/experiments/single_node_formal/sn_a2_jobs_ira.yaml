@@ -1,0 +1,9 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+  - ../../methods/scorers/ira.yaml
+
+meta:
+  experiment_id: sn_a2_jobs_ira
+
+stage_a:
+  scorer: ira

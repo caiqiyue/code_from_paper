@@ -158,6 +158,17 @@ class ExperimentConfig:
         return self.raw.get("data", {})
 
     @property
+    def execution(self) -> dict[str, Any]:
+        """Return the execution-mode config with a federated default."""
+
+        return _deep_merge(
+            {
+                "mode": "federated",
+            },
+            self.raw.get("execution", {}),
+        )
+
+    @property
     def federation(self) -> dict[str, Any]:
         """Return the federation runtime section."""
 

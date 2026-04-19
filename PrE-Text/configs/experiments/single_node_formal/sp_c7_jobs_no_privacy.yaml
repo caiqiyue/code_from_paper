@@ -1,0 +1,8 @@
+inherits:
+  - ./sp_c1_jobs_base.yaml
+
+meta:
+  experiment_id: sp_c7_jobs_no_privacy
+
+privacy:
+  enabled: false

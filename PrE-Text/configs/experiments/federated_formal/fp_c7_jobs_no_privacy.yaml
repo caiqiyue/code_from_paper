@@ -1,0 +1,11 @@
+inherits:
+  - ./fp_c1_jobs_base.yaml
+
+meta:
+  experiment_id: fp_c7_jobs_no_privacy
+
+privacy:
+  enabled: false
+
+stage1:
+  privacy_disabled: true

@@ -1,0 +1,6 @@
+inherits:
+  - ./sp_c1_jobs_base.yaml
+
+meta:
+  experiment_id: sp_c8_jobs_seed123
+  seed: 123

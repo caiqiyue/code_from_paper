@@ -1,0 +1,33 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/models.yaml
+  - ../../base/runtime.yaml
+  - ../../templates/noise_eps129.yaml
+
+execution:
+  mode: federated_pretext
+
+federation:
+  rounds: 2
+  num_clients: 4
+  partition_strategy: preserve_buckets
+  validation_ratio: 0.25
+  max_samples_per_client: 4
+
+bootstrap:
+  enabled: true
+  generator_model: distilgpt2
+  generator_backend: huggingface
+  num_prompts: 8
+  max_tokens: 32
+  batch_size: 2
+  device: cpu
+
+eval_small:
+  enabled: false
+
+eval_large:
+  enabled: false
+
+eval_glue:
+  enabled: false

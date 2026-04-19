@@ -1,0 +1,9 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+  - ../../methods/aggregators/summarization.yaml
+
+meta:
+  experiment_id: sn_a5_jobs_summarization
+
+aggregator:
+  name: summarization

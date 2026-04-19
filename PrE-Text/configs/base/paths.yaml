@@ -1,5 +1,5 @@
 paths:
-  repo_root: ../..
-  dataset_root: ../datasets
+  repo_root: ../../..
+  dataset_root: ../thesis_platform/datasets
   model_root: ../thesis_platform/open_model
-  output_root: ./outputs/pretext_platform
+  output_root: outputs/pretext_platform

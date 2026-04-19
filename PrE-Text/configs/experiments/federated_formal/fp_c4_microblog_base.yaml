@@ -1,0 +1,11 @@
+inherits:
+  - ./_base_federated_formal.yaml
+
+meta:
+  experiment_id: fp_c4_microblog_base
+
+data:
+  dataset_name: microblog
+  train_path: ../thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json
+  eval_path: ../thesis_platform/datasets/pretext_microblog/formatted/microblog_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

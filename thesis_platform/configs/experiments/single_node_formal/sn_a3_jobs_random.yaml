@@ -1,0 +1,12 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+
+meta:
+  experiment_id: sn_a3_jobs_random
+
+scorer:
+  name: random
+  score_direction: larger_is_worse
+
+stage_a:
+  scorer: random

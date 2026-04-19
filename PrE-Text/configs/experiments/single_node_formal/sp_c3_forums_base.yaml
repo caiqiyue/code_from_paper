@@ -1,0 +1,13 @@
+inherits:
+  - ./_base_pretext_formal.yaml
+
+meta:
+  experiment_id: sp_c3_forums_base
+
+data:
+  dataset_name: forums
+  train_path: ../thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: ../thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  max_samples_per_client: 16
+  initialization_min_words: 20

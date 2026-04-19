@@ -1,0 +1,6 @@
+inherits:
+  - ./fp_c1_jobs_base.yaml
+  - ../../templates/noise_eps758.yaml
+
+meta:
+  experiment_id: fp_c6_jobs_eps758

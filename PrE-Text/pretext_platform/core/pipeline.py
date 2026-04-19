@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from pretext_platform.core.config import ExperimentConfig, load_experiment_config
+from pretext_platform.core.federated_runner import run_federated_pipeline
 from pretext_platform.core.io_utils import ensure_dir, write_json
 from pretext_platform.core.resource_cleanup import release_gpu_memory
 from pretext_platform.core.types import StageSummary
@@ -182,6 +183,8 @@ def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any
     """Run the enabled stages for one experiment config."""
 
     config = config_or_path if isinstance(config_or_path, ExperimentConfig) else load_experiment_config(config_or_path)
+    if str(config.execution.get("mode", "single_node")).strip().lower() == "federated_pretext":
+        return run_federated_pipeline(config)
     experiment_dir = _experiment_dir(config)
     write_json(experiment_dir / "resolved_config.json", config.raw)
 

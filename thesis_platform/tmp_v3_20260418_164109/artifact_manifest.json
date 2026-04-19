@@ -1,0 +1,21 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "experiment_manifest",
+  "experiment_id": "tmp_v3",
+  "experiment_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109",
+  "required_files": {
+    "resolved_config": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\resolved_config.json",
+    "metrics_summary": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\metrics_summary.json",
+    "privacy_ledger": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\privacy_ledger.json",
+    "run_state": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\run_state.json",
+    "failure_summary": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\failure_summary.json"
+  },
+  "rounds": [],
+  "downstream_eval": {
+    "downstream_eval_summary": null,
+    "stage2_corpus": null,
+    "large_eval_summary": null,
+    "small_eval_summary": null,
+    "baseline_summaries": null
+  }
+}

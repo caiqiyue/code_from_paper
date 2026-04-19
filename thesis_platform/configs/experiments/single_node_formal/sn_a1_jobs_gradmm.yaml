@@ -1,0 +1,9 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+  - ../../methods/scorers/gradmm_real.yaml
+
+meta:
+  experiment_id: sn_a1_jobs_gradmm
+
+stage_a:
+  scorer: gradmm_real

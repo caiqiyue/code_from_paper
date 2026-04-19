@@ -87,8 +87,13 @@ def _collect_probe_sets(client_ctx: ClientContext, objective: str) -> tuple[list
         negatives_train = _synthetic_negative_samples(positives_train)
         negatives_val = _synthetic_negative_samples(positives_val)
     else:
-        negatives_train = list(client_ctx.negative_samples or client_ctx.validation_samples or client_ctx.train_samples)
-        negatives_val = list(client_ctx.negative_samples or client_ctx.validation_samples or client_ctx.train_samples)
+        negatives_train = list(client_ctx.negative_samples)
+        negatives_val = list(client_ctx.negative_samples)
+        # When negative_samples is empty (single-node case), fall back to synthetic negatives
+        if not negatives_train and positives_train:
+            negatives_train = _synthetic_negative_samples(positives_train)
+        if not negatives_val and positives_val:
+            negatives_val = _synthetic_negative_samples(positives_val)
         negatives_train = negatives_train[: max(1, len(positives_train))]
         negatives_val = negatives_val[: max(1, len(positives_val))]
 

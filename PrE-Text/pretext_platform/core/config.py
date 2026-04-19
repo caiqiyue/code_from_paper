@@ -199,6 +199,14 @@ class ExperimentConfig:
     def runtime(self) -> dict[str, Any]:
         return self.raw.get("runtime", {})
 
+    @property
+    def execution(self) -> dict[str, Any]:
+        return self.raw.get("execution", {})
+
+    @property
+    def federation(self) -> dict[str, Any]:
+        return self.raw.get("federation", {})
+
     def repo_root(self) -> Path:
         """Resolve the repository root relative to the current config file."""
 

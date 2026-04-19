@@ -1,0 +1,9 @@
+{
+  "status": "completed",
+  "message": "",
+  "metrics": {
+    "best_top1": 0.61
+  },
+  "synthetic_corpus_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\cross_domain_demo_20260418_164109\\cross_domain_eval\\forums\\downstream_eval\\stage2\\llama7b_text_syn.json",
+  "stage2_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\cross_domain_demo_20260418_164109\\cross_domain_eval\\forums\\downstream_eval\\stage2"
+}

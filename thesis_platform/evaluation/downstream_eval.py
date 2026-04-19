@@ -77,34 +77,50 @@ def export_synthetic_corpus(
 
 
 def _ensure_pretext_import(repo_root: Path) -> None:
-    # On Windows, repo_root may contain non-ASCII characters that get garbled
-    # when the Path is constructed from a config file (encoding mismatch).
-    # Use the current working directory (which is set to the project root by conda run)
-    # as the starting point to locate the Pre-Text sibling directory.
+    # Strategy: Use repo_root to reliably locate Pre-Text sibling.
+    # repo_root points to caiqiyue_file (project root containing both thesis_platform and Pre-Text).
+    # thesis_platform is a subdir of repo_root, so Pre-Text is at repo_root / "PrE-Text".
     import os
+    repo_root_resolved = repo_root.resolve()
+
+    # Primary approach: Pre-Text is a sibling of thesis_platform at repo_root level
+    # repo_root is like: /path/to/caiqiyue_file/thesis_platform
+    # So Pre-Text is at: /path/to/caiqiyue_file/PrE-Text
+    candidate_paths = [
+        repo_root_resolved / "PrE-Text",           # repo_root/PrE-Text
+        repo_root_resolved / "Pre-Text",            # repo_root/Pre-Text (alternative naming)
+    ]
+    # Also try going up from repo_root (in case repo_root includes thesis_platform subdir)
+    for _ in range(5):
+        for cp in candidate_paths:
+            if cp.is_dir():
+                pretext_root = str(cp.resolve())
+                if pretext_root not in sys.path:
+                    sys.path.insert(0, pretext_root)
+                return
+        candidate_parent = repo_root_resolved.parent
+        if candidate_parent == repo_root_resolved:
+            break
+        repo_root_resolved = candidate_parent
+        candidate_paths = [
+            repo_root_resolved / "PrE-Text",
+            repo_root_resolved / "Pre-Text",
+        ]
+
+    # Last resort: walk up from cwd
     cwd = os.getcwd()
-    # repo_root is a subdir of the project root (thesis_platform).
-    # Navigate up to find the project root, then to Pre-Text.
-    # We go up to find the common ancestor: cwd should be at or below repo_root.
-    # Use os.path.join approach: cwd / "Pre-Text" / "pretext_platform" as fallback.
-    # Actually, find the project root by going up until we find a dir containing
-    # the expected thesis_platform subdir.
     candidate = Path(cwd)
-    for _ in range(10):  # max 10 levels up
-        pretext_candidate = candidate / "Pre-Text"
-        if pretext_candidate.is_dir():
-            pretext_root = str(pretext_candidate.resolve())
-            if pretext_root not in sys.path:
-                sys.path.insert(0, pretext_root)
-            return
+    for _ in range(10):
+        for cp in [candidate / "PrE-Text", candidate / "Pre-Text"]:
+            if cp.is_dir():
+                pretext_root = str(cp.resolve())
+                if pretext_root not in sys.path:
+                    sys.path.insert(0, pretext_root)
+                return
         parent = candidate.parent
         if parent == candidate:
             break
         candidate = parent
-    # Fallback: try repo_root directly (might work on non-Windows or if encoding is fine)
-    pretext_root = str((repo_root / "Pre-Text").resolve())
-    if pretext_root not in sys.path:
-        sys.path.insert(0, pretext_root)
 
 
 def _build_pretext_raw(

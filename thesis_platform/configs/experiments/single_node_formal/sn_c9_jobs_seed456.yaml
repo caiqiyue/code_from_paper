@@ -1,0 +1,9 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+
+meta:
+  experiment_id: sn_c9_jobs_seed456
+  seed: 456
+
+stage_a:
+  random_fallback_seed: 456

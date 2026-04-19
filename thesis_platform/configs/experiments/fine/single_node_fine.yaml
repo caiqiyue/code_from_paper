@@ -6,7 +6,7 @@ inherits:
   - ../../base/runtime.yaml
   - ../../base/llm_7b_linux.yaml
   - ../../methods/generators/pretext_prompt_llm.yaml
-  - ../../methods/scorers/datainf.yaml
+  - ../../methods/scorers/datainf_real.yaml
   - ../../methods/retrievers/knn.yaml
   - ../../methods/critics/fedtextgrad_llm.yaml
   - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
@@ -32,30 +32,34 @@ data:
   sample_format: raw_text
   train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
   eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
-  max_samples_per_client: 10000    # Single node owns all data
+  max_samples_per_client: 10000
   initialization_min_words: 20
   initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
 
 # Stage A: Prompt optimization (small scale for critique-based refinement)
 stage_a:
   enabled: true
-  generated_count: 100           # Generate 100 samples for prompt optimization
-  batch_size: 100                 # Batch size for generation
-  select_top_k: 10               # Select 10 worst samples for critique
-  max_probe_samples: 500         # Limit train samples for DataInf probe building
-  max_iterations: 10             # Max prompt optimization iterations
-  convergence_threshold: 0.1      # Convergence threshold for prompt refinement
+  scorer: datainf_real
+  generated_count: 100
+  batch_size: 100
+  select_top_k: 10
+  max_probe_samples: 500
+  max_iterations: 10
+  convergence_threshold: 0.1
+  failure_equal_epsilon: 1e-9
+  failure_margin_threshold: 0.05
+  random_fallback_seed: 42
 
 # Stage B: Final generation with optimized prompt
 stage_b:
   enabled: true
-  generated_count: 1000         # Generate 1000 samples with optimized prompt
+  generated_count: 1000
 
 
 # Stage C: Bootstrap expansion (deprecated - disabled for new flow)
 stage_c:
   enabled: false
-  num_prompts: 10000            # Generate 10000 prompts
+  num_prompts: 10000
   generator_backend: local
   generator_model: thesis_platform/open_model/distilgpt2
   max_tokens: 64

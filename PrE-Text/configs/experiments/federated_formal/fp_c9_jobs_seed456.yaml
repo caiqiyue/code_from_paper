@@ -1,0 +1,6 @@
+inherits:
+  - ./fp_c1_jobs_base.yaml
+
+meta:
+  experiment_id: fp_c9_jobs_seed456
+  seed: 456

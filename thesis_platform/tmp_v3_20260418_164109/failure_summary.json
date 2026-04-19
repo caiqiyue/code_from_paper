@@ -1,0 +1,18 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "failure_summary",
+  "experiment_id": "tmp_v3",
+  "experiment_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109",
+  "status": "failed",
+  "phase": "failed",
+  "resume_requested": false,
+  "rounds_total": 2,
+  "completed_rounds": 0,
+  "current_round": null,
+  "checkpoint_path": null,
+  "error_type": "RuntimeError",
+  "message": "aggregator adapter 'dbscan_attn_tsgdm' is unavailable because importing thesis_platform.adapters.aggregators.dbscan_attn_tsgdm.DBSCANAttnTSGDMAggregator failed: No module named 'numpy'",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\adapters\\__init__.py\", line 30, in _try_import_optional\n    module = __import__(factory_path, fromlist=[class_name])\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\adapters\\aggregators\\dbscan_attn_tsgdm.py\", line 3, in <module>\n    from thesis_platform.algorithms.aggregators.dbscan_core import aggregate_dbscan_critiques\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\algorithms\\aggregators\\dbscan_core.py\", line 7, in <module>\n    import numpy as np\n    ^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named 'numpy'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\core\\experiment_runner.py\", line 962, in run\n    aggregator = create(\n                 ^^^^^^^\n  File \"D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\core\\registry.py\", line 23, in create\n    return _REGISTRY[kind][name](*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\adapters\\__init__.py\", line 42, in _raise_missing_dependency\n    raise RuntimeError(\n    ^^^^^^^^^^^^^^^^^^^\nRuntimeError: aggregator adapter 'dbscan_attn_tsgdm' is unavailable because importing thesis_platform.adapters.aggregators.dbscan_attn_tsgdm.DBSCANAttnTSGDMAggregator failed: No module named 'numpy'\n",
+  "signal": null,
+  "updated_at": "2026-04-18T16:41:09.392060+00:00"
+}

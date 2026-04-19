@@ -1,0 +1,10 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "latest_run_pointer",
+  "experiment_id": "tmp_v3",
+  "experiment_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109",
+  "status": "failed",
+  "run_state_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\run_state.json",
+  "metrics_summary_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\metrics_summary.json",
+  "updated_at": "2026-04-18T16:41:09.397907+00:00"
+}

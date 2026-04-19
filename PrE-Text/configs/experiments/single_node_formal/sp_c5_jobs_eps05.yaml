@@ -1,0 +1,6 @@
+inherits:
+  - ./sp_c1_jobs_base.yaml
+  - ../../templates/noise_eps05.yaml
+
+meta:
+  experiment_id: sp_c5_jobs_eps05

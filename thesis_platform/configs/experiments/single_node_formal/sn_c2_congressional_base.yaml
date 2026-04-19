@@ -1,0 +1,18 @@
+inherits:
+  - ./_base_single_node_formal.yaml
+
+meta:
+  experiment_id: sn_c2_congressional_base
+
+data:
+  dataset_name: congressional
+  task_type: instruction_tuning
+  sample_format: raw_text
+  train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
+  eval_path: thesis_platform/datasets/congressional/formatted/congressional_eval.json
+  max_samples_per_client: 16
+  initialization_min_words: 20
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+
+generator:
+  initial_prompt: "Generate congressional-style formal text that matches the private dataset writing style while preserving privacy."

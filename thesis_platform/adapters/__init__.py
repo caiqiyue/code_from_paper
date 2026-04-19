@@ -17,6 +17,7 @@ from thesis_platform.adapters.retrievers.none import NoRetriever
 from thesis_platform.adapters.retrievers.random_retriever import RandomRetriever
 from thesis_platform.adapters.scorers.ira_scorer import IRAScorer
 from thesis_platform.adapters.scorers.pretext_histogram import PretextHistogramScorer
+from thesis_platform.adapters.scorers.random_scorer import RandomScorer
 from thesis_platform.core.registry import register
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ register("generator", "pretext_prompt_llm", PretextPromptLLMGenerator)
 
 register("scorer", "pretext_hist", PretextHistogramScorer)
 register("scorer", "ira", IRAScorer)
+register("scorer", "random", RandomScorer)
 
 _register_optional("scorer", "datainf", "thesis_platform.adapters.scorers.datainf_scorer", "DataInfScorer")
 _register_optional("scorer", "datainf_real", "thesis_platform.adapters.scorers.datainf_real_scorer", "DataInfRealScorer")

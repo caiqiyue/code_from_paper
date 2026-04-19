@@ -1,0 +1,28 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "cross_domain_eval_summary",
+  "experiment_id": "cross_domain_demo",
+  "enabled": true,
+  "status": "completed",
+  "message": "",
+  "source_dataset": "jobs",
+  "target_dataset": "forums",
+  "corpus_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\cross_domain_demo_20260418_164109\\cross_domain_eval\\forums\\downstream_eval\\stage2\\llama7b_text_syn.json",
+  "source_corpus_alias_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\cross_domain_demo_20260418_164109\\cross_domain_eval\\forums\\synthetic_corpus.json",
+  "stage2_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\cross_domain_demo_20260418_164109\\cross_domain_eval\\forums\\downstream_eval\\stage2",
+  "target_train_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tmp4e0ctv74\\target_train.json",
+  "target_eval_path": null,
+  "metrics": {
+    "best_top1": 0.61
+  },
+  "downstream_eval": {
+    "status": "completed",
+    "message": "",
+    "metrics": {
+      "best_top1": 0.61
+    },
+    "synthetic_corpus_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\cross_domain_demo_20260418_164109\\cross_domain_eval\\forums\\downstream_eval\\stage2\\llama7b_text_syn.json",
+    "stage2_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\cross_domain_demo_20260418_164109\\cross_domain_eval\\forums\\downstream_eval\\stage2"
+  },
+  "updated_at": "2026-04-18T16:41:09.305761+00:00"
+}

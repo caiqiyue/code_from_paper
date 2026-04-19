@@ -1,0 +1,6 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+  - ../../methods/privacy/jobs_no_privacy.yaml
+
+meta:
+  experiment_id: sn_c7_jobs_no_privacy

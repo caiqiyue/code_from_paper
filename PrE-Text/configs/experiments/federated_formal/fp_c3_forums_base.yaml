@@ -1,0 +1,11 @@
+inherits:
+  - ./_base_federated_formal.yaml
+
+meta:
+  experiment_id: fp_c3_forums_base
+
+data:
+  dataset_name: forums
+  train_path: ../thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: ../thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

@@ -1,0 +1,49 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "metrics_summary",
+  "experiment_id": "tmp_v3",
+  "status": "failed",
+  "resume_requested": false,
+  "experiment_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109",
+  "round_count": 2,
+  "completed_rounds": 0,
+  "last_completed_round": null,
+  "final_prompt": "",
+  "round_metrics": [],
+  "privacy": {
+    "enabled": false,
+    "mode": "disabled",
+    "epsilon": 1.29,
+    "delta": 3e-06,
+    "spent_total": 0.0,
+    "proxy_spent_total": 0.0,
+    "budget_left": null,
+    "budget_exceeded": false,
+    "real_dp_enabled": false,
+    "real_dp_epsilon_spent": null,
+    "real_dp_query_count": null,
+    "round_count": 0,
+    "last_round_proxy_budget_left": null
+  },
+  "artifacts": {
+    "resolved_config_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\resolved_config.json",
+    "privacy_ledger_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\privacy_ledger.json",
+    "artifact_manifest_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\artifact_manifest.json",
+    "run_state_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\run_state.json",
+    "failure_summary_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\failure_summary.json"
+  },
+  "downstream_eval": {
+    "schema_version": "thesis_platform.runtime.v1",
+    "artifact_type": "downstream_eval_summary",
+    "experiment_id": "tmp_v3",
+    "enabled": true,
+    "status": "failed_before_eval",
+    "kind": "pretext_large_eval",
+    "message": "Experiment failed before completing downstream evaluation."
+  },
+  "updated_at": "2026-04-18T16:41:09.395299+00:00",
+  "error": {
+    "error_type": "RuntimeError",
+    "message": "aggregator adapter 'dbscan_attn_tsgdm' is unavailable because importing thesis_platform.adapters.aggregators.dbscan_attn_tsgdm.DBSCANAttnTSGDMAggregator failed: No module named 'numpy'"
+  }
+}

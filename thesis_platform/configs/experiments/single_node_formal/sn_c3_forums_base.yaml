@@ -1,0 +1,18 @@
+inherits:
+  - ./_base_single_node_formal.yaml
+
+meta:
+  experiment_id: sn_c3_forums_base
+
+data:
+  dataset_name: forums
+  task_type: instruction_tuning
+  sample_format: raw_text
+  train_path: thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  max_samples_per_client: 16
+  initialization_min_words: 20
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+
+generator:
+  initial_prompt: "Generate forum-style text that matches the private dataset writing style while preserving privacy."

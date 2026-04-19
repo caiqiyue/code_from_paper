@@ -1,0 +1,62 @@
+inherits:
+  - ../../base/paths.yaml
+  - ../../base/runtime.yaml
+  - ../../base/llm_7b_linux.yaml
+  - ../../methods/generators/pretext_prompt_llm.yaml
+  - ../../methods/scorers/datainf_real.yaml
+  - ../../methods/retrievers/knn.yaml
+  - ../../methods/critics/fedtextgrad_llm.yaml
+  - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
+  - ../../methods/downstream_eval/pretext_large_off.yaml
+
+execution:
+  mode: single_node
+
+meta:
+  stage: single_node_formal
+  seed: 42
+
+aggregator:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+
+retriever:
+  embedding_model: thesis_platform/open_model/all_minilm_l6_v2
+  allow_hashing_fallback: false
+  top_k: 2
+
+generator:
+  generated_per_round: 16
+  exemplars_per_prompt: 2
+  max_new_tokens: 192
+  temperature: 0.2
+
+stage_a:
+  enabled: true
+  scorer: datainf_real
+  generated_count: 100
+  select_top_k: 10
+  max_iterations: 10
+  convergence_threshold: 0.1
+  max_probe_samples: 500
+  failure_equal_epsilon: 1e-9
+  failure_margin_threshold: 0.05
+  random_fallback_seed: 42
+
+stage_b:
+  enabled: true
+  generated_count: 10000
+
+stage_c:
+  enabled: false
+
+privacy:
+  enabled: false
+
+downstream_eval:
+  enabled: true
+  run_large_eval: false
+  run_small_eval: true
+  small_eval_mode: gpt2
+  windows_small_eval_mode: gpt2
+  linux_small_eval_mode: gpt2

@@ -1,0 +1,34 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "run_state",
+  "experiment_id": "tmp_v3",
+  "experiment_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109",
+  "config_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tmpkuoz0n5c\\v3_tmp.yaml",
+  "status": "failed",
+  "phase": "failed",
+  "resume_requested": false,
+  "started_at": "2026-04-18T16:41:09.336701+00:00",
+  "updated_at": "2026-04-18T16:41:09.396904+00:00",
+  "pid": 26336,
+  "hostname": "DESKTOP-TRUVA1P",
+  "platform": "Windows-10-10.0.26200",
+  "python_version": "3.11.0a2",
+  "current_round": null,
+  "completed_rounds": 0,
+  "rounds_total": 2,
+  "checkpoint_path": null,
+  "downstream_status": "failed_before_eval",
+  "signal": null,
+  "stop_requested": false,
+  "last_error": {
+    "error_type": "RuntimeError",
+    "message": "aggregator adapter 'dbscan_attn_tsgdm' is unavailable because importing thesis_platform.adapters.aggregators.dbscan_attn_tsgdm.DBSCANAttnTSGDMAggregator failed: No module named 'numpy'"
+  },
+  "artifacts": {
+    "resolved_config_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\resolved_config.json",
+    "metrics_summary_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\metrics_summary.json",
+    "privacy_ledger_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\privacy_ledger.json",
+    "artifact_manifest_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\artifact_manifest.json",
+    "failure_summary_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\thesis_platform\\tmp_v3_20260418_164109\\failure_summary.json"
+  }
+}

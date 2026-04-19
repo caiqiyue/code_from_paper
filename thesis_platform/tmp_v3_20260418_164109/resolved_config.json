@@ -1,0 +1,93 @@
+{
+  "schema_version": "thesis_platform.runtime.v1",
+  "artifact_type": "resolved_config",
+  "experiment_id": "tmp_v3",
+  "config_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\tmpkuoz0n5c\\v3_tmp.yaml",
+  "config": {
+    "meta": {
+      "experiment_id": "tmp_v3",
+      "seed": 7
+    },
+    "paths": {
+      "repo_root": "C:/Users/ADMINI~1/AppData/Local/Temp/tmpkuoz0n5c",
+      "output_root": "C:/Users/ADMINI~1/AppData/Local/Temp/tmpkuoz0n5c/out",
+      "cache_root": "C:/Users/ADMINI~1/AppData/Local/Temp/tmpkuoz0n5c/cache"
+    },
+    "llm": {
+      "client": {
+        "engine": "mock",
+        "model_name_or_path": ""
+      },
+      "server": {
+        "engine": "mock",
+        "model_name_or_path": ""
+      }
+    },
+    "data": {
+      "dataset_name": "tmp",
+      "task_type": "instruction_tuning",
+      "sample_format": "raw_text",
+      "partition_strategy": "preserve_buckets",
+      "train_path": "C:/Users/ADMINI~1/AppData/Local/Temp/tmpkuoz0n5c/train.json",
+      "eval_path": "C:/Users/ADMINI~1/AppData/Local/Temp/tmpkuoz0n5c/eval.json",
+      "public_seed_path": "C:/Users/ADMINI~1/AppData/Local/Temp/tmpkuoz0n5c/seed.json",
+      "initialization_path": "C:/Users/ADMINI~1/AppData/Local/Temp/tmpkuoz0n5c/seed.json",
+      "max_public_seed_samples": 3,
+      "num_clients": 2,
+      "max_samples_per_client": 2,
+      "validation_ratio": 0.5
+    },
+    "federation": {
+      "rounds": 2,
+      "top_k_bad": 1
+    },
+    "generator": {
+      "name": "pretext_prompt_llm",
+      "initial_prompt": "Generate hiring-domain text.",
+      "generated_per_round": 4,
+      "exemplars_per_prompt": 1
+    },
+    "scorer": {
+      "name": "datainf_real",
+      "feature_model": "",
+      "allow_hashing_fallback": true
+    },
+    "retriever": {
+      "name": "knn",
+      "top_k": 1,
+      "embedding_model": "missing-model",
+      "allow_hashing_fallback": true
+    },
+    "critic": {
+      "name": "fedtextgrad_llm",
+      "compress_to_n_rules": 2,
+      "redact_enable": true
+    },
+    "aggregator": {
+      "name": "dbscan_attn_tsgdm",
+      "max_rules": 2,
+      "embedding_model": "missing-model",
+      "allow_hashing_fallback": true,
+      "cluster_eps": 0.5,
+      "cluster_min_samples": 1,
+      "momentum_beta": 0.6
+    },
+    "prototype": {
+      "name": "minilm_mean"
+    },
+    "routing": {
+      "enabled": true,
+      "personalized_mix_ratio": 0.5,
+      "cluster_eps": 0.5,
+      "cluster_min_samples": 1
+    },
+    "downstream_eval": {
+      "enabled": true,
+      "kind": "pretext_large_eval",
+      "export_filename": "llama7b_text_syn.json",
+      "windows_large_eval_mode": "peft_lora",
+      "linux_large_eval_mode": "peft_lora",
+      "guard_windows_llama2_large_eval": false
+    }
+  }
+}

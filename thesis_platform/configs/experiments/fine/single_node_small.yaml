@@ -6,7 +6,7 @@ inherits:
   - ../../base/runtime.yaml
   - ../../base/llm_qwen_windows.yaml
   - ../../methods/generators/pretext_prompt_llm.yaml
-  - ../../methods/scorers/datainf.yaml
+  - ../../methods/scorers/datainf_real.yaml
   - ../../methods/retrievers/knn.yaml
   - ../../methods/critics/fedtextgrad_llm.yaml
   - ../../methods/aggregators/dbscan_attn_tsgdm.yaml
@@ -31,29 +31,33 @@ data:
   task_type: instruction_tuning
   sample_format: raw_text
   train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
-  max_samples_per_client: 10000    # Single node owns all data
+  max_samples_per_client: 10000
   initialization_min_words: 20
   initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
 
 # Stage A: Large-scale generation and scoring (small scale)
 stage_a:
   enabled: true
-  generated_count: 1000          # Generate 1000 samples
-  batch_size: 200                # Batch size for generation
-  select_top_k: 800              # Select 800 for Stage B
-  max_probe_samples: 500         # Limit train samples for DataInf probe building
+  scorer: datainf_real
+  generated_count: 1000
+  batch_size: 200
+  select_top_k: 800
+  max_probe_samples: 500
+  failure_equal_epsilon: 1e-9
+  failure_margin_threshold: 0.05
+  random_fallback_seed: 42
 
 # Stage B: Critique-retrieval-aggregation loop (small scale)
 stage_b:
   enabled: true
-  num_iterations: 2              # 2 iterations
-  batch_size: 100                # Batch size per iteration
-  selection_mode: worst          # Select worst samples
+  num_iterations: 2
+  batch_size: 100
+  selection_mode: worst
 
 # Stage C: Bootstrap expansion (small scale)
 stage_c:
   enabled: true
-  num_prompts: 1000             # Generate 1000 prompts
+  num_prompts: 1000
   generator_backend: local
   generator_model: thesis_platform/open_model/distilgpt2
   max_tokens: 64
