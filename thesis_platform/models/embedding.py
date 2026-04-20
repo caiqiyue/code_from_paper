@@ -52,10 +52,11 @@ class HashingEmbedder(BaseEmbedder):
 class SentenceTransformerEmbedder(BaseEmbedder):
     """SentenceTransformer wrapper used when the local model is available."""
 
-    def __init__(self, model_path: Path):
+    def __init__(self, model_path: Path, device: str = "cpu"):
         """Store the local sentence-transformer path and load on first use."""
 
         self._model_path = model_path
+        self._device = device
         self._model = None
         self.backend_name = f"sentence_transformer:{model_path.name}"
 
@@ -71,7 +72,8 @@ class SentenceTransformerEmbedder(BaseEmbedder):
         """Encode texts with a real sentence-transformer model."""
 
         model = self._ensure_loaded()
-        embeddings = model.encode(texts, normalize_embeddings=True)
+        encode_device = None if self._device == "auto" else self._device
+        embeddings = model.encode(texts, normalize_embeddings=True, device=encode_device)
         return [list(map(float, row)) for row in embeddings]
 
     def release(self) -> None:
@@ -132,6 +134,7 @@ def build_embedder(
     repo_root: Path,
     *,
     allow_fallback: bool = True,
+    device: str = "cpu",
 ) -> BaseEmbedder:
     """Build the best available embedding backend for the current environment."""
 
@@ -163,7 +166,10 @@ def build_embedder(
             candidate = raw_candidate.resolve()
         if candidate and candidate.exists():
             try:
-                return SentenceTransformerEmbedder(resolve_sentence_transformer_path(candidate))
+                return SentenceTransformerEmbedder(
+                    resolve_sentence_transformer_path(candidate),
+                    device=device,
+                )
             except Exception as exc:
                 if not allow_fallback:
                     raise RuntimeError(

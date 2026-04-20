@@ -48,12 +48,12 @@ class PerplexityEvaluator:
 
                 logger.info(f"Loading perplexity model from {self.model_path}")
                 self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+                device_is_cuda = str(self.device).startswith("cuda") and torch.cuda.is_available()
+                load_device = self.device if device_is_cuda else "cpu"
                 self.model = AutoModelForCausalLM.from_pretrained(
                     self.model_path,
-                    torch_dtype=torch.float16
-                    if self.device == "cuda"
-                    else torch.float32,
-                    device_map="auto" if self.device == "cuda" else None,
+                    torch_dtype=torch.float16 if device_is_cuda else torch.float32,
+                    device_map={"": load_device} if device_is_cuda else None,
                 )
                 self.model.eval()
                 logger.info("Perplexity model loaded")
@@ -214,12 +214,13 @@ class SemanticSimilarityEvaluator:
         self,
         embedding_model: str,
         repo_root: str,
-        device: str = "auto",
+        device: str = "cpu",
     ):
         self.embedder = build_embedder(
             embedding_model,
             repo_root,
             allow_fallback=True,
+            device=device,
         )
 
     def compute_similarity(
@@ -306,6 +307,8 @@ class EmbeddedDownstreamEval:
         self.repo_root = repo_root
         self.experiment_id = experiment_id
         self.output_dir = Path(output_dir)
+        runtime_cfg = config.get("runtime", {}) if isinstance(config.get("runtime", {}), dict) else {}
+        self.device = str(config.get("device", runtime_cfg.get("device", "cpu")))
 
         # Initialize evaluators
         self.perplexity_eval = None
@@ -314,11 +317,11 @@ class EmbeddedDownstreamEval:
 
         if config.get("enable_perplexity", True):
             model_path = config.get("eval_model", "gpt2")
-            self.perplexity_eval = PerplexityEvaluator(model_path)
+            self.perplexity_eval = PerplexityEvaluator(model_path, device=self.device)
 
         if config.get("enable_semantic", True):
             embedding_model = config.get("embedding_model", "all-MiniLM-L6-v2")
-            self.semantic_eval = SemanticSimilarityEvaluator(embedding_model, repo_root)
+            self.semantic_eval = SemanticSimilarityEvaluator(embedding_model, repo_root, device=self.device)
 
     def evaluate(
         self,

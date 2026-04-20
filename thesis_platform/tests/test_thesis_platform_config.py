@@ -29,11 +29,14 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.privacy["epsilon"], 1.29)
         self.assertTrue(config.downstream_eval["enabled"])
         self.assertFalse(config.downstream_eval["run_large_eval"])
-        self.assertFalse(config.downstream_eval["run_small_eval"])
-        self.assertEqual(config.downstream_eval["large_eval_mode"], "auto")
-        self.assertEqual(config.downstream_eval["windows_large_eval_mode"], "full_finetune")
+        self.assertEqual(config.downstream_eval["large_eval_mode"], "peft_lora")
+        self.assertEqual(config.downstream_eval["windows_large_eval_mode"], "peft_lora")
         self.assertEqual(config.downstream_eval["linux_large_eval_mode"], "peft_lora")
         self.assertEqual(config.scorer["name"], "datainf_real")
+        self.assertEqual(config.runtime["device"], "cuda:1")
+        self.assertEqual(config.llm["client"]["device"], "cuda:1")
+        self.assertEqual(config.llm["server"]["device"], "cuda:1")
+        self.assertTrue(config.downstream_eval["run_small_eval"])
 
     def test_load_v3_jobs_large_eval_variant_enables_large_eval(self) -> None:
         """Verify the large-eval variant keeps the same algorithm config and turns on final evaluation."""
@@ -46,7 +49,24 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.scorer["name"], "datainf_real")
         self.assertTrue(config.downstream_eval["enabled"])
         self.assertTrue(config.downstream_eval["run_large_eval"])
-        self.assertFalse(config.downstream_eval["run_small_eval"])
+        self.assertTrue(config.downstream_eval["run_small_eval"])
+
+    def test_server_formal_configs_pin_cuda1_for_runtime_and_llm(self) -> None:
+        """Verify server-side formal configs do not fall back to bare cuda or auto device selection."""
+
+        config_paths = (
+            "thesis_platform/configs/experiments/single_node_formal/_base_single_node_formal.yaml",
+            "thesis_platform/configs/experiments/v3/jobs_real_datainf_v3.yaml",
+            "thesis_platform/configs/experiments/linux/jobs_real_datainf_v3_linux.yaml",
+            "thesis_platform/configs/experiments/research/research_congressional_datainf_dbscan_tsgdm.yaml",
+        )
+
+        for config_path in config_paths:
+            with self.subTest(config_path=config_path):
+                config = load_experiment_config(config_path)
+                self.assertEqual(config.runtime["device"], "cuda:1")
+                self.assertEqual(config.llm["client"]["device"], "cuda:1")
+                self.assertEqual(config.llm["server"]["device"], "cuda:1")
 
     def test_transfer_configs_run_cross_domain_small_eval(self) -> None:
         """Verify transfer configs do not silently fall back to large eval."""

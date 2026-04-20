@@ -16,6 +16,9 @@ meta:
   stage: single_node_formal
   seed: 42
 
+runtime:
+  device: cuda:1
+
 aggregator:
   embedding_model: thesis_platform/open_model/all_minilm_l6_v2
   allow_hashing_fallback: false

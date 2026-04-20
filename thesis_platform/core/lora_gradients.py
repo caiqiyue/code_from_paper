@@ -87,7 +87,8 @@ class LoRAGradientExtractor:
             target_modules: List of module names to apply LoRA to (e.g., ["q_proj", "v_proj"])
         """
         self.model_name_or_path = model_name_or_path
-        self.device = device if torch.cuda.is_available() else "cpu"
+        _is_cuda = str(device).startswith("cuda") and torch.cuda.is_available()
+        self.device = device if _is_cuda else "cpu"
         self.lora_rank = lora_rank
         self.lora_alpha = lora_alpha
         self.target_modules = target_modules or ["q_proj", "v_proj"]
@@ -117,17 +118,19 @@ class LoRAGradientExtractor:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
         # Load base model
+        _is_cuda = str(self.device).startswith("cuda")
+        device_map = {"": self.device} if _is_cuda else None
         if task_type == "CAUSAL_LM":
             base_model = AutoModelForCausalLM.from_pretrained(
                 self.model_name_or_path,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map="auto" if self.device == "cuda" else None,
+                torch_dtype=torch.float16 if _is_cuda else torch.float32,
+                device_map=device_map,
             )
         else:
             base_model = AutoModelForSequenceClassification.from_pretrained(
                 self.model_name_or_path,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map="auto" if self.device == "cuda" else None,
+                torch_dtype=torch.float16 if _is_cuda else torch.float32,
+                device_map=device_map,
             )
 
         if lora_adapter_path:

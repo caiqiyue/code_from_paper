@@ -22,6 +22,7 @@ class DBSCANAttnTSGDMAggregator:
             embedding_model,
             repo_root,
             allow_fallback=bool(config.get("allow_hashing_fallback", False)),
+            device=str(config.get("device", "cpu")),
         )
 
     def aggregate(self, client_critiques, server_ctx):

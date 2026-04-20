@@ -25,6 +25,9 @@ meta:
   stage: fine
   seed: 42
 
+runtime:
+  device: cuda:1
+
 # Data configuration (single node, no client partition)
 data:
   dataset_name: jobs

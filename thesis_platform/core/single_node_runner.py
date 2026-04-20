@@ -476,10 +476,12 @@ class SingleNodeRunner:
         embedder_cfg = self.config.retriever or {}
         embedding_model = embedder_cfg.get("embedding_model", "models/all-MiniLM-L6-v2")
         repo_root = self.config.repo_root()
+        runtime_device = str(self.config.runtime.get("device", "cpu"))
         embedder = build_embedder(
             embedding_model,
             repo_root,
             allow_fallback=bool(embedder_cfg.get("allow_hashing_fallback", True)),
+            device=runtime_device,
         )
 
         # Build client text backend (used for critique in Stage B)
@@ -861,13 +863,13 @@ class SingleNodeRunner:
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            device = "cuda:1" if torch.cuda.is_available() else "cpu"
             repo_root = self.config.repo_root()
             model_path = str(repo_root / model)
             tokenizer = AutoTokenizer.from_pretrained(model_path)
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
-            model_instance = AutoModelForCausalLM.from_pretrained(model_path).to(device)
+            model_instance = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16).to(device)
 
             outputs = []
             batch_size = 8

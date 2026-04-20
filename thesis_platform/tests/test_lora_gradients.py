@@ -11,6 +11,10 @@ import unittest
 import torch
 import numpy as np
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import thesis_platform.core.lora_gradients as lora_module
 
 # Import modules to test
 from thesis_platform.core.lora_gradients import (
@@ -70,6 +74,46 @@ class TestLoRAGradientExtractor(unittest.TestCase):
         # After clipping, norm should be <= 10
         clipped_norm = gradient_norm(clipped)
         self.assertLessEqual(clipped_norm, 10.0 + 1e-6)
+
+    @unittest.skipUnless(
+        hasattr(lora_module, "AutoTokenizer") and hasattr(lora_module, "AutoModelForCausalLM"),
+        "transformers/peft not available",
+    )
+    def test_load_model_uses_explicit_single_device_map(self):
+        """Test that CUDA model loads are pinned to the configured device instead of auto-sharded."""
+
+        fake_tokenizer = SimpleNamespace(
+            pad_token_id=None,
+            eos_token="</s>",
+            eos_token_id=2,
+            pad_token=None,
+        )
+        fake_base_model = SimpleNamespace()
+        fake_model = SimpleNamespace(
+            eval=lambda: None,
+            print_trainable_parameters=lambda: None,
+        )
+
+        with patch.object(lora_module, "PEFT_AVAILABLE", True), patch.object(
+            lora_module.torch.cuda, "is_available", return_value=True
+        ), patch.object(
+            lora_module.AutoTokenizer,
+            "from_pretrained",
+            return_value=fake_tokenizer,
+        ), patch.object(
+            lora_module.AutoModelForCausalLM,
+            "from_pretrained",
+            return_value=fake_base_model,
+        ) as mock_model_loader, patch.object(
+            lora_module,
+            "get_peft_model",
+            return_value=fake_model,
+        ):
+            extractor = LoRAGradientExtractor("local_model", device="cuda:1")
+            extractor.load_model()
+
+        self.assertEqual(mock_model_loader.call_args.kwargs["device_map"], {"": "cuda:1"})
+        self.assertEqual(mock_model_loader.call_args.kwargs["torch_dtype"], torch.float16)
 
 
 class TestGradientDistanceCalculator(unittest.TestCase):

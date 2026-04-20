@@ -4,3 +4,6 @@ inherits:
 
 meta:
   experiment_id: jobs_real_datainf_v3_large_eval
+
+downstream_eval:
+  run_large_eval: true

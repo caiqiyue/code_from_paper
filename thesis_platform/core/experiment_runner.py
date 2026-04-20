@@ -618,10 +618,12 @@ class ExperimentRunner:
             ),
         )
         retriever_cfg = self.config.retriever
+        runtime_device = str(self.config.runtime.get("device", "cpu"))
         embedder = build_embedder(
             retriever_cfg.get("embedding_model"),
             self.repo_root,
             allow_fallback=bool(retriever_cfg.get("allow_hashing_fallback", True)),
+            device=runtime_device,
         )
         self.logger.info(
             "Partitioned dataset into %d clients with max %d samples/client and validation_ratio=%.2f",
@@ -904,7 +906,8 @@ class ExperimentRunner:
             )
             validate_preflight(self.config)
             privacy_policy = PrivacyPolicy.from_config(self.config.privacy)
-            privacy_ledger = PrivacyLedger(policy=privacy_policy)
+            runtime_device = str(self.config.runtime.get("device", "cpu"))
+            privacy_ledger = PrivacyLedger(policy=privacy_policy, device=runtime_device)
             client_backend, server_backend = self._build_text_backends()
             public_seed_samples = self._load_public_seed_samples()
             client_contexts = self._load_client_contexts(client_backend=client_backend)
@@ -933,7 +936,7 @@ class ExperimentRunner:
                 privacy_ledger = PrivacyLedger.restore_from_report(privacy_ledger_data)
                 self.logger.info("PrivacyLedger restored from checkpoint")
             else:
-                privacy_ledger = PrivacyLedger(policy=privacy_policy)
+                privacy_ledger = PrivacyLedger(policy=privacy_policy, device=runtime_device)
 
             generator = create(
                 "generator",
@@ -959,10 +962,12 @@ class ExperimentRunner:
                 self.config.critic,
                 self.repo_root,
             )
+            aggregator_config = dict(self.config.aggregator)
+            aggregator_config.setdefault("device", runtime_device)
             aggregator = create(
                 "aggregator",
                 str(self.config.aggregator.get("name", "none")),
-                self.config.aggregator,
+                aggregator_config,
                 self.repo_root,
             )
             self.logger.info(

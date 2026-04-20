@@ -59,6 +59,7 @@ def generate_bootstrapped_samples_vllm(prompt_list: list[str], model_path: Path,
     llm = LLM(
         model=str(model_path),
         max_model_len=int(bootstrap_cfg.get("max_model_len", 1000)),
+        tensor_parallel_size=1,  # force single-GPU even when multiple GPUs are visible
     )
     sampling_params = SamplingParams(
         temperature=float(bootstrap_cfg.get("temperature", 1.0)),
@@ -82,7 +83,7 @@ def generate_bootstrapped_samples_hf(
 
     # Check device configuration - support "cpu" for Windows compatibility
     device = bootstrap_cfg.get("device", "cuda" if torch.cuda.is_available() else "cpu")
-    use_cuda = device == "cuda" and torch.cuda.is_available()
+    use_cuda = str(device).startswith("cuda") and torch.cuda.is_available()
 
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
 
@@ -106,7 +107,7 @@ def generate_bootstrapped_samples_hf(
         )
 
         if use_cuda:
-            model = model.to("cuda")
+            model = model.to(device)
 
         temperature = float(bootstrap_cfg.get("temperature", 1.0))
         top_p = float(bootstrap_cfg.get("top_p", 1.0))
@@ -128,7 +129,7 @@ def generate_bootstrapped_samples_hf(
                 )
 
                 if use_cuda:
-                    inputs = {k: v.cuda() for k, v in inputs.items()}
+                    inputs = {k: v.to(device) for k, v in inputs.items()}
 
                 generated_ids = model.generate(
                     **inputs,

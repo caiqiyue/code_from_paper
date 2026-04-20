@@ -17,6 +17,9 @@ meta:
   stage: v3_real
   seed: 42
 
+runtime:
+  device: cuda:1
+
 data:
   dataset_name: forums
   task_type: instruction_tuning

@@ -13,6 +13,9 @@ meta:
   stage: research
   seed: 42
 
+runtime:
+  device: cuda:1
+
 data:
   dataset_name: congressional
   task_type: instruction_tuning

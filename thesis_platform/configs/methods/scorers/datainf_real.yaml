@@ -5,4 +5,4 @@ scorer:
   allow_hashing_fallback: false
   max_length: 256
   lambda_const_param: 10.0
-  device: auto
+  device: cuda:1

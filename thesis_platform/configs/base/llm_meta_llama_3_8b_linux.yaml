@@ -3,7 +3,7 @@ llm:
   client:
     engine: transformers
     model_name_or_path: thesis_platform/open_model/Meta-Llama-3-8B
-    device: auto
+    device: cuda:1
     dtype: auto
     temperature: 0.0
     max_new_tokens: 196
@@ -12,7 +12,7 @@ llm:
   server:
     engine: transformers
     model_name_or_path: thesis_platform/open_model/Meta-Llama-3-8B
-    device: auto
+    device: cuda:1
     dtype: auto
     temperature: 0.2
     max_new_tokens: 220

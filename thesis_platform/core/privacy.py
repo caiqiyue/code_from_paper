@@ -128,6 +128,7 @@ class PrivacyLedger:
     """
 
     policy: PrivacyPolicy
+    device: str = "cpu"
     entries: list[dict[str, Any]] = field(default_factory=list)
     cumulative_spent: float = 0.0
     _dp_privatizer: Optional["DPPrivatizer"] = field(default=None, init=False, repr=False)
@@ -139,9 +140,7 @@ class PrivacyLedger:
             dp_config = self.policy.to_dp_config()
             if dp_config is not None:
                 try:
-                    import torch
-
-                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                    device = str(self.device or "cpu")
                 except Exception:
                     device = "cpu"
                 self._dp_privatizer = DPPrivatizer(dp_config, device=device)
@@ -400,6 +399,7 @@ class PrivacyLedger:
             "policy": self.policy.snapshot(),
             "summary": self.summary(),
             "cumulative_spent": self.cumulative_spent,
+            "device": self.device,
             "dp_runtime_state": self._dp_privatizer.export_state()
             if self._dp_privatizer is not None
             else None,
@@ -417,7 +417,7 @@ class PrivacyLedger:
             A new PrivacyLedger with restored state
         """
         policy = PrivacyPolicy.from_config(report_data["policy"])
-        ledger = cls(policy=policy)
+        ledger = cls(policy=policy, device=str(report_data.get("device", "cpu")))
         ledger.cumulative_spent = report_data.get("cumulative_spent", 0.0)
         ledger.entries = list(report_data.get("entries", []))
         if ledger._dp_privatizer is not None:

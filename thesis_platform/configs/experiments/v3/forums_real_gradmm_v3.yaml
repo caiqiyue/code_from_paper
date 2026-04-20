@@ -18,6 +18,9 @@ meta:
   seed: 42
   description: "V3 experiment on Forums dataset with GRADMM real scorer"
 
+runtime:
+  device: cuda:1
+
 data:
   dataset_name: forums
   task_type: instruction_tuning
