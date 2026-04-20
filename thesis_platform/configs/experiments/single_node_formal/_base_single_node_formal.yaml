@@ -17,7 +17,7 @@ meta:
   seed: 42
 
 runtime:
-  device: cuda:1
+  device: cuda
 
 aggregator:
   embedding_model: thesis_platform/open_model/all_minilm_l6_v2

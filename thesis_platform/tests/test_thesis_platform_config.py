@@ -33,9 +33,9 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.downstream_eval["windows_large_eval_mode"], "peft_lora")
         self.assertEqual(config.downstream_eval["linux_large_eval_mode"], "peft_lora")
         self.assertEqual(config.scorer["name"], "datainf_real")
-        self.assertEqual(config.runtime["device"], "cuda:1")
-        self.assertEqual(config.llm["client"]["device"], "cuda:1")
-        self.assertEqual(config.llm["server"]["device"], "cuda:1")
+        self.assertEqual(config.runtime["device"], "cuda")
+        self.assertEqual(config.llm["client"]["device"], "cuda")
+        self.assertEqual(config.llm["server"]["device"], "cuda")
         self.assertTrue(config.downstream_eval["run_small_eval"])
 
     def test_load_v3_jobs_large_eval_variant_enables_large_eval(self) -> None:
@@ -52,7 +52,7 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(config.downstream_eval["run_small_eval"])
 
     def test_server_formal_configs_pin_cuda1_for_runtime_and_llm(self) -> None:
-        """Verify server-side formal configs do not fall back to bare cuda or auto device selection."""
+        """Verify server-side formal configs stay on the single visible CUDA device."""
 
         config_paths = (
             "thesis_platform/configs/experiments/single_node_formal/_base_single_node_formal.yaml",
@@ -64,9 +64,9 @@ class ConfigTests(unittest.TestCase):
         for config_path in config_paths:
             with self.subTest(config_path=config_path):
                 config = load_experiment_config(config_path)
-                self.assertEqual(config.runtime["device"], "cuda:1")
-                self.assertEqual(config.llm["client"]["device"], "cuda:1")
-                self.assertEqual(config.llm["server"]["device"], "cuda:1")
+                self.assertEqual(config.runtime["device"], "cuda")
+                self.assertEqual(config.llm["client"]["device"], "cuda")
+                self.assertEqual(config.llm["server"]["device"], "cuda")
 
     def test_transfer_configs_run_cross_domain_small_eval(self) -> None:
         """Verify transfer configs do not silently fall back to large eval."""

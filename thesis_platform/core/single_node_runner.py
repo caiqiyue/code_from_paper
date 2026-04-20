@@ -863,7 +863,7 @@ class SingleNodeRunner:
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
-            device = "cuda:1" if torch.cuda.is_available() else "cpu"
+            device = "cuda" if torch.cuda.is_available() else "cpu"
             repo_root = self.config.repo_root()
             model_path = str(repo_root / model)
             tokenizer = AutoTokenizer.from_pretrained(model_path)

@@ -18,7 +18,7 @@ meta:
   seed: 42
 
 runtime:
-  device: cuda:1
+  device: cuda
 
 data:
   dataset_name: forums

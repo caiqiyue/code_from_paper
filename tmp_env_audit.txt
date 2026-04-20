@@ -1,0 +1,1 @@
+bash -lc 'source /home/k8smaster/anaconda3/etc/profile.d/conda.sh && conda activate GATV2-TransDTI && which python && which pip && python -V && python -m pip -V && python -m pip check'

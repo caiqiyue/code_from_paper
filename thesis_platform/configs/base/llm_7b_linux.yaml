@@ -1,10 +1,10 @@
 # LLM config for RTX A6000 (49GB) - 7B models loaded on demand per stage
-# Note: device is explicitly cuda:1 (A6000); launch scripts also set CUDA_VISIBLE_DEVICES=1 as backup
+# Note: device is set to cuda while launch scripts hide GPU 0 with CUDA_VISIBLE_DEVICES=1.
 llm:
   client:
     engine: transformers
     model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
-    device: cuda:1
+    device: cuda
     dtype: auto
     temperature: 0.0
     max_new_tokens: 196
@@ -13,7 +13,7 @@ llm:
   server:
     engine: transformers
     model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
-    device: cuda:1
+    device: cuda
     dtype: auto
     temperature: 0.2
     max_new_tokens: 220

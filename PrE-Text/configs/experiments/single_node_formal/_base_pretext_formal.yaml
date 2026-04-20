@@ -9,7 +9,7 @@ meta:
   seed: 42
 
 runtime:
-  device: cuda:1
+  device: cuda
 
 paths:
   dataset_root: ../thesis_platform/datasets
@@ -18,7 +18,7 @@ paths:
 bootstrap:
   generator_model: llama2_7b
   num_prompts: 10000
-  device: cuda:1
+  device: cuda
 
 eval_small:
   enabled: false

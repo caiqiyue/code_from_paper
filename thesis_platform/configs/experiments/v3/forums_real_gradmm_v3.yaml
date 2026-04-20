@@ -19,7 +19,7 @@ meta:
   description: "V3 experiment on Forums dataset with GRADMM real scorer"
 
 runtime:
-  device: cuda:1
+  device: cuda
 
 data:
   dataset_name: forums

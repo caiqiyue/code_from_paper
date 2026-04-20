@@ -48,14 +48,14 @@ class FormalConfigPathTests(unittest.TestCase):
             WORKSPACE_ROOT / "thesis_platform" / "datasets" / "pretext_jobs" / "formatted" / "jobs_eval.json",
         )
 
-    def test_formal_configs_pin_runtime_device_to_cuda1(self) -> None:
+    def test_formal_configs_pin_runtime_device_to_cuda(self) -> None:
         for config_path in (
             REPO_ROOT / "configs" / "experiments" / "single_node_formal" / "_base_pretext_formal.yaml",
             REPO_ROOT / "configs" / "experiments" / "federated_formal" / "_base_federated_formal.yaml",
         ):
             with self.subTest(config_path=config_path):
                 config = load_experiment_config(config_path)
-                self.assertEqual(config.runtime["device"], "cuda:1")
+                self.assertEqual(config.runtime["device"], "cuda")
 
 
 if __name__ == "__main__":

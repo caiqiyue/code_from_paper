@@ -19,7 +19,7 @@ meta:
   description: "V3 experiment with GRADMM real scorer (gradient mismatch) instead of DataInf"
 
 runtime:
-  device: cuda:1
+  device: cuda
 
 data:
   dataset_name: jobs

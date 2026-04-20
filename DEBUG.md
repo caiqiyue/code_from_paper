@@ -1,92 +1,43 @@
 ## Observations
 
-- User question: determine whether `PT-P3` (`jobs_real_eps758`) failed on the new server.
-- Remote output directory exists: `/root/autodl-tmp/caiqiyue/code_from_paper/PrE-Text/outputs/pretext_platform/jobs_real_eps758`.
-- Remote files present:
-  - `stage1_summary.json`
-  - `stage2_summary.json`
-  - `metrics_summary.json`
-- Remote file missing:
-  - `eval_small_summary.json`
-- `metrics_summary.json` contains `status: "SUCCESS"` and includes successful `stage1` and `stage2` summaries.
-- `stage2_summary.json` shows `synthetic_corpus_path` exists and `generated_count: 50000`.
-- No current remote process matches `pretext_platform.scripts.run_pipeline`, `pretext_platform.scripts.run_eval_small`, or `jobs_real_eps758`.
-- Recent file timestamps for `jobs_real_eps758` stop at `2026-04-06 18:57:29 +0800`.
-- Remote log search found no `jobs_real_eps758` log file to indicate a crash during `run_eval_small`.
-- Local record already marks `PT-P3` as `阶段完成`, with note: `已有 stage1/stage2，缺 eval_small_summary，不能算完整正式完成`.
-- Final formal design requires two separate commands for PrE-Text formal runs: `run_pipeline`, then `run_eval_small`.
-- Current local config `PrE-Text/configs/experiments/jobs_real_eps758.yaml` uses `bootstrap.num_prompts: 10000`, but remote `stage2_summary.json` shows `prompt_count: 50000`, indicating the remote artifacts were produced by an older config/run.
+- The reported failure is `RuntimeError: CUDA error: invalid device ordinal`.
+- The launch path uses `CUDA_VISIBLE_DEVICES=1`, which hides physical GPU 0 from the process.
+- Current formal Linux configs still contain `device: cuda:1` in several thesis_platform experiment files, which is incompatible with a process that only sees one GPU.
+- `PrE-Text` formal configs currently use `device: cuda`, so they are already aligned with a single visible GPU.
+- `thesis_platform` code paths for the formal runners use direct `model.to(device)` semantics for non-auto devices, so the config value itself controls the ordinal that gets requested.
 
 ## Hypotheses
 
-### H1: `PT-P3` pipeline succeeded, but `run_eval_small` was never launched (ROOT HYPOTHESIS)
-- Supports:
-  - `metrics_summary.json` says `SUCCESS`.
-  - `stage1` and `stage2` outputs are complete.
-  - `eval_small_summary.json` is missing.
-  - No current process exists.
-  - No failure log was found.
-  - Remote artifacts use old parameters (`prompt_count: 50000`), consistent with an older pre-formal run that stopped after pipeline.
-- Conflicts:
-  - None found.
-- Test:
-  - Inspect remote summaries/logs and compare artifact parameters against current formal config.
+### H1: The root cause is an invalid ordinal caused by `CUDA_VISIBLE_DEVICES=1` plus `device: cuda:1` (ROOT HYPOTHESIS)
+- Supports: the exact runtime error is `invalid device ordinal`, and `cuda:1` cannot exist if the process only sees one GPU.
+- Conflicts: none so far.
+- Test: change formal Linux configs to `device: cuda`, then verify no formal config still requests `cuda:1`.
 
-### H2: `run_eval_small` was launched and crashed before writing `eval_small_summary.json`
-- Supports:
-  - Missing `eval_small_summary.json` could happen after a crash.
-- Conflicts:
-  - No matching log or traceback found.
-  - No `eval_small` output directory found.
-  - No process is running now.
-  - Existing artifacts look like a clean pipeline-only completion, not a mid-eval crash.
-- Test:
-  - Search remote logs for `jobs_real_eps758` and traceback markers.
+### H2: A backend is still auto-sharding across both GPUs via `device_map="auto"`
+- Supports: the repo historically had auto device-map paths.
+- Conflicts: current formal config paths do not select `auto`, and the direct error shown is ordinal-related, not shard-related.
+- Test: scan formal config/code paths for remaining `device_map="auto"` and confirm they are not used by the formal runners.
 
-### H3: `PT-P3` was treated as complete by an older workflow that only required pipeline artifacts
-- Supports:
-  - Remote artifact timestamps are `2026-04-06`, earlier than the `2026-04-09` final formal design.
-  - Remote `prompt_count: 50000` conflicts with the current formal design's `10000`.
-  - Local records explicitly call it `阶段完成` rather than formally complete.
-- Conflicts:
-  - None strong; this is compatible with H1.
-- Test:
-  - Compare remote artifact metadata with current config and formal design.
+### H3: The visible-device mapping is correct, but one of the launch scripts clears it before execution
+- Supports: launch-time environment changes can override config assumptions.
+- Conflicts: the reported failure text specifically attributes the error to the `CUDA_VISIBLE_DEVICES=1` and `cuda:1` combination.
+- Test: inspect the launch wrapper and verify the env is preserved through the formal experiment entry point.
 
 ## Experiments
 
-### E1
-- Change:
-  - No code changes. Read remote summaries for `jobs_real_eps758`.
-- Expected if H1 is true:
-  - `stage1`/`stage2` summaries exist, `metrics_summary.json` is successful, `eval_small_summary.json` is missing.
-- Result:
-  - Confirmed.
-
-### E2
-- Change:
-  - No code changes. Search remote logs for `jobs_real_eps758`.
-- Expected if H2 is true:
-  - A log or traceback from `run_eval_small` should exist.
-- Result:
-  - Rejected. No matching log evidence was found.
-
-### E3
-- Change:
-  - Compare remote `stage2_summary.json` against current local config and formal design.
-- Expected if H3 is true:
-  - Remote artifacts should reflect old parameters.
-- Result:
-  - Confirmed. Remote `prompt_count` is `50000`; current config/formal design expects `10000`.
+- Re-scanned the formal experiment directories after changing the configs back to `device: cuda`.
+- Result: no `cuda:1` entries remain in the formal Linux / formal PrE-Text config paths.
+- Ran `python -m unittest thesis_platform.tests.test_thesis_platform_config`.
+- Result: passed.
+- Ran `python -m unittest discover -s tests -p "test_formal_config_paths.py"` inside `PrE-Text`.
+- Result: passed.
 
 ## Root Cause
 
-`PT-P3` does not show evidence of a runtime failure in `run_pipeline`; instead, the server contains an older pipeline-only run that completed `stage1` and `stage2`, but never completed the separate `run_eval_small` step required for formal completion.
+The failure was caused by writing `device: cuda:1` in configurations that were launched with `CUDA_VISIBLE_DEVICES=1`, so the process only had one logical CUDA device and ordinal 1 did not exist.
 
 ## Fix
 
-- Do not classify `PT-P3` as failed.
-- Classify it as `incomplete / pipeline-only`.
-- If formal completion is needed, run:
-  - `python -m pretext_platform.scripts.run_eval_small --config configs/experiments/jobs_real_eps758.yaml` only if the existing stage2 artifact is still valid for the current formal design.
-- Because the existing artifacts were generated with old parameters (`prompt_count: 50000`), the stricter fix is to rerun `PT-P3` under the current formal config, then run `run_eval_small`.
+- Formal Linux and formal PrE-Text configs now use `device: cuda` instead of `cuda:1`.
+- The formal downstream defaults remain `run_small_eval: true` and `run_large_eval: false`.
+- The code paths for the formal runners continue to use single-device loads, so the process stays on the one visible A6000 and does not shard across both GPUs.

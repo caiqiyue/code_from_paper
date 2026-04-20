@@ -5,4 +5,4 @@ scorer:
   allow_hashing_fallback: false
   max_length: 256
   alpha: 0.25
-  device: cuda:1
+  device: cuda
