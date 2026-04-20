@@ -106,7 +106,7 @@ def run_gpt2_eval(
 
     output_dir = ensure_dir(output_dir)
     log_dir = ensure_dir(output_dir / "log_models_and_accuracies")
-    device_name = str(config.runtime.get("device", "cuda:1"))
+    device_name = str(config.runtime.get("device", "cuda"))
     device = torch.device(device_name if torch.cuda.is_available() else "cpu")
 
     if model_paths.distilgpt2 is None or not model_paths.distilgpt2.exists():

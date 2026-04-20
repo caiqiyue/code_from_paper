@@ -143,10 +143,16 @@ class TransformersTextBackend(BaseTextBackend):
             "torch_dtype": torch_dtype,
             "attn_implementation": "eager",
         }
+        _is_cuda = str(self._device).startswith("cuda")
         if self._device == "auto":
             load_kwargs["device_map"] = "auto"
             model = AutoModelForCausalLM.from_pretrained(str(self._model_path), **load_kwargs)
             load_device = "auto"
+        elif _is_cuda:
+            # Explicit single-device mapping: prevents accelerate from spreading across all visible GPUs
+            load_kwargs["device_map"] = {"": self._device}
+            model = AutoModelForCausalLM.from_pretrained(str(self._model_path), **load_kwargs)
+            load_device = self._device
         else:
             load_kwargs["device_map"] = None
             model = AutoModelForCausalLM.from_pretrained(str(self._model_path), **load_kwargs)

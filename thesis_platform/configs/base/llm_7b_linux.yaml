@@ -1,5 +1,5 @@
 # LLM config for RTX A6000 (49GB) - 7B models loaded on demand per stage
-# Note: device is set to cuda while launch scripts hide GPU 0 with CUDA_VISIBLE_DEVICES=1.
+# Note: device is set to cuda while launch scripts export CUDA_VISIBLE_DEVICES=0 so the process sees only the A6000.
 llm:
   client:
     engine: transformers

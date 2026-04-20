@@ -104,7 +104,7 @@ def run_llama2_eval(
     eval_cfg = config.eval_large
     output_dir = ensure_dir(output_dir)
     log_dir = ensure_dir(output_dir / "llama2_models_and_accuracies")
-    device_name = str(config.runtime.get("device", "cuda:1"))
+    device_name = str(config.runtime.get("device", "cuda"))
     device = torch.device(device_name if torch.cuda.is_available() else "cpu")
 
     tokenizer = LlamaTokenizer.from_pretrained(str(model_paths.llama2_7b), local_files_only=True)
