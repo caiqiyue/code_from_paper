@@ -8,6 +8,7 @@ from pretext_platform.core.config import ExperimentConfig, load_experiment_confi
 from pretext_platform.core.federated_runner import run_federated_pipeline
 from pretext_platform.core.io_utils import ensure_dir, write_json
 from pretext_platform.core.resource_cleanup import release_gpu_memory
+from pretext_platform.core.run_state import write_failure_artifacts, write_run_state
 from pretext_platform.core.types import StageSummary
 
 
@@ -187,6 +188,7 @@ def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any
         return run_federated_pipeline(config)
     experiment_dir = _experiment_dir(config)
     write_json(experiment_dir / "resolved_config.json", config.raw)
+    write_run_state(experiment_dir, config, status="running", phase="initializing")
 
     summaries: dict[str, StageSummary] = {}
     stage1_cfg = config.stage1
@@ -194,37 +196,56 @@ def run_pipeline(config_or_path: ExperimentConfig | str | Path) -> dict[str, Any
     eval_small_cfg = config.eval_small
     eval_large_cfg = config.eval_large
     eval_glue_cfg = config.eval_glue
+    current_phase = "initializing"
 
-    if bool(stage1_cfg.get("enabled", True)):
-        summaries["stage1"] = run_stage1(config)
-        _write_stage_summary(experiment_dir, "stage1_summary.json", summaries["stage1"])
-        release_gpu_memory()
+    try:
+        if bool(stage1_cfg.get("enabled", True)):
+            current_phase = "stage1"
+            write_run_state(experiment_dir, config, status="running", phase=current_phase)
+            summaries["stage1"] = run_stage1(config)
+            _write_stage_summary(experiment_dir, "stage1_summary.json", summaries["stage1"])
+            release_gpu_memory()
 
-    if bool(bootstrap_cfg.get("enabled", True)):
-        summaries["stage2"] = run_bootstrap(config)
-        _write_stage_summary(experiment_dir, "stage2_summary.json", summaries["stage2"])
-        release_gpu_memory()
+        if bool(bootstrap_cfg.get("enabled", True)):
+            current_phase = "stage2"
+            write_run_state(experiment_dir, config, status="running", phase=current_phase)
+            summaries["stage2"] = run_bootstrap(config)
+            _write_stage_summary(experiment_dir, "stage2_summary.json", summaries["stage2"])
+            release_gpu_memory()
 
-    if bool(eval_small_cfg.get("enabled", False)):
-        summaries["eval_small"] = run_eval_small(config)
-        _write_stage_summary(experiment_dir, "eval_small_summary.json", summaries["eval_small"])
-        release_gpu_memory()
+        if bool(eval_small_cfg.get("enabled", False)):
+            current_phase = "eval_small"
+            write_run_state(experiment_dir, config, status="running", phase=current_phase)
+            summaries["eval_small"] = run_eval_small(config)
+            _write_stage_summary(experiment_dir, "eval_small_summary.json", summaries["eval_small"])
+            release_gpu_memory()
 
-    if bool(eval_large_cfg.get("enabled", False)):
-        summaries["eval_large"] = run_eval_large(config)
-        _write_stage_summary(experiment_dir, "eval_large_summary.json", summaries["eval_large"])
-        release_gpu_memory()
+        if bool(eval_large_cfg.get("enabled", False)):
+            current_phase = "eval_large"
+            write_run_state(experiment_dir, config, status="running", phase=current_phase)
+            summaries["eval_large"] = run_eval_large(config)
+            _write_stage_summary(experiment_dir, "eval_large_summary.json", summaries["eval_large"])
+            release_gpu_memory()
 
-    if bool(eval_glue_cfg.get("enabled", False)):
-        glue_summaries = run_glue_eval(config)
-        summaries.update(glue_summaries)
-        release_gpu_memory()
+        if bool(eval_glue_cfg.get("enabled", False)):
+            current_phase = "eval_glue"
+            write_run_state(experiment_dir, config, status="running", phase=current_phase)
+            glue_summaries = run_glue_eval(config)
+            summaries.update(glue_summaries)
+            release_gpu_memory()
 
-    summary_payload = {
-        "experiment_id": config.experiment_id(),
-        "experiment_dir": str(experiment_dir),
-        "status": "SUCCESS",
-        "stages": {k: _convert_paths(asdict(v)) if hasattr(v, "__dataclass_fields__") else v for k, v in summaries.items()},
-    }
-    write_json(experiment_dir / "metrics_summary.json", summary_payload)
-    return summary_payload
+        summary_payload = {
+            "experiment_id": config.experiment_id(),
+            "experiment_dir": str(experiment_dir),
+            "status": "SUCCESS",
+            "stages": {
+                k: _convert_paths(asdict(v)) if hasattr(v, "__dataclass_fields__") else v
+                for k, v in summaries.items()
+            },
+        }
+        write_json(experiment_dir / "metrics_summary.json", summary_payload)
+        write_run_state(experiment_dir, config, status="completed", phase="finished")
+        return summary_payload
+    except Exception as exc:
+        write_failure_artifacts(experiment_dir, config, exc, phase=current_phase)
+        raise

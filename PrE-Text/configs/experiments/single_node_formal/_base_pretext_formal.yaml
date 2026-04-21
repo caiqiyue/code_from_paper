@@ -17,7 +17,12 @@ paths:
 
 bootstrap:
   generator_model: llama2_7b
+  generator_backend: vllm
   num_prompts: 1500
+  max_model_len: 512
+  gpu_memory_utilization: 0.55
+  startup_required_free_gb: 28
+  tensor_parallel_size: 1
   device: cuda
 
 eval_small:

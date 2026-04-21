@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Callable
 
 from pretext_platform.core.config import ExperimentConfig
+from pretext_platform.core.gpu_memory import ensure_vllm_startup_memory
 from pretext_platform.core.io_utils import ensure_dir
 from pretext_platform.core.resource_cleanup import release_gpu_memory
+from pretext_platform.core.run_state import PretextFailure, is_cuda_oom
 from pretext_platform.core.types import ModelPaths, StageSummary
 
 
@@ -56,18 +58,32 @@ def generate_bootstrapped_samples_vllm(prompt_list: list[str], model_path: Path,
 
     from vllm import LLM, SamplingParams
 
-    llm = LLM(
-        model=str(model_path),
-        max_model_len=int(bootstrap_cfg.get("max_model_len", 1000)),
-        tensor_parallel_size=1,  # force single-GPU even when multiple GPUs are visible
-    )
-    sampling_params = SamplingParams(
-        temperature=float(bootstrap_cfg.get("temperature", 1.0)),
-        top_p=float(bootstrap_cfg.get("top_p", 1.0)),
-        max_tokens=int(bootstrap_cfg.get("max_tokens", 85)),
-    )
-    outputs = llm.generate(prompt_list, sampling_params)
-    return [output.outputs[0].text for output in outputs]
+    memory_details = ensure_vllm_startup_memory(bootstrap_cfg)
+    try:
+        llm = LLM(
+            model=str(model_path),
+            max_model_len=int(bootstrap_cfg.get("max_model_len", 1000)),
+            tensor_parallel_size=int(bootstrap_cfg.get("tensor_parallel_size", 1)),
+            gpu_memory_utilization=float(bootstrap_cfg.get("gpu_memory_utilization", 0.9)),
+        )
+        sampling_params = SamplingParams(
+            temperature=float(bootstrap_cfg.get("temperature", 1.0)),
+            top_p=float(bootstrap_cfg.get("top_p", 1.0)),
+            max_tokens=int(bootstrap_cfg.get("max_tokens", 85)),
+        )
+        outputs = llm.generate(prompt_list, sampling_params)
+        return [output.outputs[0].text for output in outputs]
+    except PretextFailure:
+        raise
+    except Exception as exc:
+        if is_cuda_oom(exc):
+            raise PretextFailure(
+                "stage2_runtime_gpu_oom",
+                "Stage 2 passed the startup memory gate but vLLM later hit CUDA out of memory.",
+                phase="stage2",
+                details=memory_details,
+            ) from exc
+        raise
 
 
 def generate_bootstrapped_samples_hf(

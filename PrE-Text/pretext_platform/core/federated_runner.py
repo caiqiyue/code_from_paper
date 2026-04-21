@@ -17,6 +17,8 @@ from pretext_platform.core.federated_artifacts import (
 from pretext_platform.core.federated_partition import build_federated_client_partitions
 from pretext_platform.core.federated_privacy import build_privacy_summary, make_round_privacy_record
 from pretext_platform.core.io_utils import write_json
+from pretext_platform.core.resource_cleanup import release_gpu_memory
+from pretext_platform.core.run_state import write_failure_artifacts, write_run_state
 from pretext_platform.core.types import StageSummary
 
 
@@ -217,105 +219,126 @@ class FederatedPretextRunner:
     def run(self) -> dict[str, Any]:
         experiment_dir = ensure_experiment_dir(self.config.output_root(), self.config.experiment_id())
         write_json(experiment_dir / "resolved_config.json", self.config.raw)
+        write_run_state(experiment_dir, self.config, status="running", phase="initializing")
 
-        partitions = self.partition_fn(self.config)
         rounds = int(self.config.federation.get("rounds", 1))
         round_summaries: list[dict[str, Any]] = []
         privacy_rounds: list[dict[str, Any]] = []
         final_synthetic_corpus_path = ""
         final_synthetic_sample_count = 0
+        current_phase = "initializing"
 
-        for round_id in range(rounds):
-            client_summaries: dict[str, StageSummary] = {}
-            merged_surviving_texts: list[str] = []
+        try:
+            current_phase = "partitioning"
+            write_run_state(experiment_dir, self.config, status="running", phase=current_phase)
+            partitions = self.partition_fn(self.config)
 
-            for client_id in sorted(partitions.keys()):
-                current_client_dir = client_dir(experiment_dir, round_id, client_id)
-                stage1_summary, surviving_texts = self.stage1_runner(
+            for round_id in range(rounds):
+                client_summaries: dict[str, StageSummary] = {}
+                merged_surviving_texts: list[str] = []
+
+                for client_id in sorted(partitions.keys()):
+                    current_phase = f"round_{round_id}_client_stage1"
+                    write_run_state(experiment_dir, self.config, status="running", phase=current_phase)
+                    current_client_dir = client_dir(experiment_dir, round_id, client_id)
+                    stage1_summary, surviving_texts = self.stage1_runner(
+                        config=self.config,
+                        client_id=client_id,
+                        round_id=round_id,
+                        client_partition=partitions[client_id],
+                        output_dir=current_client_dir,
+                    )
+                    write_stage_summary(current_client_dir / "stage1_summary.json", stage1_summary)
+                    client_summaries[client_id] = stage1_summary
+                    merged_surviving_texts.extend(surviving_texts)
+                    release_gpu_memory()
+
+                current_phase = f"round_{round_id}_bootstrap"
+                write_run_state(experiment_dir, self.config, status="running", phase=current_phase)
+                current_server_dir = server_stage2_dir(experiment_dir, round_id)
+                bootstrap_summary = self.bootstrap_runner(
                     config=self.config,
-                    client_id=client_id,
+                    merged_surviving_texts=merged_surviving_texts,
                     round_id=round_id,
-                    client_partition=partitions[client_id],
-                    output_dir=current_client_dir,
+                    server_output_dir=current_server_dir,
                 )
-                write_stage_summary(current_client_dir / "stage1_summary.json", stage1_summary)
-                client_summaries[client_id] = stage1_summary
-                merged_surviving_texts.extend(surviving_texts)
+                release_gpu_memory()
 
-            current_server_dir = server_stage2_dir(experiment_dir, round_id)
-            bootstrap_summary = self.bootstrap_runner(
-                config=self.config,
-                merged_surviving_texts=merged_surviving_texts,
-                round_id=round_id,
-                server_output_dir=current_server_dir,
-            )
-            stage2_summary = self.stage2_runner(
-                config=self.config,
-                merged_surviving_texts=merged_surviving_texts,
-                round_id=round_id,
-                server_output_dir=current_server_dir,
-            )
-            write_stage_summary(current_server_dir / "bootstrap_summary.json", bootstrap_summary)
-            write_stage_summary(current_server_dir / "stage2_summary.json", stage2_summary)
+                current_phase = f"round_{round_id}_stage2"
+                write_run_state(experiment_dir, self.config, status="running", phase=current_phase)
+                stage2_summary = self.stage2_runner(
+                    config=self.config,
+                    merged_surviving_texts=merged_surviving_texts,
+                    round_id=round_id,
+                    server_output_dir=current_server_dir,
+                )
+                write_stage_summary(current_server_dir / "bootstrap_summary.json", bootstrap_summary)
+                write_stage_summary(current_server_dir / "stage2_summary.json", stage2_summary)
+                release_gpu_memory()
 
-            round_summary = {
-                "round_id": round_id,
-                "client_count": len(client_summaries),
-                "merged_surviving_count": len(merged_surviving_texts),
-                "server_stage2_sample_count": int(stage2_summary.metrics.get("generated_count", 0)),
-                "server_stage2_output": Path(str(stage2_summary.artifacts.get("synthetic_corpus_path", ""))).as_posix(),
+                round_summary = {
+                    "round_id": round_id,
+                    "client_count": len(client_summaries),
+                    "merged_surviving_count": len(merged_surviving_texts),
+                    "server_stage2_sample_count": int(stage2_summary.metrics.get("generated_count", 0)),
+                    "server_stage2_output": Path(
+                        str(stage2_summary.artifacts.get("synthetic_corpus_path", ""))
+                    ).as_posix(),
+                }
+                round_summaries.append(round_summary)
+
+                privacy_rounds.append(
+                    make_round_privacy_record(
+                        round_id=round_id,
+                        client_summaries=client_summaries,
+                        merged_surviving_count=len(merged_surviving_texts),
+                        server_stage2_sample_count=int(stage2_summary.metrics.get("generated_count", 0)),
+                    )
+                )
+
+                final_synthetic_corpus_path = Path(
+                    str(stage2_summary.artifacts.get("synthetic_corpus_path", ""))
+                ).as_posix()
+                final_synthetic_sample_count = int(stage2_summary.metrics.get("generated_count", 0))
+
+            privacy_payload = {
+                "schema_version": 1,
+                "experiment_id": self.config.experiment_id(),
+                "rounds": privacy_rounds,
+                "final_privacy_summary": build_privacy_summary(privacy_rounds),
             }
-            round_summaries.append(round_summary)
+            write_privacy_ledger(experiment_dir, privacy_payload)
 
-            privacy_rounds.append(
-                make_round_privacy_record(
-                    round_id=round_id,
-                    client_summaries=client_summaries,
-                    merged_surviving_count=len(merged_surviving_texts),
-                    server_stage2_sample_count=int(stage2_summary.metrics.get("generated_count", 0)),
-                )
-            )
+            summary_payload = {
+                "experiment_id": self.config.experiment_id(),
+                "experiment_dir": str(experiment_dir),
+                "status": "SUCCESS",
+                "round_count": rounds,
+                "completed_rounds": rounds,
+                "final_synthetic_corpus_path": final_synthetic_corpus_path,
+                "final_synthetic_sample_count": final_synthetic_sample_count,
+                "round_summaries": round_summaries,
+                "privacy_summary": privacy_payload["final_privacy_summary"],
+            }
+            if final_synthetic_corpus_path:
+                final_stage2_path = Path(final_synthetic_corpus_path)
+                compat_stage2_dir = experiment_dir / "stage2"
+                compat_stage2_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(final_stage2_path, compat_stage2_dir / "llama7b_text_syn.json")
 
-            final_synthetic_corpus_path = Path(
-                str(stage2_summary.artifacts.get("synthetic_corpus_path", ""))
-            ).as_posix()
-            final_synthetic_sample_count = int(stage2_summary.metrics.get("generated_count", 0))
-
-        privacy_payload = {
-            "schema_version": 1,
-            "experiment_id": self.config.experiment_id(),
-            "rounds": privacy_rounds,
-            "final_privacy_summary": build_privacy_summary(privacy_rounds),
-        }
-        write_privacy_ledger(experiment_dir, privacy_payload)
-
-        summary_payload = {
-            "experiment_id": self.config.experiment_id(),
-            "experiment_dir": str(experiment_dir),
-            "status": "SUCCESS",
-            "round_count": rounds,
-            "completed_rounds": rounds,
-            "final_synthetic_corpus_path": final_synthetic_corpus_path,
-            "final_synthetic_sample_count": final_synthetic_sample_count,
-            "round_summaries": round_summaries,
-            "privacy_summary": privacy_payload["final_privacy_summary"],
-        }
-        if final_synthetic_corpus_path:
-            final_stage2_path = Path(final_synthetic_corpus_path)
-            compat_stage2_dir = experiment_dir / "stage2"
-            compat_stage2_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(final_stage2_path, compat_stage2_dir / "llama7b_text_syn.json")
-
-            final_round_id = max(rounds - 1, 0)
-            final_round_stage2_summary = server_stage2_dir(experiment_dir, final_round_id) / "stage2_summary.json"
-            if final_round_stage2_summary.exists():
-                shutil.copy2(final_round_stage2_summary, experiment_dir / "stage2_summary.json")
-        write_metrics_summary(experiment_dir, summary_payload)
-        return summary_payload
+                final_round_id = max(rounds - 1, 0)
+                final_round_stage2_summary = server_stage2_dir(experiment_dir, final_round_id) / "stage2_summary.json"
+                if final_round_stage2_summary.exists():
+                    shutil.copy2(final_round_stage2_summary, experiment_dir / "stage2_summary.json")
+            write_metrics_summary(experiment_dir, summary_payload)
+            write_run_state(experiment_dir, self.config, status="completed", phase="finished")
+            return summary_payload
+        except Exception as exc:
+            write_failure_artifacts(experiment_dir, self.config, exc, phase=current_phase)
+            raise
 
 
 def run_federated_pipeline(config: ExperimentConfig) -> dict[str, Any]:
     """Run one federated PrE-Text experiment."""
 
     return FederatedPretextRunner(config).run()
-

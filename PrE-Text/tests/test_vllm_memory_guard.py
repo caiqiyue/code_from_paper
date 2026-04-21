@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import types
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from pretext_platform.algorithms.bootstrap import generate_bootstrapped_samples_vllm
+from pretext_platform.core.config import ExperimentConfig, load_experiment_config
+from pretext_platform.core.gpu_memory import BYTES_PER_GIB, ensure_vllm_startup_memory
+from pretext_platform.core.pipeline import run_pipeline
+from pretext_platform.core.run_state import PretextFailure
+from pretext_platform.core.types import StageSummary
+
+
+class VllmBootstrapMemoryGuardTests(unittest.TestCase):
+    """Validate formal Stage 2 vLLM memory limits and failure artifacts."""
+
+    def test_startup_precheck_rejects_when_free_memory_is_below_threshold(self) -> None:
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def current_device():
+                return 0
+
+            @staticmethod
+            def mem_get_info(_device_index):
+                return int(27 * BYTES_PER_GIB), int(47.5 * BYTES_PER_GIB)
+
+        fake_torch = types.ModuleType("torch")
+        fake_torch.cuda = FakeCuda()
+
+        with patch.dict(sys.modules, {"torch": fake_torch}):
+            with self.assertRaises(PretextFailure) as context:
+                ensure_vllm_startup_memory({"startup_required_free_gb": 28})
+
+        self.assertEqual(
+            context.exception.failure_code,
+            "insufficient_free_gpu_memory_before_stage2",
+        )
+        self.assertEqual(context.exception.phase, "stage2_precheck")
+        self.assertEqual(context.exception.details["required_free_gib"], 28.0)
+        self.assertEqual(context.exception.details["observed_free_gib"], 27.0)
+
+    def test_vllm_generation_prechecks_memory_and_passes_bounded_constructor_args(self) -> None:
+        captured_llm_kwargs: dict[str, object] = {}
+        captured_sampling_kwargs: dict[str, object] = {}
+
+        class FakeLLM:
+            def __init__(self, **kwargs):
+                captured_llm_kwargs.update(kwargs)
+
+            def generate(self, prompt_list, sampling_params):
+                del sampling_params
+                return [
+                    SimpleNamespace(outputs=[SimpleNamespace(text=f"generated:{idx}")])
+                    for idx, _ in enumerate(prompt_list)
+                ]
+
+        class FakeSamplingParams:
+            def __init__(self, **kwargs):
+                captured_sampling_kwargs.update(kwargs)
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+
+        bootstrap_cfg = {
+            "max_model_len": 512,
+            "gpu_memory_utilization": 0.55,
+            "startup_required_free_gb": 28,
+            "temperature": 0.4,
+            "top_p": 0.9,
+            "max_tokens": 33,
+        }
+        with patch.dict(sys.modules, {"vllm": fake_vllm}), patch(
+            "pretext_platform.algorithms.bootstrap.ensure_vllm_startup_memory",
+            create=True,
+        ) as precheck:
+            outputs = generate_bootstrapped_samples_vllm(
+                ["prompt a", "prompt b"],
+                Path("local-llama"),
+                bootstrap_cfg,
+            )
+
+        precheck.assert_called_once()
+        self.assertEqual(outputs, ["generated:0", "generated:1"])
+        self.assertEqual(captured_llm_kwargs["model"], "local-llama")
+        self.assertEqual(captured_llm_kwargs["max_model_len"], 512)
+        self.assertEqual(captured_llm_kwargs["tensor_parallel_size"], 1)
+        self.assertEqual(captured_llm_kwargs["gpu_memory_utilization"], 0.55)
+        self.assertEqual(captured_sampling_kwargs["max_tokens"], 33)
+
+    def test_vllm_runtime_oom_after_precheck_is_classified(self) -> None:
+        class FakeLLM:
+            def __init__(self, **_kwargs):
+                pass
+
+            def generate(self, _prompt_list, _sampling_params):
+                raise RuntimeError("CUDA out of memory while allocating KV cache")
+
+        class FakeSamplingParams:
+            def __init__(self, **_kwargs):
+                pass
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+
+        with patch.dict(sys.modules, {"vllm": fake_vllm}), patch(
+            "pretext_platform.algorithms.bootstrap.ensure_vllm_startup_memory",
+            return_value={"observed_free_gib": 29.0, "required_free_gib": 28.0},
+        ):
+            with self.assertRaises(PretextFailure) as context:
+                generate_bootstrapped_samples_vllm(
+                    ["prompt a"],
+                    Path("local-llama"),
+                    {"max_model_len": 512, "gpu_memory_utilization": 0.55},
+                )
+
+        self.assertEqual(context.exception.failure_code, "stage2_runtime_gpu_oom")
+        self.assertEqual(context.exception.phase, "stage2")
+
+    def test_formal_vllm_configs_define_shared_a6000_memory_budget(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        config_paths = [
+            root / "configs" / "experiments" / "single_node_formal" / "sp_c1_jobs_base.yaml",
+            root / "configs" / "experiments" / "federated_formal" / "fp_c1_jobs_base.yaml",
+        ]
+
+        for config_path in config_paths:
+            with self.subTest(config_path=config_path.name):
+                config = load_experiment_config(config_path)
+                self.assertEqual(config.bootstrap.get("generator_backend"), "vllm")
+                self.assertEqual(config.bootstrap.get("max_model_len"), 512)
+                self.assertEqual(config.bootstrap.get("startup_required_free_gb"), 28)
+                self.assertAlmostEqual(float(config.bootstrap.get("gpu_memory_utilization")), 0.55)
+
+    def test_pipeline_writes_failure_artifacts_for_stage2_startup_rejection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            config = ExperimentConfig.from_mapping(
+                {
+                    "meta": {"experiment_id": "oom_guard_demo"},
+                    "paths": {"repo_root": ".", "output_root": "./out"},
+                    "stage1": {"enabled": True},
+                    "bootstrap": {"enabled": True},
+                    "eval_small": {"enabled": False},
+                    "eval_large": {"enabled": False},
+                },
+                base_dir=root,
+            )
+            stage1_summary = StageSummary(
+                "stage1",
+                root / "out" / "oom_guard_demo" / "stage1",
+                {"generated_files": []},
+                {"rounds": 1},
+            )
+            failure = PretextFailure(
+                "insufficient_free_gpu_memory_before_stage2",
+                "free GPU memory 27.0 GiB is below required 28.0 GiB",
+                phase="stage2_precheck",
+                details={"observed_free_gib": 27.0, "required_free_gib": 28.0},
+            )
+            with patch("pretext_platform.core.pipeline.run_stage1", return_value=stage1_summary), patch(
+                "pretext_platform.core.pipeline.run_bootstrap",
+                side_effect=failure,
+            ):
+                with self.assertRaises(PretextFailure):
+                    run_pipeline(config)
+
+            experiment_dir = root / "out" / "oom_guard_demo"
+            run_state = json.loads((experiment_dir / "run_state.json").read_text(encoding="utf-8"))
+            failure_summary = json.loads((experiment_dir / "failure_summary.json").read_text(encoding="utf-8"))
+            metrics_summary = json.loads((experiment_dir / "metrics_summary.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(run_state["status"], "failed")
+            self.assertEqual(run_state["phase"], "stage2_precheck")
+            self.assertEqual(run_state["last_error"]["failure_code"], "insufficient_free_gpu_memory_before_stage2")
+            self.assertEqual(failure_summary["failure_code"], "insufficient_free_gpu_memory_before_stage2")
+            self.assertEqual(metrics_summary["status"], "failed")
+            self.assertEqual(metrics_summary["failure_code"], "insufficient_free_gpu_memory_before_stage2")
+
+
+if __name__ == "__main__":
+    unittest.main()

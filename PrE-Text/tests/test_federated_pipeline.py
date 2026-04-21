@@ -168,6 +168,60 @@ federation:
             self.assertTrue((experiment_dir / "stage2_summary.json").exists())
             self.assertTrue(summary["final_synthetic_corpus_path"].endswith("round_001/server_stage2/llama7b_text_syn.json"))
 
+    def test_federated_runner_releases_gpu_between_client_stage1_and_server_stage2(self) -> None:
+        from pretext_platform.core.federated_runner import FederatedPretextRunner
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            config = ExperimentConfig.from_mapping(
+                {
+                    "meta": {"experiment_id": "fpt_cleanup"},
+                    "paths": {"repo_root": ".", "output_root": "./out"},
+                    "execution": {"mode": "federated_pretext"},
+                    "federation": {"rounds": 1, "num_clients": 2},
+                    "stage1": {"enabled": True},
+                    "bootstrap": {"enabled": True},
+                },
+                base_dir=root,
+            )
+            partition = {
+                "client_000": {"train_texts": ["client0"], "eval_texts": []},
+                "client_001": {"train_texts": ["client1"], "eval_texts": []},
+            }
+
+            def fake_stage1_runner(*, client_id: str, round_id: int, output_dir: Path, **_: object) -> tuple[StageSummary, list[str]]:
+                return (
+                    StageSummary("stage1", output_dir, artifacts={}, metrics={"round_id": round_id}),
+                    [f"{client_id} survivor a", f"{client_id} survivor b"],
+                )
+
+            def fake_bootstrap_runner(*, server_output_dir: Path, round_id: int, **_: object) -> StageSummary:
+                return StageSummary("bootstrap", server_output_dir, artifacts={}, metrics={"round_id": round_id})
+
+            def fake_stage2_runner(*, server_output_dir: Path, round_id: int, **_: object) -> StageSummary:
+                output_path = server_output_dir / "llama7b_text_syn.json"
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(json.dumps(["synthetic"], ensure_ascii=False), encoding="utf-8")
+                return StageSummary(
+                    "stage2",
+                    server_output_dir,
+                    artifacts={"synthetic_corpus_path": str(output_path)},
+                    metrics={"round_id": round_id, "generated_count": 1},
+                )
+
+            runner = FederatedPretextRunner(
+                config,
+                partition_fn=lambda _: partition,
+                stage1_runner=fake_stage1_runner,
+                bootstrap_runner=fake_bootstrap_runner,
+                stage2_runner=fake_stage2_runner,
+            )
+
+            with patch("pretext_platform.core.federated_runner.release_gpu_memory", create=True) as release:
+                runner.run()
+
+            self.assertGreaterEqual(release.call_count, 3)
+
     def test_default_stage1_runner_uses_configured_initialization_pool(self) -> None:
         from pretext_platform.core.federated_runner import _default_stage1_runner
 
@@ -453,7 +507,6 @@ federation:
 
 if __name__ == "__main__":
     unittest.main()
-
 
 
 
