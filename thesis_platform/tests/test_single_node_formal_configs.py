@@ -42,7 +42,7 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertEqual(config.scorer["name"], "datainf_real")
         self.assertEqual(config.stage_a["scorer"], "datainf_real")
         self.assertEqual(config.aggregator["name"], "dbscan_attn_tsgdm")
-        self.assertEqual(config.stage_b["generated_count"], 10000)
+        self.assertEqual(config.stage_b["generated_count"], 1500)
 
     def test_single_node_formal_server_generation_uses_vllm_memory_budget(self) -> None:
         config_root = Path(__file__).resolve().parents[1]
