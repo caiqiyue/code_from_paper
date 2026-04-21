@@ -55,7 +55,7 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertEqual(config.llm["server"]["model_name_or_path"], "thesis_platform/open_model/llama_2_7b_hf")
         self.assertEqual(config.llm["server"]["max_model_len"], 512)
         self.assertAlmostEqual(float(config.llm["server"]["gpu_memory_utilization"]), 0.55)
-        self.assertEqual(config.llm["server"]["startup_required_free_gb"], 28)
+        self.assertEqual(config.llm["server"]["startup_required_free_gb"], 26)
         self.assertEqual(config.llm["server"]["tensor_parallel_size"], 1)
         self.assertEqual(config.generator["max_prompt_chars"], 512)
         self.assertEqual(config.generator["max_exemplar_chars"], 256)
@@ -100,7 +100,7 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
             "tensor_parallel_size",
         ):
             self.assertEqual(smoke.llm["server"][key], formal.llm["server"][key])
-        self.assertEqual(formal.llm["server"]["startup_required_free_gb"], 28)
+        self.assertEqual(formal.llm["server"]["startup_required_free_gb"], 26)
         self.assertEqual(smoke.llm["server"]["startup_required_free_gb"], 25)
 
     def test_a6000_smoke_runner_uses_project_specific_conda_envs(self) -> None:

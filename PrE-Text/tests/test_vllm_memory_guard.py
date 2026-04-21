@@ -176,17 +176,17 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
 
     def test_formal_vllm_configs_define_shared_a6000_memory_budget(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        config_paths = [
-            root / "configs" / "experiments" / "single_node_formal" / "sp_c1_jobs_base.yaml",
-            root / "configs" / "experiments" / "federated_formal" / "fp_c1_jobs_base.yaml",
-        ]
+        expected_budgets = {
+            root / "configs" / "experiments" / "single_node_formal" / "sp_c1_jobs_base.yaml": 26,
+            root / "configs" / "experiments" / "federated_formal" / "fp_c1_jobs_base.yaml": 28,
+        }
 
-        for config_path in config_paths:
+        for config_path, expected_budget in expected_budgets.items():
             with self.subTest(config_path=config_path.name):
                 config = load_experiment_config(config_path)
                 self.assertEqual(config.bootstrap.get("generator_backend"), "vllm")
                 self.assertEqual(config.bootstrap.get("max_model_len"), 512)
-                self.assertEqual(config.bootstrap.get("startup_required_free_gb"), 28)
+                self.assertEqual(config.bootstrap.get("startup_required_free_gb"), expected_budget)
                 self.assertAlmostEqual(float(config.bootstrap.get("gpu_memory_utilization")), 0.55)
                 self.assertTrue(config.bootstrap.get("enforce_eager"))
 
@@ -222,7 +222,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
             "enforce_eager",
         ):
             self.assertEqual(smoke.bootstrap[key], formal.bootstrap[key])
-        self.assertEqual(formal.bootstrap["startup_required_free_gb"], 28)
+        self.assertEqual(formal.bootstrap["startup_required_free_gb"], 26)
         self.assertEqual(smoke.bootstrap["startup_required_free_gb"], 25)
 
     def test_pipeline_writes_failure_artifacts_for_stage2_startup_rejection(self) -> None:
