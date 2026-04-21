@@ -3,7 +3,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
-ENV_NAME="${ENV_NAME:-caiqiyue-vllm}"
+SN_ENV_NAME="${SN_ENV_NAME:-${ENV_NAME:-caiqiyue-vllm}}"
+SP_ENV_NAME="${SP_ENV_NAME:-pretext}"
 CONDA_SH="${CONDA_SH:-${HOME}/anaconda3/etc/profile.d/conda.sh}"
 LOG_ROOT="${LOG_ROOT:-${REPO_ROOT}/execute/logs}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-5}"
@@ -77,12 +78,40 @@ run_and_log() {
   log "PASS ${label}"
 }
 
+check_visible_a6000() {
+  local env_name="$1"
+  python - "${env_name}" <<'PY'
+import os
+import sys
+import torch
+
+expected_env = sys.argv[1]
+print("expected_conda_env=" + expected_env)
+print("actual_conda_env=" + str(os.environ.get("CONDA_DEFAULT_ENV")))
+print("python_visible_cuda_devices=" + str(os.environ.get("CUDA_VISIBLE_DEVICES")))
+print("torch_cuda_available=" + str(torch.cuda.is_available()))
+print("torch_cuda_device_count=" + str(torch.cuda.device_count()))
+if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
+    raise SystemExit("Expected exactly one visible CUDA device after CUDA_VISIBLE_DEVICES filtering.")
+name = torch.cuda.get_device_name(0)
+print("torch_cuda_device_0_name=" + name)
+if "A6000" not in name:
+    raise SystemExit(f"Expected visible CUDA device 0 to be A6000, got {name!r}.")
+PY
+}
+
 run_sn_smoke() {
+  conda activate "${SN_ENV_NAME}" || return $?
+  log "activated_conda_env=${SN_ENV_NAME}"
+  check_visible_a6000 "${SN_ENV_NAME}" || return $?
   cd "${REPO_ROOT}"
   python -m thesis_platform.scripts.run_experiment --config "${SN_CONFIG}"
 }
 
 run_sp_smoke() {
+  conda activate "${SP_ENV_NAME}" || return $?
+  log "activated_conda_env=${SP_ENV_NAME}"
+  check_visible_a6000 "${SP_ENV_NAME}" || return $?
   cd "${REPO_ROOT}/PrE-Text"
   python -m pretext_platform.scripts.run_pipeline --config "${SP_CONFIG}"
 }
@@ -105,7 +134,8 @@ export TOKENIZERS_PARALLELISM=false
 export PYTHONUNBUFFERED=1
 
 log "repo_root=${REPO_ROOT}"
-log "env_name=${ENV_NAME}"
+log "sn_env_name=${SN_ENV_NAME}"
+log "sp_env_name=${SP_ENV_NAME}"
 log "a6000_physical_index=${A6000_INDEX}"
 log "CUDA_DEVICE_ORDER=${CUDA_DEVICE_ORDER}"
 log "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
@@ -119,22 +149,6 @@ if [[ ! -f "${CONDA_SH}" ]]; then
 fi
 
 source "${CONDA_SH}"
-conda activate "${ENV_NAME}"
-
-python - <<'PY' 2>&1 | tee -a "${MASTER_LOG}"
-import os
-import torch
-
-print("python_visible_cuda_devices=" + str(os.environ.get("CUDA_VISIBLE_DEVICES")))
-print("torch_cuda_available=" + str(torch.cuda.is_available()))
-print("torch_cuda_device_count=" + str(torch.cuda.device_count()))
-if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
-    raise SystemExit("Expected exactly one visible CUDA device after CUDA_VISIBLE_DEVICES filtering.")
-name = torch.cuda.get_device_name(0)
-print("torch_cuda_device_0_name=" + name)
-if "A6000" not in name:
-    raise SystemExit(f"Expected visible CUDA device 0 to be A6000, got {name!r}.")
-PY
 
 start_monitor
 trap stop_monitor EXIT

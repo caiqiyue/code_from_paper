@@ -18,6 +18,8 @@ class PretextPromptLLMGenerator:
         self.exemplars_per_prompt = int(config.get("exemplars_per_prompt", 2))
         self.max_new_tokens = int(config.get("max_new_tokens", 192))
         self.temperature = float(config.get("temperature", 0.2))
+        self.max_prompt_chars = int(config.get("max_prompt_chars") or 0)
+        self.max_exemplar_chars = int(config.get("max_exemplar_chars") or 0)
 
     @staticmethod
     def _parse_sample_text(raw_text: str) -> str:
@@ -29,16 +31,30 @@ class PretextPromptLLMGenerator:
             return cleaned
         return cleaned
 
+    @staticmethod
+    def _clip_text(text: str, max_chars: int) -> str:
+        cleaned = text.strip()
+        if max_chars <= 0 or len(cleaned) <= max_chars:
+            return cleaned
+        return cleaned[:max_chars].rstrip() + "..."
+
+    def _render_prompt_text(self, prompt_text: str) -> str:
+        return self._clip_text(prompt_text, self.max_prompt_chars)
+
+    def _render_exemplar_text(self, sample: Sample) -> str:
+        return self._clip_text(sample.rendered_text(), self.max_exemplar_chars)
+
     def _build_prompt(self, *, round_ctx, source_samples: list[Sample]) -> str:
         exemplar_block = "\n\n".join(
-            f"Example {idx + 1}:\n{sample.rendered_text()}" for idx, sample in enumerate(source_samples)
+            f"Example {idx + 1}:\n{self._render_exemplar_text(sample)}"
+            for idx, sample in enumerate(source_samples)
         )
         return (
             "You are the server-side synthetic data generator for federated prompt optimization.\n"
             "Use the instruction and guidance below to generate one new synthetic sample.\n"
             "Stay close to the domain and structure implied by the public seed examples.\n"
             "Return only one synthetic sample enclosed by <sample> and </sample>.\n\n"
-            f"{round_ctx.prompt_text}\n\n"
+            f"{self._render_prompt_text(round_ctx.prompt_text)}\n\n"
             f"{exemplar_block}\n"
         )
 

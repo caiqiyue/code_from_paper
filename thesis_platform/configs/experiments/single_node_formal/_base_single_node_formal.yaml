@@ -31,6 +31,8 @@ retriever:
 generator:
   generated_per_round: 16
   exemplars_per_prompt: 2
+  max_prompt_chars: 512
+  max_exemplar_chars: 256
   max_new_tokens: 192
   temperature: 0.2
 

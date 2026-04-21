@@ -57,6 +57,8 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertAlmostEqual(float(config.llm["server"]["gpu_memory_utilization"]), 0.55)
         self.assertEqual(config.llm["server"]["startup_required_free_gb"], 28)
         self.assertEqual(config.llm["server"]["tensor_parallel_size"], 1)
+        self.assertEqual(config.generator["max_prompt_chars"], 512)
+        self.assertEqual(config.generator["max_exemplar_chars"], 256)
 
     def test_single_node_vllm_a6000_smoke_config_matches_sn_c1_with_tiny_scale(self) -> None:
         config_root = Path(__file__).resolve().parents[1]
@@ -75,6 +77,9 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertEqual(smoke.aggregator["name"], formal.aggregator["name"])
 
         self.assertEqual(smoke.generator["generated_per_round"], 2)
+        self.assertEqual(smoke.generator["exemplars_per_prompt"], 1)
+        self.assertEqual(smoke.generator["max_prompt_chars"], 512)
+        self.assertEqual(smoke.generator["max_exemplar_chars"], 256)
         self.assertEqual(smoke.stage_a["generated_count"], 4)
         self.assertEqual(smoke.stage_a["select_top_k"], 2)
         self.assertEqual(smoke.stage_a["max_iterations"], 1)
@@ -97,6 +102,15 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
             self.assertEqual(smoke.llm["server"][key], formal.llm["server"][key])
         self.assertEqual(formal.llm["server"]["startup_required_free_gb"], 28)
         self.assertEqual(smoke.llm["server"]["startup_required_free_gb"], 25)
+
+    def test_a6000_smoke_runner_uses_project_specific_conda_envs(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        script = (repo_root / "execute" / "run_vllm_a6000_smoke_tests.sh").read_text(encoding="utf-8")
+
+        self.assertIn('SN_ENV_NAME="${SN_ENV_NAME:-${ENV_NAME:-caiqiyue-vllm}}"', script)
+        self.assertIn('SP_ENV_NAME="${SP_ENV_NAME:-pretext}"', script)
+        self.assertIn('conda activate "${SN_ENV_NAME}"', script)
+        self.assertIn('conda activate "${SP_ENV_NAME}"', script)
 
     def test_single_node_formal_gradmm_and_ira_configs_share_federated_method_files(self) -> None:
         gradmm_config = load_experiment_config(

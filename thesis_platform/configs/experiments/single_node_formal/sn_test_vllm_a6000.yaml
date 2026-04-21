@@ -13,7 +13,9 @@ data:
 
 generator:
   generated_per_round: 2
-  exemplars_per_prompt: 2
+  exemplars_per_prompt: 1
+  max_prompt_chars: 512
+  max_exemplar_chars: 256
   max_new_tokens: 64
   temperature: 0.2
 
