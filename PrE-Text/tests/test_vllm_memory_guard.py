@@ -143,6 +143,39 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
                 self.assertEqual(config.bootstrap.get("startup_required_free_gb"), 28)
                 self.assertAlmostEqual(float(config.bootstrap.get("gpu_memory_utilization")), 0.55)
 
+    def test_single_node_a6000_smoke_config_matches_sp_c1_with_tiny_scale(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        formal = load_experiment_config(
+            root / "configs" / "experiments" / "single_node_formal" / "sp_c1_jobs_base.yaml"
+        )
+        smoke = load_experiment_config(
+            root / "configs" / "experiments" / "single_node_formal" / "sp_test_vllm_a6000.yaml"
+        )
+
+        self.assertEqual(smoke.data["dataset_name"], formal.data["dataset_name"])
+        self.assertEqual(smoke.data["train_path"], formal.data["train_path"])
+        self.assertEqual(smoke.data["eval_path"], formal.data["eval_path"])
+        self.assertEqual(smoke.bootstrap["generator_backend"], formal.bootstrap["generator_backend"])
+        self.assertEqual(smoke.bootstrap["generator_model"], formal.bootstrap["generator_model"])
+
+        self.assertEqual(smoke.data["max_samples_per_client"], 4)
+        self.assertEqual(smoke.data["train_limit"], 8)
+        self.assertEqual(smoke.data["eval_limit"], 4)
+        self.assertEqual(smoke.data["initialization_limit"], 32)
+        self.assertEqual(smoke.stage1["rounds"], 1)
+        self.assertEqual(smoke.stage1["batch_size"], 4)
+        self.assertEqual(smoke.stage1["embed_batch_size"], 8)
+        self.assertEqual(smoke.bootstrap["num_prompts"], 4)
+        self.assertEqual(smoke.bootstrap["max_tokens"], 32)
+
+        for key in (
+            "max_model_len",
+            "gpu_memory_utilization",
+            "startup_required_free_gb",
+            "tensor_parallel_size",
+        ):
+            self.assertEqual(smoke.bootstrap[key], formal.bootstrap[key])
+
     def test_pipeline_writes_failure_artifacts_for_stage2_startup_rejection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

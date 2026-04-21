@@ -163,6 +163,26 @@ class _SingleNodeStageATests(unittest.TestCase):
         )
         return runner, selected_ids
 
+    def test_load_seed_corpus_honors_train_limit_for_smoke_configs(self) -> None:
+        train_path = self.output_root / "train.json"
+        train_path.write_text(
+            json.dumps([{"text": f"seed {idx}"} for idx in range(5)]),
+            encoding="utf-8",
+        )
+        self.config.data["train_limit"] = 2
+        runner = SingleNodeRunner(
+            generator=SimpleNamespace(),
+            scorer=SimpleNamespace(),
+            retriever=SimpleNamespace(),
+            critic=SimpleNamespace(),
+            aggregator=SimpleNamespace(),
+            config=self.config,
+        )
+
+        samples = runner._load_seed_corpus(train_path)
+
+        self.assertEqual([sample.text for sample in samples], ["seed 0", "seed 1"])
+
     def test_stage_a_randomly_selects_samples_when_scores_have_no_signal(self) -> None:
         scorer = _StaticScorer([0.0, 0.0, 0.0, 0.0])
         aggregator = _TrackingAggregator()

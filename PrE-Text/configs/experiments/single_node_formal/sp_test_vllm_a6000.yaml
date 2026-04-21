@@ -1,0 +1,26 @@
+inherits:
+  - ./sp_c1_jobs_base.yaml
+
+meta:
+  experiment_id: sp_test_vllm_a6000
+  stage: single_node_pretext_vllm_a6000_smoke
+
+data:
+  max_samples_per_client: 4
+  train_limit: 8
+  eval_limit: 4
+  initialization_limit: 32
+
+stage1:
+  rounds: 1
+  sensitivity: 4
+  lookahead: 1
+  multiplier: 1
+  batch_size: 4
+  embed_batch_size: 8
+  nearest_neighbors_print: 1
+  num_workers: 0
+
+bootstrap:
+  num_prompts: 4
+  max_tokens: 32

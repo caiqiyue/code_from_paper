@@ -1,0 +1,34 @@
+inherits:
+  - ./sn_c1_jobs_base.yaml
+
+meta:
+  experiment_id: sn_test_vllm_a6000
+  stage: single_node_vllm_a6000_smoke
+
+data:
+  max_samples_per_client: 4
+  train_limit: 8
+  eval_limit: 4
+  initialization_limit: 32
+
+generator:
+  generated_per_round: 2
+  exemplars_per_prompt: 2
+  max_new_tokens: 64
+  temperature: 0.2
+
+stage_a:
+  generated_count: 4
+  select_top_k: 2
+  max_iterations: 1
+  max_probe_samples: 8
+
+stage_b:
+  generated_count: 4
+
+downstream_eval:
+  small_epochs: 1
+  small_batch_size: 1
+  small_eval_batch_size: 1
+  small_grad_accum_steps: 1
+  small_cutoff_len: 64

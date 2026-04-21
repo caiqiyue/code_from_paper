@@ -58,6 +58,45 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertEqual(config.llm["server"]["startup_required_free_gb"], 28)
         self.assertEqual(config.llm["server"]["tensor_parallel_size"], 1)
 
+    def test_single_node_vllm_a6000_smoke_config_matches_sn_c1_with_tiny_scale(self) -> None:
+        config_root = Path(__file__).resolve().parents[1]
+        formal = load_experiment_config(
+            config_root / "configs" / "experiments" / "single_node_formal" / "sn_c1_jobs_base.yaml"
+        )
+        smoke = load_experiment_config(
+            config_root / "configs" / "experiments" / "single_node_formal" / "sn_test_vllm_a6000.yaml"
+        )
+
+        self.assertEqual(smoke.execution["mode"], formal.execution["mode"])
+        self.assertEqual(smoke.data["dataset_name"], formal.data["dataset_name"])
+        self.assertEqual(smoke.data["train_path"], formal.data["train_path"])
+        self.assertEqual(smoke.scorer["name"], formal.scorer["name"])
+        self.assertEqual(smoke.critic["name"], formal.critic["name"])
+        self.assertEqual(smoke.aggregator["name"], formal.aggregator["name"])
+
+        self.assertEqual(smoke.generator["generated_per_round"], 2)
+        self.assertEqual(smoke.stage_a["generated_count"], 4)
+        self.assertEqual(smoke.stage_a["select_top_k"], 2)
+        self.assertEqual(smoke.stage_a["max_iterations"], 1)
+        self.assertEqual(smoke.stage_b["generated_count"], 4)
+        self.assertEqual(smoke.data["train_limit"], 8)
+        self.assertEqual(smoke.data["eval_limit"], 4)
+
+        self.assertEqual(smoke.downstream_eval["run_small_eval"], formal.downstream_eval["run_small_eval"])
+        self.assertEqual(smoke.downstream_eval["small_epochs"], 1)
+        self.assertEqual(smoke.downstream_eval["small_batch_size"], 1)
+        self.assertEqual(smoke.downstream_eval["small_eval_batch_size"], 1)
+
+        for key in (
+            "engine",
+            "model_name_or_path",
+            "max_model_len",
+            "gpu_memory_utilization",
+            "startup_required_free_gb",
+            "tensor_parallel_size",
+        ):
+            self.assertEqual(smoke.llm["server"][key], formal.llm["server"][key])
+
     def test_single_node_formal_gradmm_and_ira_configs_share_federated_method_files(self) -> None:
         gradmm_config = load_experiment_config(
             "D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/single_node_formal/sn_a1_jobs_gradmm.yaml"

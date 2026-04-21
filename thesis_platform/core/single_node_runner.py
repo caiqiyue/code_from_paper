@@ -436,6 +436,10 @@ class SingleNodeRunner:
         else:
             items = [data]
 
+        train_limit = self.config.data.get("train_limit")
+        if train_limit not in (None, ""):
+            items = items[: int(train_limit)]
+
         samples = []
         for idx, item in enumerate(items):
             if isinstance(item, dict):
