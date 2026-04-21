@@ -26,6 +26,10 @@ stage_a:
 stage_b:
   generated_count: 4
 
+llm:
+  server:
+    startup_required_free_gb: 25
+
 downstream_eval:
   small_epochs: 1
   small_batch_size: 1

@@ -171,10 +171,11 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
         for key in (
             "max_model_len",
             "gpu_memory_utilization",
-            "startup_required_free_gb",
             "tensor_parallel_size",
         ):
             self.assertEqual(smoke.bootstrap[key], formal.bootstrap[key])
+        self.assertEqual(formal.bootstrap["startup_required_free_gb"], 28)
+        self.assertEqual(smoke.bootstrap["startup_required_free_gb"], 25)
 
     def test_pipeline_writes_failure_artifacts_for_stage2_startup_rejection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

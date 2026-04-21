@@ -92,10 +92,11 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
             "model_name_or_path",
             "max_model_len",
             "gpu_memory_utilization",
-            "startup_required_free_gb",
             "tensor_parallel_size",
         ):
             self.assertEqual(smoke.llm["server"][key], formal.llm["server"][key])
+        self.assertEqual(formal.llm["server"]["startup_required_free_gb"], 28)
+        self.assertEqual(smoke.llm["server"]["startup_required_free_gb"], 25)
 
     def test_single_node_formal_gradmm_and_ira_configs_share_federated_method_files(self) -> None:
         gradmm_config = load_experiment_config(

@@ -100,12 +100,14 @@ if [[ -z "${A6000_INDEX}" ]]; then
 fi
 
 export CUDA_VISIBLE_DEVICES="${A6000_INDEX}"
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export TOKENIZERS_PARALLELISM=false
 export PYTHONUNBUFFERED=1
 
 log "repo_root=${REPO_ROOT}"
 log "env_name=${ENV_NAME}"
 log "a6000_physical_index=${A6000_INDEX}"
+log "CUDA_DEVICE_ORDER=${CUDA_DEVICE_ORDER}"
 log "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
 log "master_log=${MASTER_LOG}"
 log "monitor_log=${MONITOR_LOG}"
