@@ -63,3 +63,16 @@ downstream_eval:
   small_eval_mode: gpt2
   windows_small_eval_mode: gpt2
   linux_small_eval_mode: gpt2
+
+llm:
+  server:
+    engine: vllm
+    model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
+    device: cuda
+    temperature: 0.2
+    max_new_tokens: 220
+    use_chat_template: false
+    max_model_len: 512
+    gpu_memory_utilization: 0.55
+    startup_required_free_gb: 28
+    tensor_parallel_size: 1

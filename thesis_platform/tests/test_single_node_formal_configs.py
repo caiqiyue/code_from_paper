@@ -44,6 +44,20 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertEqual(config.aggregator["name"], "dbscan_attn_tsgdm")
         self.assertEqual(config.stage_b["generated_count"], 10000)
 
+    def test_single_node_formal_server_generation_uses_vllm_memory_budget(self) -> None:
+        config_root = Path(__file__).resolve().parents[1]
+        config = load_experiment_config(
+            config_root / "configs" / "experiments" / "single_node_formal" / "sn_c1_jobs_base.yaml"
+        )
+
+        self.assertEqual(config.llm["client"]["engine"], "transformers")
+        self.assertEqual(config.llm["server"]["engine"], "vllm")
+        self.assertEqual(config.llm["server"]["model_name_or_path"], "thesis_platform/open_model/llama_2_7b_hf")
+        self.assertEqual(config.llm["server"]["max_model_len"], 512)
+        self.assertAlmostEqual(float(config.llm["server"]["gpu_memory_utilization"]), 0.55)
+        self.assertEqual(config.llm["server"]["startup_required_free_gb"], 28)
+        self.assertEqual(config.llm["server"]["tensor_parallel_size"], 1)
+
     def test_single_node_formal_gradmm_and_ira_configs_share_federated_method_files(self) -> None:
         gradmm_config = load_experiment_config(
             "D:/学习记录/导师项目/研究/caiqiyue_file/thesis_platform/configs/experiments/single_node_formal/sn_a1_jobs_gradmm.yaml"

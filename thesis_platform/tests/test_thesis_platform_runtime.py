@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from thesis_platform.core.config import load_experiment_config
@@ -339,6 +342,177 @@ class BackendRuntimeTests(unittest.TestCase):
             kwargs = backend_cls.call_args.kwargs
             self.assertEqual(kwargs["model_path"], model_dir.resolve())
             self.assertIs(kwargs["use_fast"], False)
+
+    def test_build_text_backend_supports_vllm_without_importing_vllm_eagerly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            model_dir = tmp_root / "models" / "llama"
+            model_dir.mkdir(parents=True, exist_ok=True)
+
+            backend = build_text_backend(
+                {
+                    "engine": "vllm",
+                    "model_name_or_path": "models/llama",
+                    "max_model_len": 512,
+                    "gpu_memory_utilization": 0.55,
+                    "startup_required_free_gb": 28,
+                    "tensor_parallel_size": 1,
+                },
+                repo_root=tmp_root,
+            )
+
+        self.assertEqual(backend.backend_name, "vllm:llama")
+
+    def test_vllm_backend_lazily_loads_and_passes_memory_budget_args(self) -> None:
+        from thesis_platform.models.backends import VllmTextBackend
+
+        captured_llm_kwargs: dict[str, object] = {}
+        captured_sampling_kwargs: dict[str, object] = {}
+
+        class FakeLLM:
+            def __init__(self, **kwargs):
+                captured_llm_kwargs.update(kwargs)
+
+            def generate(self, prompts, sampling_params):
+                del sampling_params
+                return [SimpleNamespace(outputs=[SimpleNamespace(text=f"generated:{prompts[0]}")])]
+
+        class FakeSamplingParams:
+            def __init__(self, **kwargs):
+                captured_sampling_kwargs.update(kwargs)
+
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def current_device():
+                return 0
+
+            @staticmethod
+            def mem_get_info(_device_index):
+                return int(29 * 1024**3), int(47.5 * 1024**3)
+
+            @staticmethod
+            def empty_cache():
+                pass
+
+            @staticmethod
+            def ipc_collect():
+                pass
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+        fake_torch = types.ModuleType("torch")
+        fake_torch.cuda = FakeCuda()
+
+        backend = VllmTextBackend(
+            model_path=Path("local-llama"),
+            max_model_len=512,
+            gpu_memory_utilization=0.55,
+            startup_required_free_gb=28,
+            tensor_parallel_size=1,
+            temperature=0.2,
+            max_new_tokens=220,
+        )
+        with patch.dict(sys.modules, {"vllm": fake_vllm, "torch": fake_torch}):
+            output = backend.generate("prompt text", max_new_tokens=33, temperature=0.4)
+
+        self.assertEqual(output, "generated:prompt text")
+        self.assertEqual(captured_llm_kwargs["model"], "local-llama")
+        self.assertEqual(captured_llm_kwargs["max_model_len"], 512)
+        self.assertEqual(captured_llm_kwargs["gpu_memory_utilization"], 0.55)
+        self.assertEqual(captured_llm_kwargs["tensor_parallel_size"], 1)
+        self.assertEqual(captured_sampling_kwargs["max_tokens"], 33)
+        self.assertEqual(captured_sampling_kwargs["temperature"], 0.4)
+
+    def test_vllm_backend_rejects_startup_when_memory_is_below_threshold(self) -> None:
+        from thesis_platform.models.backends import VllmGenerationError, VllmTextBackend
+
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def current_device():
+                return 0
+
+            @staticmethod
+            def mem_get_info(_device_index):
+                return int(27 * 1024**3), int(47.5 * 1024**3)
+
+        fake_torch = types.ModuleType("torch")
+        fake_torch.cuda = FakeCuda()
+        backend = VllmTextBackend(
+            model_path=Path("local-llama"),
+            startup_required_free_gb=28,
+            max_model_len=512,
+        )
+
+        with patch.dict(sys.modules, {"torch": fake_torch}):
+            with self.assertRaises(VllmGenerationError) as context:
+                backend.generate("prompt text")
+
+        self.assertEqual(
+            context.exception.failure_code,
+            "insufficient_free_gpu_memory_before_vllm_generation",
+        )
+        self.assertEqual(context.exception.details["observed_free_gib"], 27.0)
+
+    def test_vllm_backend_classifies_runtime_cuda_oom(self) -> None:
+        from thesis_platform.models.backends import VllmGenerationError, VllmTextBackend
+
+        class FakeLLM:
+            def __init__(self, **_kwargs):
+                pass
+
+            def generate(self, _prompts, _sampling_params):
+                raise RuntimeError("CUDA out of memory during vLLM generation")
+
+        class FakeSamplingParams:
+            def __init__(self, **_kwargs):
+                pass
+
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def current_device():
+                return 0
+
+            @staticmethod
+            def mem_get_info(_device_index):
+                return int(29 * 1024**3), int(47.5 * 1024**3)
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+        fake_torch = types.ModuleType("torch")
+        fake_torch.cuda = FakeCuda()
+        backend = VllmTextBackend(
+            model_path=Path("local-llama"),
+            startup_required_free_gb=28,
+            max_model_len=512,
+        )
+
+        with patch.dict(sys.modules, {"vllm": fake_vllm, "torch": fake_torch}):
+            with self.assertRaises(VllmGenerationError) as context:
+                backend.generate("prompt text")
+
+        self.assertEqual(context.exception.failure_code, "vllm_runtime_gpu_oom")
+
+    def test_vllm_backend_does_not_support_negative_log_likelihood(self) -> None:
+        from thesis_platform.models.backends import VllmTextBackend
+
+        backend = VllmTextBackend(model_path=Path("local-llama"))
+
+        with self.assertRaises(NotImplementedError):
+            backend.negative_log_likelihood("prompt", "completion")
 
 
 if __name__ == "__main__":

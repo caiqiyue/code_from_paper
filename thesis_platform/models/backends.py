@@ -4,8 +4,11 @@ from dataclasses import dataclass
 import gc
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
+
+from thesis_platform.core.logging_utils import get_logger
 
 class BaseTextBackend:
     """Abstract text generation backend."""
@@ -292,6 +295,234 @@ class TransformersTextBackend(BaseTextBackend):
             pass
 
 
+BYTES_PER_GIB = 1024**3
+
+
+class VllmGenerationError(RuntimeError):
+    """vLLM generation failure with a stable code for logs and automation."""
+
+    def __init__(
+        self,
+        failure_code: str,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(f"{failure_code}: {message}")
+        self.failure_code = failure_code
+        self.details = dict(details or {})
+
+
+def _is_cuda_oom(exc: BaseException) -> bool:
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return "outofmemoryerror" in text or ("cuda" in text and "out of memory" in text)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(value)
+
+
+def _cuda_mem_get_info(cuda: Any, device_index: int) -> tuple[int, int]:
+    try:
+        return cuda.mem_get_info(device_index)
+    except TypeError:
+        return cuda.mem_get_info()
+
+
+def ensure_vllm_generation_startup_memory(required_free_gb: float | None) -> dict[str, Any]:
+    """Inspect the selected GPU and reject vLLM startup before it allocates."""
+
+    required_free_gib = _optional_float(required_free_gb)
+    visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if required_free_gib is None:
+        return {
+            "required_free_gib": None,
+            "observed_free_gib": None,
+            "gpu_index": None,
+            "visible_devices": visible_devices,
+        }
+
+    try:
+        import torch
+    except ImportError as exc:
+        raise VllmGenerationError(
+            "cuda_unavailable_for_vllm_generation",
+            "PyTorch CUDA support is required for the vLLM generation memory precheck.",
+            details={
+                "required_free_gib": required_free_gib,
+                "observed_free_gib": None,
+                "gpu_index": None,
+                "visible_devices": visible_devices,
+            },
+        ) from exc
+
+    if not torch.cuda.is_available():
+        raise VllmGenerationError(
+            "cuda_unavailable_for_vllm_generation",
+            "No available CUDA device for vLLM generation.",
+            details={
+                "required_free_gib": required_free_gib,
+                "observed_free_gib": None,
+                "gpu_index": None,
+                "visible_devices": visible_devices,
+            },
+        )
+
+    device_index = int(torch.cuda.current_device())
+    free_bytes, total_bytes = _cuda_mem_get_info(torch.cuda, device_index)
+    observed_free_gib = free_bytes / BYTES_PER_GIB
+    observed_total_gib = total_bytes / BYTES_PER_GIB
+    details = {
+        "required_free_gib": required_free_gib,
+        "observed_free_gib": round(observed_free_gib, 3),
+        "observed_total_gib": round(observed_total_gib, 3),
+        "gpu_index": device_index,
+        "visible_devices": visible_devices,
+    }
+    get_logger().info(
+        "vLLM generation memory precheck | free=%.2f GiB required=%.2f GiB gpu=%s visible=%s",
+        observed_free_gib,
+        required_free_gib,
+        device_index,
+        visible_devices,
+    )
+    if observed_free_gib < required_free_gib:
+        raise VllmGenerationError(
+            "insufficient_free_gpu_memory_before_vllm_generation",
+            (
+                f"free GPU memory {observed_free_gib:.2f} GiB is below "
+                f"required {required_free_gib:.2f} GiB before vLLM generation startup"
+            ),
+            details=details,
+        )
+    return details
+
+
+class VllmTextBackend(BaseTextBackend):
+    """vLLM-backed single-prompt generator for server-side synthetic text."""
+
+    def __init__(
+        self,
+        *,
+        model_path: Path,
+        device: str = "cuda",
+        dtype: str = "auto",
+        temperature: float = 0.2,
+        max_new_tokens: int = 256,
+        use_chat_template: bool = False,
+        max_model_len: int = 512,
+        gpu_memory_utilization: float = 0.55,
+        startup_required_free_gb: float | None = None,
+        tensor_parallel_size: int = 1,
+        top_p: float = 1.0,
+    ) -> None:
+        self._model_path = model_path
+        self._device = device
+        self._dtype = dtype
+        self._default_temperature = temperature
+        self._default_max_new_tokens = max_new_tokens
+        self._use_chat_template = use_chat_template
+        self._max_model_len = max_model_len
+        self._gpu_memory_utilization = gpu_memory_utilization
+        self._startup_required_free_gb = startup_required_free_gb
+        self._tensor_parallel_size = tensor_parallel_size
+        self._top_p = top_p
+        self._llm = None
+        self._sampling_params_cls = None
+        self._startup_memory_details: dict[str, Any] = {}
+        self.backend_name = f"vllm:{model_path.name}"
+
+    def _ensure_loaded(self) -> tuple[Any, Any]:
+        if self._llm is not None and self._sampling_params_cls is not None:
+            return self._llm, self._sampling_params_cls
+
+        self._startup_memory_details = ensure_vllm_generation_startup_memory(
+            self._startup_required_free_gb
+        )
+        try:
+            from vllm import LLM, SamplingParams
+        except ImportError as exc:  # pragma: no cover - dependency-missing environments
+            raise RuntimeError(
+                "vLLM is required for llm.server.engine='vllm'. "
+                "Run this config in the caiqiyue-vllm environment."
+            ) from exc
+
+        llm_kwargs: dict[str, Any] = {
+            "model": str(self._model_path),
+            "max_model_len": int(self._max_model_len),
+            "tensor_parallel_size": int(self._tensor_parallel_size),
+            "gpu_memory_utilization": float(self._gpu_memory_utilization),
+        }
+        if self._dtype not in {"", "auto", None}:
+            llm_kwargs["dtype"] = self._dtype
+        try:
+            self._llm = LLM(**llm_kwargs)
+        except Exception as exc:
+            if _is_cuda_oom(exc):
+                raise VllmGenerationError(
+                    "vllm_runtime_gpu_oom",
+                    "vLLM passed the startup memory gate but hit CUDA out of memory while loading.",
+                    details=self._startup_memory_details,
+                ) from exc
+            raise
+        self._sampling_params_cls = SamplingParams
+        return self._llm, self._sampling_params_cls
+
+    def _format_prompt(self, prompt: str) -> str:
+        if self._use_chat_template:
+            raise NotImplementedError("VllmTextBackend expects pre-rendered prompts; use_chat_template is not supported.")
+        return prompt
+
+    def generate(self, prompt: str, *, max_new_tokens: int = 256, temperature: float | None = None) -> str:
+        llm, sampling_params_cls = self._ensure_loaded()
+        effective_temperature = temperature if temperature is not None else self._default_temperature
+        sampling_params = sampling_params_cls(
+            temperature=float(effective_temperature),
+            top_p=float(self._top_p),
+            max_tokens=int(max_new_tokens or self._default_max_new_tokens),
+        )
+        try:
+            outputs = llm.generate([self._format_prompt(prompt)], sampling_params)
+        except Exception as exc:
+            if _is_cuda_oom(exc):
+                raise VllmGenerationError(
+                    "vllm_runtime_gpu_oom",
+                    "vLLM hit CUDA out of memory during generation.",
+                    details=self._startup_memory_details,
+                ) from exc
+            raise
+        if not outputs or not getattr(outputs[0], "outputs", None):
+            return ""
+        return str(outputs[0].outputs[0].text).strip()
+
+    def negative_log_likelihood(self, prompt: str, completion: str) -> float:
+        del prompt, completion
+        raise NotImplementedError("VllmTextBackend does not support negative_log_likelihood().")
+
+    def release(self) -> None:
+        llm = self._llm
+        self._llm = None
+        self._sampling_params_cls = None
+        release = getattr(llm, "release", None)
+        if callable(release):
+            try:
+                release()
+            except Exception:
+                pass
+        del llm
+        gc.collect()
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except Exception:
+            pass
+
+
 def build_text_backend(
     engine_or_config: str | dict[str, Any] | None,
     model_name_or_path: str | None = None,
@@ -322,6 +553,20 @@ def build_text_backend(
     model_path = (repo_root_path / str(raw_path)).resolve()
     if not model_path.exists():
         raise FileNotFoundError(f"Configured model path does not exist: {model_path}")
+    if engine == "vllm":
+        return VllmTextBackend(
+            model_path=model_path,
+            device=str(config.get("device", "cuda")),
+            dtype=str(config.get("dtype", "auto")),
+            temperature=float(config.get("temperature", 0.2)),
+            max_new_tokens=int(config.get("max_new_tokens", 256)),
+            use_chat_template=bool(config.get("use_chat_template", False)),
+            max_model_len=int(config.get("max_model_len", 512)),
+            gpu_memory_utilization=float(config.get("gpu_memory_utilization", 0.55)),
+            startup_required_free_gb=_optional_float(config.get("startup_required_free_gb")),
+            tensor_parallel_size=int(config.get("tensor_parallel_size", 1)),
+            top_p=float(config.get("top_p", 1.0)),
+        )
     if engine != "transformers":
         raise ValueError(f"Unsupported text backend engine '{engine}'.")
     return TransformersTextBackend(
