@@ -17,7 +17,7 @@ paths:
 
 bootstrap:
   generator_model: llama2_7b
-  num_prompts: 10000
+  num_prompts: 1500
   device: cuda
 
 eval_small:

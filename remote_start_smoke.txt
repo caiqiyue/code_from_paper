@@ -1,0 +1,1 @@
+bash -lc 'source /home/k8smaster/anaconda3/etc/profile.d/conda.sh && conda activate GATV2-TransDTI && cd /mnt/public/caiqiyue_files/GATV2-TransDTI && CUDA_VISIBLE_DEVICES=1 nohup python main.py --cfg "configs/DrugBAN_Demo.yaml" --data biosnap --split random > result/demo_smoke_2080.log 2>&1 & echo $!'

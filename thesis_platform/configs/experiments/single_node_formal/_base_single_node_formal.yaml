@@ -48,7 +48,7 @@ stage_a:
 
 stage_b:
   enabled: true
-  generated_count: 10000
+  generated_count: 1500
 
 stage_c:
   enabled: false

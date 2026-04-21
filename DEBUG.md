@@ -136,3 +136,35 @@
 - `PrE-Text/configs/experiments/federated_formal/_base_federated_formal.yaml` stays on `runtime.device: cuda` with `eval_large.enabled: false`.
 - `old_automation/old_experiment_queue.py` now keeps `VISIBLE_DEVICE_INDEX = "0"`.
 - `python -m py_compile` passed for the modified Python files.
+
+## Full Smoke Test on RTX 2080 Ti
+
+### Observations
+
+- The `GATV2-TransDTI` environment now resolves `pip` to `/home/k8smaster/anaconda3/envs/GATV2-TransDTI/bin/pip`.
+- `python -m pip check` reports `No broken requirements found`.
+- `CUDA_VISIBLE_DEVICES=1` on the old server maps to `NVIDIA GeForce RTX 2080 Ti`.
+- A full project smoke test was run with:
+  - `python main.py --cfg configs/DrugBAN_Demo.yaml --data biosnap --split random`
+  - `CUDA_VISIBLE_DEVICES=1`
+- The run printed `Running on: cuda:0`, completed training, and finished final test evaluation.
+
+### Experiments
+
+- Remote run log: `/mnt/public/caiqiyue_files/GATV2-TransDTI/result/demo_smoke_2080.log`
+- Output directory: `/mnt/public/caiqiyue_files/GATV2-TransDTI/result/demo`
+- Generated artifacts:
+  - `model_epoch_0.pth`
+  - `model_epoch_1.pth`
+  - `model_best.pth`
+  - `model_architecture.txt`
+
+### Result
+
+- The project now runs end-to-end in the `GATV2-TransDTI` environment on the RTX 2080 Ti without falling back to the dummy `GATv2Conv` implementation.
+- The log still shows `torch_geometric` warnings that `pyg-lib` and `torch-sparse` are disabled because the wheel requires `GLIBC_2.29`, but those warnings did not block the run.
+- Final test metrics reported by the demo run:
+  - `AUROC: 0.6610`
+  - `AUPRC: 0.6532`
+  - `Accuracy: 0.6037`
+  - `F1: 0.6347`
