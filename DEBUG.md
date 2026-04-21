@@ -168,3 +168,57 @@
   - `AUPRC: 0.6532`
   - `Accuracy: 0.6037`
   - `F1: 0.6347`
+
+---
+
+# Debug: SP-C1 eval_small device mismatch
+
+## Observations
+
+- The failed experiment is `SP-C1`, started on the old server at `2026-04-21 14:12:26` with PID `8642`, according to `old_automation/old_experiment_queue.log`.
+- The local queue state still marks `SP-C1` as `running` with PID `8642`, according to `old_automation/old_experiment_queue_state.json`.
+- A direct remote status check at `2026-04-21 14:58:07+08:00` showed no live process for PID `8642`, so the experiment had already exited.
+- The remote log `/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C1.remote.log` ends with:
+  `RuntimeError: Expected all tensors to be on the same device, but found at least two devices, cuda:0 and cpu!`
+- The stack trace ends inside `transformers.models.gpt2.modeling_gpt2.GPT2Model.forward`, specifically at the embedding lookup (`self.wte(input_ids)`), which means the failure happens before the loss computation.
+- The remote output directory contains `stage1_summary.json`, `stage2_summary.json`, and `metrics_summary.json`, but no `eval_small_summary.json`, so the failure happened inside `run_eval_small`.
+- `pretext_platform.evaluation.gpt2_eval.run_gpt2_eval()` moves the model to `device`, and the training loop moves each training batch to `device`, but `evaluate()` calls `model(**batch)` without moving `batch`.
+- `pretext_platform.evaluation.distilgpt2_eval.run_distilgpt2_eval()` has the same `evaluate()` pattern: model moved to `device`, training batches moved to `device`, evaluation batches passed as-is.
+- The formal pre-text configs for both single-node and federated formal experiments set `eval_small.eval_mode: gpt2`, so the shared `gpt2_eval` path affects official formal runs.
+
+## Hypotheses
+
+### H1: `evaluate()` leaves eval batches on CPU while the model is on CUDA (ROOT HYPOTHESIS)
+- Supports: the server error is exactly a CUDA/CPU mismatch during GPT-2 embedding lookup; `gpt2_eval.evaluate()` and `distilgpt2_eval.evaluate()` both call `model(**batch)` without moving `batch`; the training loops in both files do move batches to `device`, so the bug is isolated to evaluation.
+- Conflicts: none found so far.
+- Test: run a minimal local experiment around `evaluate()` that proves the batch stays on the loader device instead of being moved to the model device.
+
+### H2: the GPT-2 model itself is only partially moved to CUDA
+- Supports: mixed-device failures can happen if some submodules remain on CPU.
+- Conflicts: `run_gpt2_eval()` explicitly does `model = model.to(device)` before the crash, and the stack trace points to `input_ids` vs embedding device mismatch at the embedding layer, which more strongly suggests CPU inputs against CUDA weights.
+- Test: inspect the code path and confirm there is no later reassignment of GPT-2 weights back to CPU after `model.to(device)`.
+
+### H3: the checkpoint or tokenizer path creates CPU-only labels/inputs for eval while training uses a different collation path
+- Supports: tokenization creates Python lists that are later converted to tensors by the dataset formatter and DataLoader.
+- Conflicts: the same formatting pattern is used for both train and eval datasets, but only the training path moves tensors to `device` before model invocation; the crash occurs before loss calculation, so labels are not the primary trigger.
+- Test: compare the train and eval call sites to confirm only eval lacks the device transfer.
+
+## Experiments
+
+### E1: Remote minimal reproduction against the shared eval functions
+- Change: no production code change. Ran a synthetic diagnostic in the server `pretext` environment with a fake model that expects `cuda:0`.
+- Result: confirmed. Both `gpt2_eval.evaluate()` and `distilgpt2_eval.evaluate()` forwarded `input_ids`, `attention_mask`, and `labels` on `cpu`.
+- Evidence:
+  - `gpt2_eval RuntimeError batch stayed on {'input_ids': 'cpu', 'attention_mask': 'cpu', 'labels': 'cpu'}, expected cuda:0`
+  - `distilgpt2_eval RuntimeError batch stayed on {'input_ids': 'cpu', 'attention_mask': 'cpu', 'labels': 'cpu'}, expected cuda:0`
+
+## Root Cause
+
+`pretext_platform.evaluation.gpt2_eval.evaluate()` and `pretext_platform.evaluation.distilgpt2_eval.evaluate()` passed evaluation batches straight from the DataLoader to the model without moving them onto the model device, so formal pre-text runs on CUDA crashed during GPT-2 embedding lookup with mixed `cuda:0` and `cpu` tensors.
+
+## Fix
+
+- Added `pretext_platform.evaluation.device_utils` with shared `model_device()` and `move_batch_to_model_device()` helpers.
+- Updated both `gpt2_eval.evaluate()` and `distilgpt2_eval.evaluate()` to move each eval batch onto the model device before calling `model(**batch)`.
+- Added a regression test file `PrE-Text/tests/test_eval_device_transfer.py` that fails if either eval path forwards CPU batch tensors to a CUDA model.
+- Synced the fixed evaluation files to the old server copy under `/mnt/public/caiqiyue_file/code_from_paper/PrE-Text/...` so the reset formal experiment will use the patched code.

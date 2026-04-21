@@ -12,6 +12,7 @@ from pathlib import Path
 from pretext_platform.core.config import ExperimentConfig
 from pretext_platform.core.io_utils import ensure_dir
 from pretext_platform.core.types import DatasetBundle, ModelPaths, StageSummary
+from pretext_platform.evaluation.device_utils import move_batch_to_model_device
 
 
 def _load_training_texts(stage2_dir: Path) -> list[str]:
@@ -39,6 +40,7 @@ def evaluate(model, eval_loader, xent_loss):
     total_evaluated_tokens = 0
     with torch.no_grad():
         for batch in eval_loader:
+            batch = move_batch_to_model_device(batch, model)
             outputs = model(**batch)
             logits = outputs.logits
             labels = batch["labels"]
