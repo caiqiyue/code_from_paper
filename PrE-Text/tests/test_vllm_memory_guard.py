@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from pretext_platform.algorithms.bootstrap import generate_bootstrapped_samples_vllm
+from pretext_platform.algorithms.bootstrap import build_bootstrap_prompts, generate_bootstrapped_samples_vllm
 from pretext_platform.core.config import ExperimentConfig, load_experiment_config
 from pretext_platform.core.gpu_memory import BYTES_PER_GIB, ensure_vllm_startup_memory
 from pretext_platform.core.pipeline import run_pipeline
@@ -19,6 +19,17 @@ from pretext_platform.core.types import StageSummary
 
 class VllmBootstrapMemoryGuardTests(unittest.TestCase):
     """Validate formal Stage 2 vLLM memory limits and failure artifacts."""
+
+    def test_bootstrap_prompts_reuse_small_seed_pool_for_smoke_runs(self) -> None:
+        prompts = build_bootstrap_prompts(
+            ["survivor one", "survivor two"],
+            num_prompts=2,
+            seed=42,
+        )
+
+        self.assertEqual(len(prompts), 2)
+        self.assertTrue(all("Original Text Sample 3" in prompt for prompt in prompts))
+        self.assertTrue(all("survivor one" in prompt or "survivor two" in prompt for prompt in prompts))
 
     def test_startup_precheck_rejects_when_free_memory_is_below_threshold(self) -> None:
         class FakeCuda:
@@ -98,6 +109,41 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
         self.assertEqual(captured_llm_kwargs["gpu_memory_utilization"], 0.55)
         self.assertEqual(captured_sampling_kwargs["max_tokens"], 33)
 
+    def test_vllm_generation_can_disable_cuda_graph_capture_for_shared_gpu_runs(self) -> None:
+        captured_llm_kwargs: dict[str, object] = {}
+
+        class FakeLLM:
+            def __init__(self, **kwargs):
+                captured_llm_kwargs.update(kwargs)
+
+            def generate(self, prompt_list, sampling_params):
+                del prompt_list, sampling_params
+                return [SimpleNamespace(outputs=[SimpleNamespace(text="generated:0")])]
+
+        class FakeSamplingParams:
+            def __init__(self, **_kwargs):
+                pass
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+
+        with patch.dict(sys.modules, {"vllm": fake_vllm}), patch(
+            "pretext_platform.algorithms.bootstrap.ensure_vllm_startup_memory",
+            return_value={"observed_free_gib": 30.0, "required_free_gib": 25.0},
+        ):
+            generate_bootstrapped_samples_vllm(
+                ["prompt a"],
+                Path("local-llama"),
+                {
+                    "max_model_len": 512,
+                    "gpu_memory_utilization": 0.55,
+                    "enforce_eager": True,
+                },
+            )
+
+        self.assertTrue(captured_llm_kwargs["enforce_eager"])
+
     def test_vllm_runtime_oom_after_precheck_is_classified(self) -> None:
         class FakeLLM:
             def __init__(self, **_kwargs):
@@ -142,6 +188,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
                 self.assertEqual(config.bootstrap.get("max_model_len"), 512)
                 self.assertEqual(config.bootstrap.get("startup_required_free_gb"), 28)
                 self.assertAlmostEqual(float(config.bootstrap.get("gpu_memory_utilization")), 0.55)
+                self.assertTrue(config.bootstrap.get("enforce_eager"))
 
     def test_single_node_a6000_smoke_config_matches_sp_c1_with_tiny_scale(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -172,6 +219,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
             "max_model_len",
             "gpu_memory_utilization",
             "tensor_parallel_size",
+            "enforce_eager",
         ):
             self.assertEqual(smoke.bootstrap[key], formal.bootstrap[key])
         self.assertEqual(formal.bootstrap["startup_required_free_gb"], 28)

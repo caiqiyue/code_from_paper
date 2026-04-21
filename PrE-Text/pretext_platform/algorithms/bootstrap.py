@@ -37,10 +37,16 @@ def build_bootstrap_prompts(seed_texts: list[str], *, num_prompts: int, seed: in
         "Original Text Sample 2\n{1}\n"
         "Original Text Sample 3\n{2}\n"
     )
+    if not seed_texts:
+        raise ValueError("Stage 2 bootstrap requires at least 1 surviving text to build prompts.")
+
     rng = random.Random(seed)
     prompt_list = []
     for _ in range(num_prompts):
-        examples = rng.sample(seed_texts, 3)
+        if len(seed_texts) >= 3:
+            examples = rng.sample(seed_texts, 3)
+        else:
+            examples = [rng.choice(seed_texts) for _ in range(3)]
         prompt_list.append(
             single_prompt.format(
                 examples[0].replace("\n", " ").replace("\t", " "),
@@ -65,6 +71,7 @@ def generate_bootstrapped_samples_vllm(prompt_list: list[str], model_path: Path,
             max_model_len=int(bootstrap_cfg.get("max_model_len", 1000)),
             tensor_parallel_size=int(bootstrap_cfg.get("tensor_parallel_size", 1)),
             gpu_memory_utilization=float(bootstrap_cfg.get("gpu_memory_utilization", 0.9)),
+            enforce_eager=bool(bootstrap_cfg.get("enforce_eager", False)),
         )
         sampling_params = SamplingParams(
             temperature=float(bootstrap_cfg.get("temperature", 1.0)),
