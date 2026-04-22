@@ -167,3 +167,41 @@ bash: -c: line 0: `bash -lc 'source /home/k8smaster/anaconda3/etc/profile.d/cond
 [2026-04-22 14:26:50] Started SN-C3 on 58.217.205.244 with PID 16671; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C3.remote.log
 [2026-04-22 14:33:46] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
 [2026-04-22 14:33:51] SN-C3 is still running: artifacts present (stage_a) without metrics_summary
+[2026-04-22 15:03:51] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 15:03:55] SN-C3 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 15:33:55] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 15:34:02] SN-C3 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 16:04:02] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 16:04:07] SN-C3 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 16:34:08] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 16:34:13] SN-C3 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 17:04:14] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 17:04:18] SN-C3 completed successfully: metrics_summary present
+[2026-04-22 17:04:30] Started SP-C3 on 58.217.205.244 with PID 25464; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C3.remote.log
+[2026-04-22 17:34:30] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 17:34:36] SP-C3 is still running: metrics exists but eval_small missing
+[2026-04-22 18:04:36] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 18:04:41] SP-C3 completed successfully: metrics and eval_small present
+[2026-04-22 18:04:56] Started SN-C4 on 58.217.205.244 with PID 19770; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C4.remote.log
+[2026-04-22 18:34:56] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 18:35:03] SN-C4 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 19:05:03] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 19:05:12] SN-C4 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 19:35:12] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 19:35:19] SN-C4 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 20:05:19] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 20:05:26] SN-C4 is still running: artifacts present (stage_a,stage_b) without metrics_summary
+[2026-04-22 20:35:26] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 20:35:47] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Connection timed out
+[2026-04-22 20:35:55] SN-C4 is still running: artifacts present (stage_a,stage_b,eval) without metrics_summary
+[2026-04-22 21:05:55] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext), SN-C6(caiqiyue-vllm), SP-C6(pretext), SN-C7(caiqiyue-vllm), SP-C7(pretext), SN-C8(caiqiyue-vllm), SP-C8(pretext), SN-C9(caiqiyue-vllm), SP-C9(pretext)
+[2026-04-22 21:06:05] SN-C4 completed successfully: metrics_summary present
+[2026-04-22 21:06:17] Started SP-C4 on 58.217.205.244 with PID 22116; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C4.remote.log
+[2026-04-22 21:36:18] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext), SN-C6(caiqiyue-vllm), SP-C6(pretext), SN-C7(caiqiyue-vllm), SP-C7(pretext), SN-C8(caiqiyue-vllm), SP-C8(pretext), SN-C9(caiqiyue-vllm), SP-C9(pretext)
+[2026-04-22 21:36:27] SP-C4 is still running: metrics exists but eval_small missing
+[2026-04-22 22:06:27] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext), SN-C6(caiqiyue-vllm), SP-C6(pretext), SN-C7(caiqiyue-vllm), SP-C7(pretext), SN-C8(caiqiyue-vllm), SP-C8(pretext), SN-C9(caiqiyue-vllm), SP-C9(pretext)
+[2026-04-22 22:06:33] SP-C4 completed successfully: metrics and eval_small present
+[2026-04-22 22:06:42] Started SN-C5 on 58.217.205.244 with PID 27394; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C5.remote.log
+[2026-04-22 22:36:42] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext), SN-C6(caiqiyue-vllm), SP-C6(pretext), SN-C7(caiqiyue-vllm), SP-C7(pretext), SN-C8(caiqiyue-vllm), SP-C8(pretext), SN-C9(caiqiyue-vllm), SP-C9(pretext)
+[2026-04-22 22:36:47] SN-C5 failed or missing artifacts: artifacts present (stage_a) without metrics_summary
+[2026-04-22 22:36:57] Started SP-C5 on 58.217.205.244 with PID 15794; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C5.remote.log

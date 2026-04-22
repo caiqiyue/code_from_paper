@@ -1,6 +1,6 @@
 # Old Server Automation
 
-This folder is intentionally ignored by git.
+This folder is versioned in git.
 
 Queued experiments:
 
@@ -16,6 +16,14 @@ Queued experiments:
 | SP-C4 | `PrE-Text/configs/experiments/single_node_formal/sp_c4_microblog_base.yaml` | `pretext` |
 | SN-C5 | `thesis_platform/configs/experiments/single_node_formal/sn_c5_jobs_eps05.yaml` | `caiqiyue-vllm` |
 | SP-C5 | `PrE-Text/configs/experiments/single_node_formal/sp_c5_jobs_eps05.yaml` | `pretext` |
+| SN-C6 | `thesis_platform/configs/experiments/single_node_formal/sn_c6_jobs_eps758.yaml` | `caiqiyue-vllm` |
+| SP-C6 | `PrE-Text/configs/experiments/single_node_formal/sp_c6_jobs_eps758.yaml` | `pretext` |
+| SN-C7 | `thesis_platform/configs/experiments/single_node_formal/sn_c7_jobs_no_privacy.yaml` | `caiqiyue-vllm` |
+| SP-C7 | `PrE-Text/configs/experiments/single_node_formal/sp_c7_jobs_no_privacy.yaml` | `pretext` |
+| SN-C8 | `thesis_platform/configs/experiments/single_node_formal/sn_c8_jobs_seed123.yaml` | `caiqiyue-vllm` |
+| SP-C8 | `PrE-Text/configs/experiments/single_node_formal/sp_c8_jobs_seed123.yaml` | `pretext` |
+| SN-C9 | `thesis_platform/configs/experiments/single_node_formal/sn_c9_jobs_seed456.yaml` | `caiqiyue-vllm` |
+| SP-C9 | `PrE-Text/configs/experiments/single_node_formal/sp_c9_jobs_seed456.yaml` | `pretext` |
 
 Execution order:
 
@@ -29,6 +37,14 @@ Execution order:
 8. `SP-C4`
 9. `SN-C5`
 10. `SP-C5`
+11. `SN-C6`
+12. `SP-C6`
+13. `SN-C7`
+14. `SP-C7`
+15. `SN-C8`
+16. `SP-C8`
+17. `SN-C9`
+18. `SP-C9`
 
 Run once to start or advance the queue:
 

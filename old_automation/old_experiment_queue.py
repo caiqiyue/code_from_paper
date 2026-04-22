@@ -128,6 +128,62 @@ QUEUE: list[ExperimentDef] = [
         env_name="pretext",
         family="pretext",
     ),
+    ExperimentDef(
+        label="SN-C6",
+        actual_experiment_id="sn_c6_jobs_eps758",
+        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c6_jobs_eps758.yaml",
+        env_name="caiqiyue-vllm",
+        family="thesis",
+    ),
+    ExperimentDef(
+        label="SP-C6",
+        actual_experiment_id="sp_c6_jobs_eps758",
+        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c6_jobs_eps758.yaml",
+        env_name="pretext",
+        family="pretext",
+    ),
+    ExperimentDef(
+        label="SN-C7",
+        actual_experiment_id="sn_c7_jobs_no_privacy",
+        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c7_jobs_no_privacy.yaml",
+        env_name="caiqiyue-vllm",
+        family="thesis",
+    ),
+    ExperimentDef(
+        label="SP-C7",
+        actual_experiment_id="sp_c7_jobs_no_privacy",
+        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c7_jobs_no_privacy.yaml",
+        env_name="pretext",
+        family="pretext",
+    ),
+    ExperimentDef(
+        label="SN-C8",
+        actual_experiment_id="sn_c8_jobs_seed123",
+        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c8_jobs_seed123.yaml",
+        env_name="caiqiyue-vllm",
+        family="thesis",
+    ),
+    ExperimentDef(
+        label="SP-C8",
+        actual_experiment_id="sp_c8_jobs_seed123",
+        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c8_jobs_seed123.yaml",
+        env_name="pretext",
+        family="pretext",
+    ),
+    ExperimentDef(
+        label="SN-C9",
+        actual_experiment_id="sn_c9_jobs_seed456",
+        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c9_jobs_seed456.yaml",
+        env_name="caiqiyue-vllm",
+        family="thesis",
+    ),
+    ExperimentDef(
+        label="SP-C9",
+        actual_experiment_id="sp_c9_jobs_seed456",
+        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c9_jobs_seed456.yaml",
+        env_name="pretext",
+        family="pretext",
+    ),
 ]
 
 
