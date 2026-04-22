@@ -113,14 +113,21 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertIn('conda activate "${SN_ENV_NAME}"', script)
         self.assertIn('conda activate "${SP_ENV_NAME}"', script)
 
-    def test_single_node_tiny_smoke_config_is_minimal_and_yaml_controlled(self) -> None:
+    def test_single_node_tiny_smoke_config_keeps_full_flow_but_small_scale(self) -> None:
         config_root = Path(__file__).resolve().parents[1]
         smoke = load_experiment_config(
             config_root / "configs" / "experiments" / "smoke" / "smoke_single_node_tiny.yaml"
         )
+        formal = load_experiment_config(
+            config_root / "configs" / "experiments" / "single_node_formal" / "sn_c1_jobs_base.yaml"
+        )
 
         self.assertEqual(smoke.execution["mode"], "single_node")
         self.assertEqual(smoke.meta["stage"], "smoke")
+        self.assertEqual(smoke.scorer["name"], formal.scorer["name"])
+        self.assertEqual(smoke.retriever["name"], formal.retriever["name"])
+        self.assertEqual(smoke.critic["name"], formal.critic["name"])
+        self.assertEqual(smoke.aggregator["name"], formal.aggregator["name"])
         self.assertEqual(smoke.stage_a["max_iterations"], 3)
         self.assertEqual(smoke.stage_a["generated_count"], 10)
         self.assertEqual(smoke.stage_b["generated_count"], 10)
@@ -131,6 +138,7 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertEqual(smoke.generator["exemplars_per_prompt"], 1)
         self.assertEqual(smoke.generator["max_new_tokens"], 48)
         self.assertEqual(smoke.llm["server"]["startup_required_free_gb"], 26)
+        self.assertEqual(smoke.llm["server"]["engine"], formal.llm["server"]["engine"])
 
     def test_single_node_formal_gradmm_and_ira_configs_share_federated_method_files(self) -> None:
         gradmm_config = load_experiment_config(

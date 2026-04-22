@@ -63,6 +63,7 @@ class SentenceTransformerEmbedder(BaseEmbedder):
     def _ensure_loaded(self):
         if self._model is not None:
             return self._model
+        _ensure_transformers_sentence_transformer_compatibility()
         from sentence_transformers import SentenceTransformer
 
         self._model = SentenceTransformer(str(self._model_path))
@@ -96,6 +97,27 @@ def _is_sentence_transformer_dir(path: Path) -> bool:
     """Return true when a directory looks like a saved sentence-transformer model."""
 
     return path.is_dir() and (path / "modules.json").exists()
+
+
+def _ensure_transformers_sentence_transformer_compatibility() -> None:
+    """Backfill the transformers symbol expected by the installed peft package.
+
+    The caiqiyue-vllm environment ships a transformers build that predates
+    ``EncoderDecoderCache`` while the installed peft/sentence-transformers
+    stack imports it unconditionally. Exposing an alias keeps the full
+    retrieval/critique path working without changing the environment.
+    """
+
+    try:
+        import transformers
+    except Exception:
+        return
+    if hasattr(transformers, "EncoderDecoderCache"):
+        return
+    cache_cls = getattr(transformers, "Cache", None)
+    if cache_cls is None:
+        return
+    transformers.EncoderDecoderCache = cache_cls
 
 
 def resolve_sentence_transformer_path(candidate: Path) -> Path:

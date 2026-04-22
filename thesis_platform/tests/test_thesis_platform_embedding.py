@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import sys
+import types
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from thesis_platform.models.embedding import resolve_sentence_transformer_path
+from thesis_platform.models.embedding import (
+    _ensure_transformers_sentence_transformer_compatibility,
+    resolve_sentence_transformer_path,
+)
 
 
 class EmbeddingPathTests(unittest.TestCase):
@@ -31,6 +37,18 @@ class EmbeddingPathTests(unittest.TestCase):
             (refs_dir / "main").write_text("revision-123", encoding="utf-8")
             (snapshot_dir / "modules.json").write_text("{}", encoding="utf-8")
             self.assertEqual(resolve_sentence_transformer_path(cache_root), snapshot_dir)
+
+    def test_transformers_compatibility_shim_backfills_encoder_decoder_cache(self) -> None:
+        """The caiqiyue-vllm compatibility shim should expose EncoderDecoderCache."""
+
+        fake_transformers = types.ModuleType("transformers")
+        fake_transformers.Cache = object()
+        fake_transformers.DynamicCache = object()
+
+        with patch.dict(sys.modules, {"transformers": fake_transformers}):
+            _ensure_transformers_sentence_transformer_compatibility()
+
+        self.assertIs(fake_transformers.EncoderDecoderCache, fake_transformers.Cache)
 
 
 if __name__ == "__main__":
