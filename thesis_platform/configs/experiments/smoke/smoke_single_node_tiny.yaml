@@ -1,0 +1,37 @@
+inherits:
+  - ../single_node_formal/sn_c1_jobs_base.yaml
+
+meta:
+  experiment_id: smoke_single_node_tiny
+  stage: smoke
+  seed: 42
+
+data:
+  max_samples_per_client: 2
+  train_limit: 4
+  eval_limit: 2
+  initialization_limit: 8
+
+generator:
+  generated_per_round: 1
+  exemplars_per_prompt: 1
+  max_prompt_chars: 256
+  max_exemplar_chars: 128
+  max_new_tokens: 48
+  temperature: 0.2
+
+stage_a:
+  generated_count: 10
+  select_top_k: 2
+  max_iterations: 3
+  max_probe_samples: 4
+
+stage_b:
+  generated_count: 10
+
+downstream_eval:
+  small_epochs: 1
+  small_batch_size: 1
+  small_eval_batch_size: 1
+  small_grad_accum_steps: 1
+  small_cutoff_len: 64

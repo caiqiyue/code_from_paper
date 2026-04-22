@@ -76,6 +76,43 @@ def export_synthetic_corpus(
     return corpus_path
 
 
+def enrich_small_eval_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    """Attach top-k metrics from the saved best_stats.json file when available."""
+
+    artifacts = summary.get("artifacts", {})
+    stats_dir_value = artifacts.get("stats_dir") if isinstance(artifacts, dict) else None
+    if not stats_dir_value:
+        return summary
+
+    stats_dir = Path(str(stats_dir_value))
+    best_stats_path = stats_dir / "best_stats.json"
+    if not best_stats_path.exists():
+        return summary
+
+    best_stats = read_json(best_stats_path)
+    metrics = dict(summary.get("metrics", {}))
+    metrics["best_top1"] = float(metrics.get("best_top1", 0.0))
+    metrics["best_top3"] = float(best_stats.get("3", best_stats.get(3, 0.0)))
+    metrics["best_top5"] = float(best_stats.get("5", best_stats.get(5, 0.0)))
+    metrics["best_top10"] = float(best_stats.get("10", best_stats.get(10, 0.0)))
+    summary["metrics"] = metrics
+    return summary
+
+
+def rank_eval_summary(summary: dict[str, Any]) -> tuple[float, float, float, float]:
+    """Return the lexicographic ranking tuple for a downstream-eval summary."""
+
+    metrics = summary.get("metrics", {})
+    if not metrics and isinstance(summary.get("evaluation"), dict):
+        metrics = summary["evaluation"].get("metrics", {})
+    return (
+        float(metrics.get("best_top1", float("-inf"))),
+        float(metrics.get("best_top3", float("-inf"))),
+        float(metrics.get("best_top5", float("-inf"))),
+        float(metrics.get("best_top10", float("-inf"))),
+    )
+
+
 def _ensure_pretext_import(repo_root: Path) -> None:
     # Strategy: Use repo_root to reliably locate Pre-Text sibling.
     # repo_root points to caiqiyue_file (project root containing both thesis_platform and Pre-Text).
@@ -292,7 +329,7 @@ def run_pretext_small_eval(thesis_config, *, stage2_dir: Path, output_dir: Path)
         summary = run_gpt2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
     else:
         summary = run_distilgpt2_eval(pretext_config, dataset_bundle, model_paths, stage2_dir, output_dir)
-    return to_jsonable(summary)
+    return enrich_small_eval_summary(to_jsonable(summary))
 
 
 def run_pretext_glue_eval(
@@ -550,6 +587,9 @@ class DownstreamEvalManager:
         stage_name = "eval_small"
         reusable = self._reuse_existing_stage_payload(stage_key)
         if reusable is not None:
+            if reusable.get("status") == "completed" and isinstance(reusable.get("result"), dict):
+                reusable["result"] = enrich_small_eval_summary(dict(reusable["result"]))
+                reusable["metrics"] = reusable["result"].get("metrics", reusable.get("metrics", {}))
             return reusable
         if not bool(self.downstream_cfg.get("run_small_eval", False)):
             return self._write_stage_payload(
@@ -724,9 +764,6 @@ class DownstreamEvalManager:
             if c4_path:
                 assets["c4_checkpoint_path"] = self.thesis_config.resolve_path(c4_path)
         return assets
-
-
-
 
 
 

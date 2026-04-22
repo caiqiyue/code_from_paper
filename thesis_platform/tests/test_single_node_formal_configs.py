@@ -43,6 +43,7 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertEqual(config.stage_a["scorer"], "datainf_real")
         self.assertEqual(config.aggregator["name"], "dbscan_attn_tsgdm")
         self.assertEqual(config.stage_b["generated_count"], 1500)
+        self.assertEqual(config.stage_a["max_iterations"], 5)
 
     def test_single_node_formal_server_generation_uses_vllm_memory_budget(self) -> None:
         config_root = Path(__file__).resolve().parents[1]
@@ -111,6 +112,25 @@ class SingleNodeFormalConfigTests(unittest.TestCase):
         self.assertIn('SP_ENV_NAME="${SP_ENV_NAME:-pretext}"', script)
         self.assertIn('conda activate "${SN_ENV_NAME}"', script)
         self.assertIn('conda activate "${SP_ENV_NAME}"', script)
+
+    def test_single_node_tiny_smoke_config_is_minimal_and_yaml_controlled(self) -> None:
+        config_root = Path(__file__).resolve().parents[1]
+        smoke = load_experiment_config(
+            config_root / "configs" / "experiments" / "smoke" / "smoke_single_node_tiny.yaml"
+        )
+
+        self.assertEqual(smoke.execution["mode"], "single_node")
+        self.assertEqual(smoke.meta["stage"], "smoke")
+        self.assertEqual(smoke.stage_a["max_iterations"], 3)
+        self.assertEqual(smoke.stage_a["generated_count"], 10)
+        self.assertEqual(smoke.stage_b["generated_count"], 10)
+        self.assertEqual(smoke.data["train_limit"], 4)
+        self.assertEqual(smoke.data["eval_limit"], 2)
+        self.assertEqual(smoke.data["max_samples_per_client"], 2)
+        self.assertEqual(smoke.generator["generated_per_round"], 1)
+        self.assertEqual(smoke.generator["exemplars_per_prompt"], 1)
+        self.assertEqual(smoke.generator["max_new_tokens"], 48)
+        self.assertEqual(smoke.llm["server"]["startup_required_free_gb"], 26)
 
     def test_single_node_formal_gradmm_and_ira_configs_share_federated_method_files(self) -> None:
         gradmm_config = load_experiment_config(

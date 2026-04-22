@@ -41,7 +41,7 @@ stage_a:
   scorer: datainf_real
   generated_count: 100
   select_top_k: 10
-  max_iterations: 10
+  max_iterations: 5
   convergence_threshold: 0.1
   max_probe_samples: 500
   failure_equal_epsilon: 1e-9

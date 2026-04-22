@@ -232,16 +232,32 @@ class _SingleNodeStageATests(unittest.TestCase):
 
         self.assertEqual(selected_ids, ["syn_3", "syn_2"])
 
-    def test_stage_a_writes_selection_summary_even_when_converged_early(self) -> None:
+    def test_stage_a_runs_all_five_iterations_even_when_scores_converge_early(self) -> None:
+        self.config.stage_a["max_iterations"] = 5
         self.config.stage_a["convergence_threshold"] = 1.0
         scorer = _StaticScorer([0.9, 0.5, 0.2, 0.1])
         aggregator = _TrackingAggregator()
         runner, _selected_ids = self._make_runner(scorer, aggregator)
 
-        runner.run_stage_a(self.output_root)
+        result = runner.run_stage_a(self.output_root)
 
-        selection_path = self.output_root / "stage_a" / "iteration_0" / "selection_summary.json"
-        self.assertTrue(selection_path.exists())
+        self.assertEqual(result["iterations"], 5)
+        for idx in range(5):
+            selection_path = self.output_root / "stage_a" / f"iteration_{idx}" / "selection_summary.json"
+            self.assertTrue(selection_path.exists())
+
+    def test_stage_a_honors_yaml_max_iterations_value(self) -> None:
+        self.config.stage_a["max_iterations"] = 3
+        scorer = _StaticScorer([0.9, 0.5, 0.2, 0.1])
+        aggregator = _TrackingAggregator()
+        runner, _selected_ids = self._make_runner(scorer, aggregator)
+
+        result = runner.run_stage_a(self.output_root)
+
+        self.assertEqual(result["iterations"], 3)
+        for idx in range(3):
+            selection_path = self.output_root / "stage_a" / f"iteration_{idx}" / "selection_summary.json"
+            self.assertTrue(selection_path.exists())
 
     def test_stage_a_allows_ira_for_raw_text_to_match_federated_configs(self) -> None:
         self.config.data["sample_format"] = "raw_text"

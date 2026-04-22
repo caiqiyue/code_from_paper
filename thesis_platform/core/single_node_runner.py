@@ -14,6 +14,7 @@ from thesis_platform.core.io_utils import ensure_dir, read_json, write_json, wri
 from thesis_platform.core.logging_utils import get_logger
 from thesis_platform.core.registry import create
 from thesis_platform.core.schemas import Critique, PairedSample, PromptUpdate, Sample, ScoredSample
+from thesis_platform.evaluation.downstream_eval import rank_eval_summary
 from thesis_platform.models.embedding import build_embedder
 
 
@@ -63,16 +64,19 @@ class SingleNodeRunner:
                         stage_a_elapsed, stage_a_result.get("iterations", 0), len(stage_a_result.get("optimized_prompt", "")))
 
         # Stage B: Generate final synthetic corpus with optimized prompt
-        stage_b_start = time.perf_counter()
-        synthetic_texts = self.run_stage_b(output_dir, stage_a_result)
-        stage_b_elapsed = time.perf_counter() - stage_b_start
-        self.logger.info("Stage B completed in %.1f seconds | synthetic_samples=%d", stage_b_elapsed, len(synthetic_texts))
-
-        # Stage C: Downstream evaluation (GPT-2 fine-tuning and evaluation)
-        stage_c_start = time.perf_counter()
-        eval_result = self.run_evaluation(output_dir, synthetic_texts)
-        stage_c_elapsed = time.perf_counter() - stage_c_start
-        self.logger.info("Stage C completed in %.1f seconds", stage_c_elapsed)
+        evaluation_rounds, best_round, stage_b_elapsed, stage_c_elapsed = self._run_candidate_rounds(
+            output_dir,
+            stage_a_result,
+        )
+        best_synthetic_samples = best_round["stage_b"]["synthetic_samples"] if best_round else 0
+        eval_result = best_round["evaluation"] if best_round else {}
+        self.logger.info(
+            "Stage B/C completed in %.1f seconds | rounds=%d | best_round=%s | synthetic_samples=%d",
+            stage_b_elapsed + stage_c_elapsed,
+            len(evaluation_rounds),
+            best_round.get("round_index") if best_round else None,
+            best_synthetic_samples,
+        )
 
         # Write final summary
         summary = {
@@ -81,16 +85,21 @@ class SingleNodeRunner:
                 "iterations": stage_a_result.get("iterations", 0),
                 "final_prompt": stage_a_result.get("optimized_prompt", ""),
                 "prompt_history": stage_a_result.get("prompt_history", []),
+                "round_prompts": stage_a_result.get("round_prompts", []),
                 "elapsed_seconds": stage_a_elapsed,
             },
             "stage_b": {
-                "synthetic_samples": len(synthetic_texts),
+                "synthetic_samples": best_synthetic_samples,
                 "elapsed_seconds": stage_b_elapsed,
+                "rounds": len(evaluation_rounds),
+                "best_round_index": best_round.get("round_index") if best_round else None,
             },
             "stage_c": {
                 "elapsed_seconds": stage_c_elapsed,
             },
             "evaluation": eval_result,
+            "best_round_index": best_round.get("round_index") if best_round else None,
+            "evaluation_rounds": evaluation_rounds,
         }
         write_json(output_dir / "metrics_summary.json", summary)
         self.logger.info("Metrics summary written to %s", output_dir / "metrics_summary.json")
@@ -110,11 +119,11 @@ class SingleNodeRunner:
         """Optimize prompt through iterative critique and aggregation.
 
         Process:
-        1. Generate 100 samples with current prompt
-        2. Score with DataInf, select worst 10
-        3. Generate 10 critiques for worst samples
+        1. Generate samples with the current prompt
+        2. Score with DataInf, select the worst samples
+        3. Generate critiques for those samples
         4. Aggregate critiques, update prompt
-        5. Repeat until convergence or max iterations
+        5. Repeat for the YAML-configured number of iterations
 
         Args:
             output_dir: Directory to write stage artifacts
@@ -131,12 +140,20 @@ class SingleNodeRunner:
         cached_path = stage_a_dir / "prompt_update.json"
         if cached_path.exists():
             data = read_json(cached_path)
-            if data.get("cache_signature") == cache_signature:
+            cached_round_prompts = data.get("round_prompts", [])
+            cached_iterations = int(data.get("iterations", 0))
+            if (
+                data.get("cache_signature") == cache_signature
+                and isinstance(cached_round_prompts, list)
+                and len(cached_round_prompts) == cached_iterations
+                and cached_iterations > 0
+            ):
                 self.logger.info("Stage A: Loading cached prompt optimization result from %s", cached_path)
                 return {
                     "optimized_prompt": data.get("final_prompt", ""),
                     "prompt_history": data.get("prompt_history", []),
-                    "iterations": data.get("iterations", 0),
+                    "round_prompts": cached_round_prompts,
+                    "iterations": cached_iterations,
                 }
             self.logger.info("Stage A: Ignoring stale cached prompt optimization result at %s", cached_path)
 
@@ -148,13 +165,14 @@ class SingleNodeRunner:
         # Get configuration
         generated_count = int(self.config.stage_a.get("generated_count", 100))
         select_top_k = int(self.config.stage_a.get("select_top_k", 10))
-        max_iterations = int(self.config.stage_a.get("max_iterations", 10))
+        max_iterations = int(self.config.stage_a.get("max_iterations", 5))
         convergence_threshold = float(self.config.stage_a.get("convergence_threshold", 0.1))
         max_probe_samples = int(self.config.stage_a.get("max_probe_samples", 500))
 
         # Initial prompt from generator config
         current_prompt = self.config.generator.get("initial_prompt", "Generate text that matches the target dataset style.")
         prompt_history = [current_prompt]
+        round_prompts: list[str] = []
 
         # Build client context once for all iterations (includes MiniLM embedder)
         train_for_probe = seed_corpus[:max_probe_samples]
@@ -203,12 +221,14 @@ class SingleNodeRunner:
             if selection_meta.get("selection_mode") == "random_fallback":
                 self.logger.info("Stage A: Falling back to random selection (%s)", selection_meta.get("failure_reason", "unknown"))
 
-            # Step 3: Check convergence - if worst score is below threshold, we've converged
+            # Step 3: Convergence threshold is retained for logging only.
             if worst_samples:
                 current_worst_score = worst_samples[0].score
-                if current_worst_score < convergence_threshold:
-                    self.logger.info("Stage A: Converged! Worst score %.4f < threshold %.4f", current_worst_score, convergence_threshold)
-                    break
+                self.logger.info(
+                    "Stage A: Worst score %.4f vs threshold %.4f (logging only; no early stop)",
+                    current_worst_score,
+                    convergence_threshold,
+                )
 
             # Step 4: Generate critiques for worst samples
             self.logger.info("Stage A: Generating critiques for %d worst samples...", len(worst_samples))
@@ -251,7 +271,7 @@ class SingleNodeRunner:
             server_ctx.text_backend = critique_ctx.text_backend
             prompt_update = self.aggregator.aggregate(all_critiques, server_ctx)
 
-            # Update prompt if we have rules
+            # Update prompt if we have rules. Absence of rules keeps the current prompt and continues.
             if prompt_update and prompt_update.rules:
                 new_prompt = self._apply_prompt_update(current_prompt, prompt_update)
                 if new_prompt != current_prompt:
@@ -259,16 +279,16 @@ class SingleNodeRunner:
                     prompt_history.append(current_prompt)
                     self.logger.info("Stage A: Prompt updated (length: %d)", len(current_prompt))
                 else:
-                    self.logger.info("Stage A: Prompt unchanged, stopping")
-                    break
+                    self.logger.info("Stage A: Prompt unchanged, continuing with the same prompt")
             else:
-                self.logger.info("Stage A: No rules from aggregation, stopping")
-                break
+                self.logger.info("Stage A: No rules from aggregation, continuing with the same prompt")
 
             # Save iteration artifacts
             write_jsonl(iter_dir / "critiques.jsonl", critiques)
             if prompt_update:
                 write_json(iter_dir / "prompt_update.json", prompt_update)
+
+            round_prompts.append(current_prompt)
 
             # Release iteration resources (client_ctx for scoring, critique_ctx for retrieval/critique, server_ctx for aggregation)
             from thesis_platform.core.resource_cleanup import release_component_resources
@@ -278,6 +298,7 @@ class SingleNodeRunner:
         final_result = {
             "final_prompt": current_prompt,
             "prompt_history": prompt_history,
+            "round_prompts": round_prompts,
             "iterations": iteration + 1,
             "total_critiques": len(all_critiques),
             "cache_signature": cache_signature,
@@ -294,6 +315,7 @@ class SingleNodeRunner:
         return {
             "optimized_prompt": current_prompt,
             "prompt_history": prompt_history,
+            "round_prompts": round_prompts,
             "iterations": iteration + 1,
         }
 
@@ -412,6 +434,59 @@ class SingleNodeRunner:
         except Exception as e:
             self.logger.error("Evaluation failed: %s", e)
             return {"status": "error", "error": str(e)}
+
+    def _resolve_stage_a_round_prompts(self, stage_a_result: dict[str, Any]) -> list[str]:
+        round_prompts = stage_a_result.get("round_prompts", [])
+        if isinstance(round_prompts, list) and round_prompts:
+            return [str(prompt) for prompt in round_prompts]
+
+        iterations = int(stage_a_result.get("iterations", 0))
+        if iterations <= 0:
+            return []
+
+        final_prompt = str(stage_a_result.get("optimized_prompt") or self.config.generator.get("initial_prompt", ""))
+        return [final_prompt] * iterations
+
+    def _run_candidate_rounds(
+        self,
+        output_dir: Path,
+        stage_a_result: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], dict[str, Any], float, float]:
+        round_prompts = self._resolve_stage_a_round_prompts(stage_a_result)
+        if not round_prompts:
+            return [], {}, 0.0, 0.0
+
+        round_results: list[dict[str, Any]] = []
+        stage_b_elapsed = 0.0
+        stage_c_elapsed = 0.0
+        for round_index, prompt_text in enumerate(round_prompts):
+            round_dir = ensure_dir(output_dir / "rounds" / f"round_{round_index:03d}")
+            round_stage_b_start = time.perf_counter()
+            synthetic_texts = self.run_stage_b(round_dir, {"optimized_prompt": prompt_text})
+            round_stage_b_elapsed = time.perf_counter() - round_stage_b_start
+            stage_b_elapsed += round_stage_b_elapsed
+
+            round_eval_start = time.perf_counter()
+            eval_result = self.run_evaluation(round_dir, synthetic_texts)
+            round_eval_elapsed = time.perf_counter() - round_eval_start
+            stage_c_elapsed += round_eval_elapsed
+
+            round_results.append(
+                {
+                    "round_index": round_index,
+                    "prompt_text": prompt_text,
+                    "stage_b": {
+                        "synthetic_samples": len(synthetic_texts),
+                        "elapsed_seconds": round_stage_b_elapsed,
+                        "round_dir": str(round_dir / "stage_b"),
+                    },
+                    "evaluation": eval_result,
+                    "evaluation_elapsed_seconds": round_eval_elapsed,
+                }
+            )
+
+        best_round = max(round_results, key=rank_eval_summary)
+        return round_results, best_round, stage_b_elapsed, stage_c_elapsed
 
     # -------------------------------------------------------------------------
     # Helper methods
