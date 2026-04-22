@@ -212,3 +212,9 @@ bash: -c: line 0: `bash -lc 'source /home/k8smaster/anaconda3/etc/profile.d/cond
 [2026-04-22 23:07:22] SN-C4 marked success from existing remote result.
 [2026-04-22 23:07:29] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
 [2026-04-22 23:07:29] k8smast+   507     1 39 23:05 ?        00:00:48 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/smoke/smoke_single_node_tiny.yaml
+[2026-04-22 23:37:29] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext), SN-C6(caiqiyue-vllm), SP-C6(pretext), SN-C7(caiqiyue-vllm), SP-C7(pretext), SN-C8(caiqiyue-vllm), SP-C8(pretext), SN-C9(caiqiyue-vllm), SP-C9(pretext)
+[2026-04-22 23:37:38] Started SN-C5 on 58.217.205.244 with PID 16684; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C5.remote.log
+[2026-04-23 00:07:38] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext), SN-C6(caiqiyue-vllm), SP-C6(pretext), SN-C7(caiqiyue-vllm), SP-C7(pretext), SN-C8(caiqiyue-vllm), SP-C8(pretext), SN-C9(caiqiyue-vllm), SP-C9(pretext)
+[2026-04-23 00:07:45] Started SN-C5 on 58.217.205.244 with PID 24671; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C5.remote.log
+[2026-04-23 00:30:00] Queue reset: SN-C1..SN-C9 set to pending; SP series left unchanged.
+[2026-04-23 00:45:00] Queue order updated: SN-C1..SN-C4 moved ahead of SP-C1..SP-C4; remaining order unchanged.

@@ -1,204 +1,204 @@
-{
-  "queue": [
-    {
-      "label": "SN-C1",
-      "actual_experiment_id": "sn_c1_jobs_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "success",
-      "note": "existing result: metrics_summary present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T23:07:03"
-    },
-    {
-      "label": "SP-C1",
-      "actual_experiment_id": "sp_c1_jobs_base",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c1_jobs_base.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "success",
-      "note": "metrics and eval_small present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T10:12:12"
-    },
-    {
-      "label": "SN-C2",
-      "actual_experiment_id": "sn_c2_congressional_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "success",
-      "note": "existing result: metrics_summary present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T23:07:11"
-    },
-    {
-      "label": "SP-C2",
-      "actual_experiment_id": "sp_c2_congressional_base",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c2_congressional_base.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "success",
-      "note": "metrics and eval_small present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T11:33:27"
-    },
-    {
-      "label": "SN-C3",
-      "actual_experiment_id": "sn_c3_forums_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c3_forums_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "success",
-      "note": "existing result: metrics_summary present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T23:07:16"
-    },
-    {
-      "label": "SP-C3",
-      "actual_experiment_id": "sp_c3_forums_base",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c3_forums_base.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "success",
-      "note": "metrics and eval_small present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T18:04:41"
-    },
-    {
-      "label": "SN-C4",
-      "actual_experiment_id": "sn_c4_microblog_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c4_microblog_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "success",
-      "note": "existing result: metrics_summary present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T23:07:22"
-    },
-    {
-      "label": "SP-C4",
-      "actual_experiment_id": "sp_c4_microblog_base",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c4_microblog_base.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "success",
-      "note": "metrics and eval_small present",
-      "pid": null,
-      "last_checked_at": "2026-04-22T22:06:33"
-    },
-    {
-      "label": "SN-C5",
-      "actual_experiment_id": "sn_c5_jobs_eps05",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c5_jobs_eps05.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SP-C5",
-      "actual_experiment_id": "sp_c5_jobs_eps05",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c5_jobs_eps05.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SN-C6",
-      "actual_experiment_id": "sn_c6_jobs_eps758",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c6_jobs_eps758.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SP-C6",
-      "actual_experiment_id": "sp_c6_jobs_eps758",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c6_jobs_eps758.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SN-C7",
-      "actual_experiment_id": "sn_c7_jobs_no_privacy",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c7_jobs_no_privacy.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SP-C7",
-      "actual_experiment_id": "sp_c7_jobs_no_privacy",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c7_jobs_no_privacy.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SN-C8",
-      "actual_experiment_id": "sn_c8_jobs_seed123",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c8_jobs_seed123.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SP-C8",
-      "actual_experiment_id": "sp_c8_jobs_seed123",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c8_jobs_seed123.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SN-C9",
-      "actual_experiment_id": "sn_c9_jobs_seed456",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c9_jobs_seed456.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    },
-    {
-      "label": "SP-C9",
-      "actual_experiment_id": "sp_c9_jobs_seed456",
-      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c9_jobs_seed456.yaml",
-      "env_name": "pretext",
-      "family": "pretext",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
-    }
-  ],
-  "current_label": null,
-  "updated_at": "2026-04-22T23:07:29"
+﻿{
+    "queue":  [
+                  {
+                      "label":  "SN-C1",
+                      "actual_experiment_id":  "sn_c1_jobs_base",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SN-C2",
+                      "actual_experiment_id":  "sn_c2_congressional_base",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SN-C3",
+                      "actual_experiment_id":  "sn_c3_forums_base",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c3_forums_base.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SN-C4",
+                      "actual_experiment_id":  "sn_c4_microblog_base",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c4_microblog_base.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SP-C1",
+                      "actual_experiment_id":  "sp_c1_jobs_base",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c1_jobs_base.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "success",
+                      "note":  "metrics and eval_small present",
+                      "pid":  null,
+                      "last_checked_at":  "2026-04-22T10:12:12"
+                  },
+                  {
+                      "label":  "SP-C2",
+                      "actual_experiment_id":  "sp_c2_congressional_base",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c2_congressional_base.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "success",
+                      "note":  "metrics and eval_small present",
+                      "pid":  null,
+                      "last_checked_at":  "2026-04-22T11:33:27"
+                  },
+                  {
+                      "label":  "SP-C3",
+                      "actual_experiment_id":  "sp_c3_forums_base",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c3_forums_base.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "success",
+                      "note":  "metrics and eval_small present",
+                      "pid":  null,
+                      "last_checked_at":  "2026-04-22T18:04:41"
+                  },
+                  {
+                      "label":  "SP-C4",
+                      "actual_experiment_id":  "sp_c4_microblog_base",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c4_microblog_base.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "success",
+                      "note":  "metrics and eval_small present",
+                      "pid":  null,
+                      "last_checked_at":  "2026-04-22T22:06:33"
+                  },
+                  {
+                      "label":  "SN-C5",
+                      "actual_experiment_id":  "sn_c5_jobs_eps05",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c5_jobs_eps05.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SP-C5",
+                      "actual_experiment_id":  "sp_c5_jobs_eps05",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c5_jobs_eps05.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SN-C6",
+                      "actual_experiment_id":  "sn_c6_jobs_eps758",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c6_jobs_eps758.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SP-C6",
+                      "actual_experiment_id":  "sp_c6_jobs_eps758",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c6_jobs_eps758.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SN-C7",
+                      "actual_experiment_id":  "sn_c7_jobs_no_privacy",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c7_jobs_no_privacy.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SP-C7",
+                      "actual_experiment_id":  "sp_c7_jobs_no_privacy",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c7_jobs_no_privacy.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SN-C8",
+                      "actual_experiment_id":  "sn_c8_jobs_seed123",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c8_jobs_seed123.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SP-C8",
+                      "actual_experiment_id":  "sp_c8_jobs_seed123",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c8_jobs_seed123.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SN-C9",
+                      "actual_experiment_id":  "sn_c9_jobs_seed456",
+                      "config_path":  "thesis_platform/configs/experiments/single_node_formal/sn_c9_jobs_seed456.yaml",
+                      "env_name":  "caiqiyue-vllm",
+                      "family":  "thesis",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  },
+                  {
+                      "label":  "SP-C9",
+                      "actual_experiment_id":  "sp_c9_jobs_seed456",
+                      "config_path":  "PrE-Text/configs/experiments/single_node_formal/sp_c9_jobs_seed456.yaml",
+                      "env_name":  "pretext",
+                      "family":  "pretext",
+                      "status":  "pending",
+                      "note":  "",
+                      "pid":  null,
+                      "last_checked_at":  null
+                  }
+              ],
+    "current_label":  null,
+    "updated_at":  "2026-04-23T00:45:00"
 }
