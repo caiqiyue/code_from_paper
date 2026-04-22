@@ -1,0 +1,50 @@
+{
+  "queue": [
+    {
+      "label": "SP-C6",
+      "actual_experiment_id": "sp_c6_jobs_eps758",
+      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c6_jobs_eps758.yaml",
+      "env_name": "pretext",
+      "family": "pretext",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "SP-C7",
+      "actual_experiment_id": "sp_c7_jobs_no_privacy",
+      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c7_jobs_no_privacy.yaml",
+      "env_name": "pretext",
+      "family": "pretext",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "SP-C8",
+      "actual_experiment_id": "sp_c8_jobs_seed123",
+      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c8_jobs_seed123.yaml",
+      "env_name": "pretext",
+      "family": "pretext",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "SP-C9",
+      "actual_experiment_id": "sp_c9_jobs_seed456",
+      "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c9_jobs_seed456.yaml",
+      "env_name": "pretext",
+      "family": "pretext",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    }
+  ],
+  "current_label": null,
+  "updated_at": "2026-04-22T14:00:00"
+}
