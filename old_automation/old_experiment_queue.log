@@ -1,0 +1,161 @@
+[2026-04-14 14:54:58] Queue: GRun1(caiqiyue), GRun2(caiqiyue), GRun3(caiqiyue)
+[2026-04-14 14:55:07] Started GRun1 on 58.217.205.244 with PID 7532; env=caiqiyue; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/GRun1.remote.log
+[2026-04-20 10:42:55] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 10:43:02] Started SN-C1 on 58.217.205.244 with PID 30896; env=caiqiyue; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C1.remote.log
+[2026-04-20 11:30:17] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 11:30:24] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-20 11:30:24] k8smast+ 30896     1 48 10:43 ?        00:23:05 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-20 15:31:31] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 15:31:37] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-20 15:31:37] k8smast+ 30896     1 49 10:43 ?        02:22:07 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-20 16:11:17] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 16:11:23] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-20 16:11:23] k8smast+ 30896     1 49 10:43 ?        02:41:49 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-20 18:07:46] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 18:07:53] Started SN-C1 on 58.217.205.244 with PID 1086; env=caiqiyue; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C1.remote.log
+[2026-04-20 21:37:30] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 21:37:30] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Permission denied
+[2026-04-20 21:37:30] Connection or command failed via 1u72c85740.zicp.fun: FATAL ERROR: Network error: Permission denied
+[2026-04-20 21:37:30] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Permission denied
+[2026-04-20 21:37:30] Connection or command failed via 1u72c85740.zicp.fun: FATAL ERROR: Network error: Permission denied
+[2026-04-20 21:37:44] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 21:37:50] Started SN-C1 on 58.217.205.244 with PID 18418; env=caiqiyue; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C1.remote.log
+[2026-04-20 21:47:15] Connection or command failed via 58.217.205.244: 
+[2026-04-20 21:47:15] Connection or command failed via 1u72c85740.zicp.fun: Unable to open connection:
+Host does not exist
+[2026-04-20 21:47:34] Connection or command failed via 58.217.205.244: 
+[2026-04-20 21:47:38] Connection or command failed via 1u72c85740.zicp.fun: 
+[2026-04-20 21:48:47] Connection or command failed via 58.217.205.244: File "<string>", line 1
+    import pathlib; pathlib.Path('/mnt/public/caiqiyue_file/code_from_paper/thesis_platform/models/backends.py').write_text('''from __future__ import annotations
+                                                                                                                            ^
+SyntaxError: unterminated triple-quoted string literal (detected at line 11)
+bash: line 20: sample: No such file or directory
+[2026-04-20 21:48:51] Connection or command failed via 1u72c85740.zicp.fun: File "<string>", line 1
+    import pathlib; pathlib.Path('/mnt/public/caiqiyue_file/code_from_paper/thesis_platform/models/backends.py').write_text('''from __future__ import annotations
+                                                                                                                            ^
+SyntaxError: unterminated triple-quoted string literal (detected at line 11)
+bash: line 20: sample: No such file or directory
+[2026-04-20 21:58:44] Connection or command failed via 58.217.205.244: total 8
+drwxrwxr-x 2 k8smaster k8smaster 4096 4月  20 21:38 .
+drwxrwxr-x 3 k8smaster k8smaster 4096 4月  20 21:38 ..
+[2026-04-20 21:58:46] Connection or command failed via 1u72c85740.zicp.fun: total 8
+drwxrwxr-x 2 k8smaster k8smaster 4096 4月  20 21:38 .
+drwxrwxr-x 3 k8smaster k8smaster 4096 4月  20 21:38 ..
+[2026-04-20 22:06:07] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 22:06:17] Started SN-C1 on 58.217.205.244 with PID 1827; env=caiqiyue; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C1.remote.log
+[2026-04-20 22:32:26] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-20 22:32:31] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-20 22:32:31] k8smast+  1827     1 46 22:06 ?        00:12:09 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-21 14:12:13] Queue: SN-C1(caiqiyue), SP-C1(pretext), SN-C2(caiqiyue), SP-C2(pretext)
+[2026-04-21 14:12:19] SN-C1 failed or missing artifacts: missing latest pointer
+[2026-04-21 14:12:26] Started SP-C1 on 58.217.205.244 with PID 8642; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C1.remote.log
+[2026-04-21 14:14:11] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Permission denied
+[2026-04-21 14:14:11] Connection or command failed via 1u72c85740.zicp.fun: Unable to open connection:
+Host does not exist
+[2026-04-21 14:45:04] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Permission denied
+[2026-04-21 14:45:04] Connection or command failed via 1u72c85740.zicp.fun: FATAL ERROR: Network error: Permission denied
+[2026-04-21 14:45:18] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Permission denied
+[2026-04-21 14:45:18] Connection or command failed via 1u72c85740.zicp.fun: FATAL ERROR: Network error: Permission denied
+[2026-04-21 14:46:27] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Permission denied
+[2026-04-21 14:46:27] Connection or command failed via 58.217.205.244: FATAL ERROR: Network error: Permission denied
+[2026-04-21 14:46:27] Connection or command failed via 1u72c85740.zicp.fun: FATAL ERROR: Network error: Permission denied
+[2026-04-22 00:30:00] Connection or command failed via 58.217.205.244: File "<stdin>", line 6
+    'enforce_eager=bool(bootstrap_cfg.get('enforce_eager', False))',
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+[2026-04-22 00:30:02] Connection or command failed via 1u72c85740.zicp.fun: File "<stdin>", line 6
+    'enforce_eager=bool(bootstrap_cfg.get('enforce_eager', False))',
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+[2026-04-22 00:30:19] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 00:30:23] SP-C1 failed or missing artifacts: no result artifacts
+[2026-04-22 00:30:29] Started SN-C1 on 58.217.205.244 with PID 694; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C1.remote.log
+[2026-04-22 00:31:07] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 00:31:11] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 00:31:11] k8smast+   694     1 92 00:30 ?        00:00:38 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-22 00:37:26] Connection or command failed via 58.217.205.244: total 8.0K
+drwxrwxr-x 2 k8smaster k8smaster 4.0K 4月  22 00:30 .
+drwxrwxr-x 3 k8smaster k8smaster 4.0K 4月  22 00:30 ..
+[2026-04-22 00:37:26] Connection or command failed via 1u72c85740.zicp.fun: Unable to open connection:
+Host does not exist
+[2026-04-22 01:01:11] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 01:01:15] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 01:01:15] k8smast+   694     1 53 00:30 ?        00:16:24 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-22 01:31:15] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 01:31:19] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 01:31:19] k8smast+   694     1 51 00:30 ?        00:31:26 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-22 02:01:19] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 02:01:24] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 02:01:24] k8smast+   694     1 51 00:30 ?        00:46:29 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-22 02:31:24] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 02:31:28] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 02:31:28] k8smast+   694     1 50 00:30 ?        01:01:31 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-22 03:01:29] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 03:01:33] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 03:01:33] k8smast+   694     1 50 00:30 ?        01:16:35 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml
+[2026-04-22 03:31:33] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 03:31:37] SN-C1 failed or missing artifacts: missing latest pointer
+[2026-04-22 03:31:43] Started SP-C1 on 58.217.205.244 with PID 24732; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C1.remote.log
+[2026-04-22 04:01:43] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 04:01:47] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 04:01:47] k8smast+ 24732     1  9 03:31 ?        00:02:59 python -m pretext_platform.scripts.run_eval_small --config configs/experiments/single_node_formal/sp_c1_jobs_base.yaml
+[2026-04-22 04:31:48] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 04:31:49] SP-C1 completed successfully: metrics and eval_small present
+[2026-04-22 04:31:56] Started SN-C2 on 58.217.205.244 with PID 20231; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C2.remote.log
+[2026-04-22 05:01:56] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 05:02:01] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 05:02:01] k8smast+ 20231     1 52 04:31 ?        00:15:48 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 05:32:01] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 05:32:05] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 05:32:05] k8smast+ 20231     1 51 04:31 ?        00:30:47 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 06:02:05] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 06:02:10] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 06:02:10] k8smast+ 20231     1 50 04:31 ?        00:45:48 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 06:32:10] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 06:32:14] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 06:32:14] k8smast+ 20231     1 50 04:31 ?        01:00:49 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 07:02:14] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 07:02:19] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 07:02:19] k8smast+ 20231     1 50 04:31 ?        01:15:50 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 07:32:19] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 07:32:23] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 07:32:23] k8smast+ 20231     1 50 04:31 ?        01:30:23 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 07:33:26] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 07:33:26] k8smast+ 20231     1 50 04:31 ?        01:30:55 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 08:02:23] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 08:02:27] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 08:02:27] k8smast+ 20231     1 50 04:31 ?        01:45:29 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 08:32:28] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 08:32:32] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 08:32:32] k8smast+ 20231     1 50 04:31 ?        02:00:37 python -m thesis_platform.scripts.run_experiment --config thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml
+[2026-04-22 09:02:32] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 09:02:39] SN-C2 failed or missing artifacts: missing latest pointer
+[2026-04-22 09:02:48] Started SP-C2 on 58.217.205.244 with PID 32386; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C2.remote.log
+[2026-04-22 09:32:48] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 09:32:54] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 09:32:54] k8smast+ 32386     1  0 09:02 ?        00:00:00 bash -lc source /home/k8smaster/anaconda3/etc/profile.d/conda.sh && conda activate pretext && cd /mnt/public/caiqiyue_file/code_from_paper/PrE-Text && export PYTHONUNBUFFERED=1 && export CUDA_DEVICE_ORDER=PCI_BUS_ID && export CUDA_VISIBLE_DEVICES=1 && python -m pretext_platform.scripts.run_pipeline --config configs/experiments/single_node_formal/sp_c2_congressional_base.yaml && python -m pretext_platform.scripts.run_eval_small --config configs/experiments/single_node_formal/sp_c2_congressional_base.yaml
+[2026-04-22 10:02:55] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 10:03:01] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 10:03:01] k8smast+ 32386     1 18 09:02 ?        00:11:10 python -m pretext_platform.scripts.run_eval_small --config configs/experiments/single_node_formal/sp_c2_congressional_base.yaml
+[2026-04-22 10:12:39] Remote experiment is already running on 58.217.205.244; leaving queue unchanged.
+[2026-04-22 10:12:39] k8smast+ 32386     1 22 09:02 ?        00:15:59 python -m pretext_platform.scripts.run_eval_small --config configs/experiments/single_node_formal/sp_c2_congressional_base.yaml
+[2026-04-22 10:33:01] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 10:33:09] SP-C2 is still running: metrics exists but eval_small missing
+[2026-04-22 11:03:09] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 11:03:15] SP-C2 is still running: metrics exists but eval_small missing
+[2026-04-22 11:33:15] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 11:33:27] SP-C2 completed successfully: metrics and eval_small present
+[2026-04-22 11:33:27] All old-server queued experiments are resolved.
+[2026-04-22 12:03:27] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 12:03:27] All old-server queued experiments are resolved.
+[2026-04-22 12:33:27] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 12:33:27] All old-server queued experiments are resolved.
+[2026-04-22 13:03:27] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 13:03:27] All old-server queued experiments are resolved.
+[2026-04-22 13:33:28] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext)
+[2026-04-22 13:33:28] All old-server queued experiments are resolved.
+[2026-04-22 13:57:23] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 13:57:32] Started SN-C3 on 58.217.205.244 with PID 7219; env=caiqiyue-vllm; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SN-C3.remote.log
+[2026-04-22 14:03:28] Queue: SN-C1(caiqiyue-vllm), SP-C1(pretext), SN-C2(caiqiyue-vllm), SP-C2(pretext), SN-C3(caiqiyue-vllm), SP-C3(pretext), SN-C4(caiqiyue-vllm), SP-C4(pretext), SN-C5(caiqiyue-vllm), SP-C5(pretext)
+[2026-04-22 14:03:33] SN-C3 failed or missing artifacts: artifacts present (stage_a) without metrics_summary
+[2026-04-22 14:03:45] Started SP-C3 on 58.217.205.244 with PID 15737; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/SP-C3.remote.log
