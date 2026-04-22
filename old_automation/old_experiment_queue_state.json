@@ -6,10 +6,10 @@
       "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml",
       "env_name": "caiqiyue-vllm",
       "family": "thesis",
-      "status": "success",
-      "note": "metrics_summary present",
+      "status": "pending",
+      "note": "",
       "pid": null,
-      "last_checked_at": "2026-04-22T10:12:04"
+      "last_checked_at": null
     },
     {
       "label": "SP-C1",
@@ -28,10 +28,10 @@
       "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml",
       "env_name": "caiqiyue-vllm",
       "family": "thesis",
-      "status": "success",
-      "note": "metrics_summary present",
+      "status": "pending",
+      "note": "",
       "pid": null,
-      "last_checked_at": "2026-04-22T10:12:18"
+      "last_checked_at": null
     },
     {
       "label": "SP-C2",
@@ -50,10 +50,10 @@
       "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c3_forums_base.yaml",
       "env_name": "caiqiyue-vllm",
       "family": "thesis",
-      "status": "success",
-      "note": "metrics_summary present",
+      "status": "pending",
+      "note": "",
       "pid": null,
-      "last_checked_at": "2026-04-22T17:04:18"
+      "last_checked_at": null
     },
     {
       "label": "SP-C3",
@@ -72,10 +72,10 @@
       "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c4_microblog_base.yaml",
       "env_name": "caiqiyue-vllm",
       "family": "thesis",
-      "status": "success",
-      "note": "metrics_summary present",
+      "status": "pending",
+      "note": "",
       "pid": null,
-      "last_checked_at": "2026-04-22T21:06:05"
+      "last_checked_at": null
     },
     {
       "label": "SP-C4",
@@ -94,10 +94,10 @@
       "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c5_jobs_eps05.yaml",
       "env_name": "caiqiyue-vllm",
       "family": "thesis",
-      "status": "failed",
-      "note": "artifacts present (stage_a) without metrics_summary",
+      "status": "pending",
+      "note": "",
       "pid": null,
-      "last_checked_at": "2026-04-22T22:36:47"
+      "last_checked_at": null
     },
     {
       "label": "SP-C5",
@@ -105,10 +105,10 @@
       "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c5_jobs_eps05.yaml",
       "env_name": "pretext",
       "family": "pretext",
-      "status": "running",
-      "note": "started by old server scheduler",
-      "pid": "15794",
-      "last_checked_at": "2026-04-22T22:36:57"
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
     },
     {
       "label": "SN-C6",
@@ -199,6 +199,6 @@
       "last_checked_at": null
     }
   ],
-  "current_label": "SP-C5",
-  "updated_at": "2026-04-22T22:36:57"
+  "current_label": null,
+  "updated_at": "2026-04-22T22:52:23"
 }
