@@ -60,6 +60,8 @@ class GeneratorContract:
     generated_per_round: int
     exemplars_per_prompt: int
     max_new_tokens: int
+    max_prompt_chars: int
+    max_exemplar_chars: int
     llm_backend: str
 
     def to_dict(self) -> dict[str, Any]:

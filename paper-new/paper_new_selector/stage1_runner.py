@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,23 @@ def _vectorize(embedder: Any, texts: list[str]) -> list[list[float]]:
     return [list(map(float, row)) for row in embedder.embed_texts(texts)]
 
 
+def _select_seed_samples(
+    init_samples: list[Any],
+    *,
+    exemplar_count: int,
+    round_id: int,
+    meta_seed: int,
+) -> list[Any]:
+    if not init_samples:
+        return []
+    exemplar_count = max(1, min(exemplar_count, len(init_samples)))
+    rng = random.Random(int(meta_seed) + int(round_id))
+    if exemplar_count >= len(init_samples):
+        return list(init_samples)
+    selected_indices = sorted(rng.sample(range(len(init_samples)), exemplar_count))
+    return [init_samples[index] for index in selected_indices]
+
+
 def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[str, Any]:
     config = load_yaml_config(config_path)
     sample_bundle = load_text_samples(config_path)
@@ -53,11 +71,18 @@ def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[
     prompt_text = str(config["generator"]["initial_prompt"])
     candidate_count = int(config["generator"]["candidate_count"])
     max_rounds = int(config["generator"].get("max_rounds", max(1, candidate_count)))
+    meta_seed = int(config.get("meta", {}).get("seed", 42))
+    exemplar_count = int(config["generator"]["exemplars_per_prompt"])
 
     candidate_texts: list[str] = []
     round_id = 0
     while len(candidate_texts) < candidate_count and round_id < max_rounds:
-        seed_samples = init_samples[: max(1, int(config["generator"]["exemplars_per_prompt"]))]
+        seed_samples = _select_seed_samples(
+            init_samples,
+            exemplar_count=exemplar_count,
+            round_id=round_id,
+            meta_seed=meta_seed,
+        )
         from thesis_platform.core.context import RoundContext
 
         round_ctx = RoundContext(

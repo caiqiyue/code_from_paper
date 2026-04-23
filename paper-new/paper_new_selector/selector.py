@@ -4,6 +4,22 @@ from .contracts import CandidateRecord, SelectorDecision
 from .redundancy import compute_dynamic_redundancy_penalty
 
 
+def _score_candidate(
+    *,
+    index: int,
+    candidate_vectors: list[list[float]],
+    base_scores: list[float],
+    selected_vectors: list[list[float]],
+    lambda_redundancy: float,
+) -> tuple[float, float]:
+    redundancy_penalty = compute_dynamic_redundancy_penalty(
+        candidate_vector=candidate_vectors[index],
+        selected_vectors=selected_vectors,
+    )
+    accept_score = base_scores[index] - float(lambda_redundancy) * redundancy_penalty
+    return redundancy_penalty, accept_score
+
+
 def greedy_select_candidates(
     *,
     candidate_vectors: list[list[float]],
@@ -37,11 +53,13 @@ def greedy_select_candidates(
         best_index = None
         best_score = None
         for index in remaining:
-            redundancy_penalties[index] = compute_dynamic_redundancy_penalty(
-                candidate_vector=candidate_vectors[index],
+            redundancy_penalties[index], accept_scores[index] = _score_candidate(
+                index=index,
+                candidate_vectors=candidate_vectors,
+                base_scores=base_scores,
                 selected_vectors=selected_vectors,
+                lambda_redundancy=lambda_redundancy,
             )
-            accept_scores[index] = base_scores[index] - float(lambda_redundancy) * redundancy_penalties[index]
             if best_index is None or accept_scores[index] > best_score:
                 best_index = index
                 best_score = accept_scores[index]
@@ -50,23 +68,22 @@ def greedy_select_candidates(
         selected_vectors.append(candidate_vectors[best_index])
         remaining.remove(best_index)
 
+    for index in remaining:
+        redundancy_penalties[index], accept_scores[index] = _score_candidate(
+            index=index,
+            candidate_vectors=candidate_vectors,
+            base_scores=base_scores,
+            selected_vectors=selected_vectors,
+            lambda_redundancy=lambda_redundancy,
+        )
+
     rejected_indices = sorted(
         remaining,
-        key=lambda index: (
-            accept_scores[index]
-            if accept_scores[index] != 0.0 or selected_vectors
-            else base_scores[index]
-        ),
+        key=lambda index: accept_scores[index] if selected_vectors else base_scores[index],
         reverse=True,
     )
 
     for index in rejected_indices:
-        if accept_scores[index] == 0.0 and selected_vectors:
-            redundancy_penalties[index] = compute_dynamic_redundancy_penalty(
-                candidate_vector=candidate_vectors[index],
-                selected_vectors=selected_vectors,
-            )
-            accept_scores[index] = base_scores[index] - float(lambda_redundancy) * redundancy_penalties[index]
         reason = "low_accept_score_rejected"
         if base_scores[index] >= min(base_scores[selected] for selected in selected_indices) if selected_indices else False:
             reason = "near_boundary_rejected"

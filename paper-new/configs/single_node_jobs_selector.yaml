@@ -35,6 +35,8 @@ generator:
   exemplars_per_prompt: 3
   max_new_tokens: 48
   max_rounds: 6
+  max_prompt_chars: 192
+  max_exemplar_chars: 220
 
 selector:
   top_q: 4

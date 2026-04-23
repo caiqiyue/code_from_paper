@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-import argparse
-import json
+import sys
+from pathlib import Path
 
-from paper_new_selector.pipeline import run_pipeline
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the paper-new single-node selector pipeline.")
-    parser.add_argument("--config", required=True, help="Path to the selector config YAML.")
-    parser.add_argument("--validate-only", action="store_true", help="Resolve contracts without heavy execution.")
-    args = parser.parse_args()
-
-    summary = run_pipeline(args.config, validate_only=args.validate_only)
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+from paper_new_selector.run_selector_single_node import main
 
 
 if __name__ == "__main__":

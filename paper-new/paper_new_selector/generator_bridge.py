@@ -43,6 +43,8 @@ def build_candidate_generator(config_path: str | Path) -> CandidateGeneratorHand
         generated_per_round=int(generator_cfg["generated_per_round"]),
         exemplars_per_prompt=int(generator_cfg["exemplars_per_prompt"]),
         max_new_tokens=int(generator_cfg["max_new_tokens"]),
+        max_prompt_chars=int(generator_cfg.get("max_prompt_chars", 0)),
+        max_exemplar_chars=int(generator_cfg.get("max_exemplar_chars", 0)),
         llm_backend=llm_engine,
     ).to_dict()
     return CandidateGeneratorHandle(

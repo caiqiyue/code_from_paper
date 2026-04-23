@@ -9,11 +9,6 @@ from typing import Any
 import yaml
 
 
-def load_yaml_config(config_path: str | Path) -> dict[str, Any]:
-    path = Path(config_path).resolve()
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
-
-
 def _is_resource_root(root: Path) -> bool:
     return (
         (root / "thesis_platform").is_dir()
@@ -41,6 +36,42 @@ def resolve_worktree_root() -> Path:
         if (ancestor / ".git").exists() and (ancestor / "thesis_platform").is_dir():
             return ancestor
     return resolve_repo_root()
+
+
+def resolve_config_path(config_path: str | Path) -> Path:
+    path = Path(config_path)
+    if path.is_absolute():
+        resolved = path.resolve()
+        if not resolved.exists():
+            raise FileNotFoundError(f"Config file does not exist: {resolved}")
+        return resolved
+
+    candidates: list[Path] = []
+    cwd_candidate = (Path.cwd() / path).resolve()
+    candidates.append(cwd_candidate)
+
+    worktree_root = resolve_worktree_root()
+    candidates.append((worktree_root / path).resolve())
+
+    repo_root = resolve_repo_root()
+    candidates.append((repo_root / path).resolve())
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "Could not resolve config path. Checked: "
+        + ", ".join(str(candidate) for candidate in seen)
+    )
+
+
+def load_yaml_config(config_path: str | Path) -> dict[str, Any]:
+    path = resolve_config_path(config_path)
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def _resolve_relative_to_root(root: Path, configured_path: str) -> Path:
