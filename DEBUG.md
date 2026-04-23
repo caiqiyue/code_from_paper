@@ -222,3 +222,17 @@
 - Updated both `gpt2_eval.evaluate()` and `distilgpt2_eval.evaluate()` to move each eval batch onto the model device before calling `model(**batch)`.
 - Added a regression test file `PrE-Text/tests/test_eval_device_transfer.py` that fails if either eval path forwards CPU batch tensors to a CUDA model.
 - Synced the fixed evaluation files to the old server copy under `/mnt/public/caiqiyue_file/code_from_paper/PrE-Text/...` so the reset formal experiment will use the patched code.
+# SN-C1 Status Check
+
+## Observations
+
+- Remote process `PID 7004` is still alive for `thesis_platform.scripts.run_experiment --config .../sn_c1_jobs_base.yaml`.
+- `SN-C1.remote.log` continues to show generation progress and vLLM initialization, with no traceback or failure marker.
+- Output directory `/mnt/public/caiqiyue_file/code_from_paper/outputs/thesis_platform/sn_c1_jobs_base` exists.
+- `stage_a/` exists and was updated at `2026-04-23 00:28:22 +0800`.
+- `run_state.json` and `metrics_summary.json` are still absent, which is consistent with an in-progress run before final completion.
+- GPU 1 (`NVIDIA RTX A6000`) is actively used at around `29.3 GiB / 49.1 GiB`, while GPU 0 is idle.
+
+## Interim Conclusion
+
+- Current evidence supports "normal running" rather than "failed" or "stuck".
