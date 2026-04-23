@@ -38,7 +38,7 @@ def _build_thesis_eval_config(config_path: str | Path):
             "seed": int(selector_cfg.get("meta", {}).get("seed", 42)),
         },
         "paths": {
-            "repo_root": "../..",
+            "repo_root": str(repo_root),
             "output_root": str(selector_cfg.get("paths", {}).get("output_root", "paper-new/outputs/selector_test")),
         },
         "data": {

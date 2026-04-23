@@ -1,7 +1,7 @@
 import unittest
 
 from paper_new_selector.genericity import compute_genericity_penalty
-from paper_new_selector.support import compute_private_support
+from paper_new_selector.support import apply_gaussian_privacy_noise, compute_private_support
 
 
 class SupportTests(unittest.TestCase):
@@ -23,6 +23,18 @@ class SupportTests(unittest.TestCase):
             reference_top_k=2,
         )
         self.assertGreater(penalty, 0.9)
+
+    def test_privacy_noise_is_deterministic_for_the_same_seed(self):
+        base_scores = [1.0, 2.0, 3.0]
+        first = apply_gaussian_privacy_noise(base_scores, enabled=True, sigma=0.5, seed=42)
+        second = apply_gaussian_privacy_noise(base_scores, enabled=True, sigma=0.5, seed=42)
+        self.assertEqual(first, second)
+        self.assertNotEqual(first, base_scores)
+
+    def test_privacy_noise_is_skipped_when_disabled(self):
+        base_scores = [1.0, 2.0, 3.0]
+        disabled = apply_gaussian_privacy_noise(base_scores, enabled=False, sigma=160.0, seed=42)
+        self.assertEqual(disabled, base_scores)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,33 @@ from typing import Any
 import yaml
 
 
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _load_yaml(path: Path) -> dict[str, Any]:
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"YAML at {path} must decode to a mapping.")
+    return data
+
+
+def _load_with_includes(path: Path) -> dict[str, Any]:
+    data = _load_yaml(path)
+    includes = data.pop("inherits", []) or []
+    merged: dict[str, Any] = {}
+    for include in includes:
+        include_path = (path.parent / include).resolve()
+        merged = _deep_merge(merged, _load_with_includes(include_path))
+    return _deep_merge(merged, data)
+
+
 def _is_resource_root(root: Path) -> bool:
     return (
         (root / "thesis_platform").is_dir()
@@ -71,7 +98,7 @@ def resolve_config_path(config_path: str | Path) -> Path:
 
 def load_yaml_config(config_path: str | Path) -> dict[str, Any]:
     path = resolve_config_path(config_path)
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
+    return _load_with_includes(path)
 
 
 def _resolve_relative_to_root(root: Path, configured_path: str) -> Path:

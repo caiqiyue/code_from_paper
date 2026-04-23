@@ -1,16 +1,13 @@
 import unittest
-from pathlib import Path
 
-import yaml
-
-from paper_new_selector.thesis_bridge import resolve_config_path
+from paper_new_selector.thesis_bridge import load_yaml_config, resolve_config_path
 
 
 class PaperNewSelectorConfigTests(unittest.TestCase):
     def test_config_fully_defines_algorithm_contract(self):
         config_path = resolve_config_path("paper-new/configs/single_node_jobs_selector.yaml")
         self.assertTrue(config_path.exists())
-        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        config = load_yaml_config(config_path)
         self.assertEqual(config["pipeline"]["stage1_mode"], "selector_seed_search")
         self.assertEqual(config["pipeline"]["stage2_mode"], "pretext_bootstrap")
         self.assertEqual(config["paths"]["datasets_root"], "thesis_platform/datasets")
@@ -37,6 +34,28 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         resolved_local = resolve_config_path("configs/single_node_jobs_selector.yaml")
         self.assertEqual(resolved_prefixed, resolved_local)
         self.assertEqual(resolved_local.name, "single_node_jobs_selector.yaml")
+
+    def test_formal_config_supports_inherits_and_jobs_base_contract(self):
+        config = load_yaml_config("paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml")
+        self.assertEqual(config["meta"]["experiment_id"], "ns_c1_jobs_base")
+        self.assertEqual(config["meta"]["stage"], "single_node_formal")
+        self.assertEqual(config["data"]["dataset_name"], "jobs")
+        self.assertEqual(config["bootstrap"]["num_prompts"], 1500)
+        self.assertEqual(config["bootstrap"]["generator_backend"], "huggingface")
+        self.assertEqual(config["privacy"]["epsilon"], 1.29)
+        self.assertEqual(config["stage1"]["sigma"], 11.3)
+
+    def test_formal_privacy_variants_and_seed_variants_override_base_values(self):
+        eps05 = load_yaml_config("paper-new/configs/experiments/single_node_formal/ns_c5_jobs_eps05.yaml")
+        no_privacy = load_yaml_config("paper-new/configs/experiments/single_node_formal/ns_c7_jobs_no_privacy.yaml")
+        seed456 = load_yaml_config("paper-new/configs/experiments/single_node_formal/ns_c9_jobs_seed456.yaml")
+        self.assertEqual(eps05["privacy"]["epsilon"], 0.5)
+        self.assertEqual(eps05["stage1"]["sigma"], 160.0)
+        self.assertFalse(no_privacy["privacy"]["enabled"])
+        self.assertTrue(no_privacy["stage1"]["privacy_disabled"])
+        self.assertEqual(no_privacy["stage1"]["sigma"], 0.0)
+        self.assertEqual(seed456["meta"]["seed"], 456)
+        self.assertEqual(seed456["paths"]["output_root"], "paper-new/outputs/ns_c9_jobs_seed456")
 
 
 if __name__ == "__main__":

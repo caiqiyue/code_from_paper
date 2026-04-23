@@ -9,7 +9,7 @@ from .generator_bridge import build_candidate_generator
 from .genericity import compute_genericity_penalties
 from .importance import build_private_importance_weights
 from .selector import greedy_select_candidates
-from .support import compute_private_support
+from .support import apply_gaussian_privacy_noise, compute_private_support
 from .thesis_bridge import build_embedder_from_config, load_text_samples, load_yaml_config
 
 
@@ -119,6 +119,8 @@ def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[
     private_lengths = [len(text.split()) for text in private_texts]
 
     selector_cfg = config["selector"]
+    stage1_cfg = dict(config.get("stage1", {}))
+    privacy_cfg = dict(config.get("privacy", {}))
     private_weights = build_private_importance_weights(
         private_vectors=private_vectors,
         private_lengths=private_lengths,
@@ -129,12 +131,20 @@ def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[
         length_floor=int(selector_cfg["length_floor"]),
         length_ceiling=int(selector_cfg["length_ceiling"]),
     )
-    private_support = compute_private_support(
+    raw_private_support = compute_private_support(
         private_vectors=private_vectors,
         candidate_vectors=candidate_vectors,
         private_weights=private_weights,
         rank_weights=list(selector_cfg["rank_weights"]),
         top_q=int(selector_cfg["top_q"]),
+    )
+    privacy_enabled = bool(privacy_cfg.get("enabled", False)) and not bool(stage1_cfg.get("privacy_disabled", False))
+    privacy_sigma = float(stage1_cfg.get("sigma", 0.0))
+    private_support = apply_gaussian_privacy_noise(
+        raw_private_support,
+        enabled=privacy_enabled,
+        sigma=privacy_sigma,
+        seed=meta_seed,
     )
     genericity_penalty = compute_genericity_penalties(
         candidate_vectors=candidate_vectors,
@@ -166,5 +176,10 @@ def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[
         "hard_negative_reason": decision.hard_negative_reason,
         "boundary_state": boundary_state,
         "generator_contract": dict(generator_handle.contract),
+        "privacy": {
+            "enabled": privacy_enabled,
+            "sigma": privacy_sigma,
+            "delta": float(stage1_cfg.get("delta", privacy_cfg.get("delta", 0.0))),
+        },
         "decision": decision.to_dict(),
     }

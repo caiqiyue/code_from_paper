@@ -1,0 +1,15 @@
+embedding:
+  model_path: thesis_platform/open_model/all_minilm_l6_v2
+  device: cuda
+
+llm:
+  generator:
+    engine: transformers
+    model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
+    device: cuda
+    dtype: auto
+    use_chat_template: false
+    use_fast: false
+    temperature: 0.2
+    max_new_tokens: 192
+    role: generator
