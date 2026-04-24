@@ -55,6 +55,35 @@ class PipelineSmokeTests(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, "strict vLLM generation"):
                     main()
 
+    def test_pipeline_releases_runtime_memory_between_stage2_and_eval(self):
+        with patch(
+            "paper_new_selector.pipeline.run_stage1",
+            return_value={
+                "generator_contract": {"llm_backend": "vllm"},
+                "selected_texts": ["seed one", "seed two", "seed three"],
+            },
+        ), patch(
+            "paper_new_selector.pipeline.prepare_bootstrap_runtime",
+            return_value={
+                "bootstrap_cfg": {"num_prompts": 4, "generator_backend": "vllm"},
+                "model_path": "local-llama",
+                "build_bootstrap_prompts": lambda seed_texts, *, num_prompts, seed: [f"{seed}:{num_prompts}:{len(seed_texts)}"],
+                "generate_bootstrapped_samples": lambda prompt_list, _model_path, _bootstrap_cfg: [f"generated::{prompt_list[0]}"],
+            },
+        ), patch(
+            "paper_new_selector.pipeline.prepare_eval_runtime",
+            return_value={"enabled": True, "mode": "pretext_small"},
+        ), patch(
+            "paper_new_selector.pipeline.run_eval",
+            return_value={"status": "completed", "kind": "pretext_small_eval"},
+        ), patch(
+            "paper_new_selector.pipeline.release_runtime_memory",
+        ) as release_runtime:
+            summary = run_pipeline("configs/single_node_jobs_selector.yaml", validate_only=False)
+
+        self.assertEqual(summary["eval"]["status"], "completed")
+        release_runtime.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()

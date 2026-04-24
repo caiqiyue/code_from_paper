@@ -1,6 +1,8 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import ModuleType
+from unittest.mock import patch
 
 import yaml
 
@@ -57,6 +59,36 @@ class BridgeTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "bootstrap.generator_backend='vllm'"):
             prepare_bootstrap_runtime(str(config_path))
+
+    def test_pretext_bridge_wraps_stage2_generation_with_vllm_host_ip_patch(self):
+        fake_bootstrap_module = ModuleType("pretext_platform.algorithms.bootstrap")
+        patch_calls = []
+
+        def fake_build_bootstrap_prompts(seed_texts, *, num_prompts, seed):
+            return [f"{len(seed_texts)}:{num_prompts}:{seed}"]
+
+        def fake_generate(prompt_list, model_path, bootstrap_cfg):
+            return [f"{prompt_list[0]}::{model_path.name}::{bootstrap_cfg['generator_backend']}"]
+
+        fake_bootstrap_module.build_bootstrap_prompts = fake_build_bootstrap_prompts
+        fake_bootstrap_module.generate_bootstrapped_samples_vllm = fake_generate
+        config_path = self._write_temp_config("configs/single_node_jobs_selector.yaml", {})
+
+        with patch.dict(
+            "sys.modules",
+            {"pretext_platform.algorithms.bootstrap": fake_bootstrap_module},
+        ), patch(
+            "paper_new_selector.pretext_bridge._ensure_pretext_importable",
+            return_value=None,
+        ), patch(
+            "paper_new_selector.pretext_bridge._patch_vllm_network_host_ip",
+            side_effect=lambda: patch_calls.append("patched"),
+        ):
+            runtime = prepare_bootstrap_runtime(str(config_path))
+            outputs = runtime["generate_bootstrapped_samples"](["prompt"], Path("demo-model"), {"generator_backend": "vllm"})
+
+        self.assertEqual(patch_calls, ["patched"])
+        self.assertEqual(outputs, ["prompt::demo-model::vllm"])
 
 
 if __name__ == "__main__":
