@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
+try:
+    import yaml  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - keep config loading working in constrained environments
+    yaml = None
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -20,10 +23,96 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    text = path.read_text(encoding="utf-8")
+    if yaml is not None:
+        data = yaml.safe_load(text) or {}
+        if not isinstance(data, dict):
+            raise ValueError(f"YAML at {path} must decode to a mapping.")
+        return data
+    data = json.loads(json.dumps(_load_yaml_without_dependency(text)))
     if not isinstance(data, dict):
         raise ValueError(f"YAML at {path} must decode to a mapping.")
     return data
+
+
+def _parse_scalar(raw: str) -> Any:
+    value = raw.strip()
+    comment_start = -1
+    in_single_quote = False
+    in_double_quote = False
+    for i, ch in enumerate(value):
+        if ch == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+        elif ch == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+        elif ch == "#" and not in_single_quote and not in_double_quote:
+            comment_start = i
+            break
+    if comment_start >= 0:
+        value = value[:comment_start].strip()
+
+    if value == "":
+        return ""
+    if value.startswith(('"', "'")) and value.endswith(('"', "'")):
+        return value[1:-1]
+    if value in {"true", "True"}:
+        return True
+    if value in {"false", "False"}:
+        return False
+    if value in {"null", "None"}:
+        return None
+    if value.startswith("[") or value.startswith("{"):
+        return json.loads(value.replace("'", '"'))
+    if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
+        return int(value)
+    try:
+        return float(value) if any(ch in value for ch in ".eE") else value
+    except ValueError:
+        return value
+
+
+def _load_yaml_without_dependency(text: str) -> dict[str, Any]:
+    lines = []
+    for raw_line in text.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        lines.append((indent, raw_line.strip()))
+
+    def parse_block(index: int, indent: int) -> tuple[Any, int]:
+        mapping: dict[str, Any] = {}
+        sequence: list[Any] | None = None
+        while index < len(lines):
+            current_indent, content = lines[index]
+            if current_indent < indent:
+                break
+            if content.startswith("- "):
+                if sequence is None:
+                    sequence = []
+                item = content[2:].strip()
+                if item:
+                    sequence.append(_parse_scalar(item))
+                    index += 1
+                else:
+                    child, index = parse_block(index + 1, current_indent + 2)
+                    sequence.append(child)
+                continue
+
+            key, _, raw_value = content.partition(":")
+            if not _:
+                raise ValueError(f"Invalid YAML line: {content}")
+            if raw_value.strip():
+                mapping[key.strip()] = _parse_scalar(raw_value)
+                index += 1
+            else:
+                child, index = parse_block(index + 1, current_indent + 2)
+                mapping[key.strip()] = child
+        return (sequence if sequence is not None else mapping), index
+
+    parsed, _ = parse_block(0, 0)
+    if not isinstance(parsed, dict):
+        raise ValueError("Top-level YAML object must be a mapping.")
+    return parsed
 
 
 def _load_with_includes(path: Path) -> dict[str, Any]:

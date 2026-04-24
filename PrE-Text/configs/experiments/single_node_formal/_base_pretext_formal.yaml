@@ -27,7 +27,7 @@ bootstrap:
   device: cuda
 
 eval_small:
-  enabled: false
+  enabled: true
   eval_mode: gpt2
 
 eval_large:

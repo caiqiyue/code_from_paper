@@ -6,10 +6,10 @@
       "config_path": "paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "running",
-      "note": "started by old server scheduler",
-      "pid": "29143",
-      "last_checked_at": "2026-04-24T14:15:16"
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
+      "pid": null,
+      "last_checked_at": "2026-04-24T22:13:25"
     },
     {
       "label": "NS-C2",
@@ -199,6 +199,6 @@
       "last_checked_at": null
     }
   ],
-  "current_label": "NS-C1",
-  "updated_at": "2026-04-24T14:15:16"
+  "current_label": null,
+  "updated_at": "2026-04-24T22:13:25"
 }

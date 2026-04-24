@@ -1,0 +1,11 @@
+inherits:
+  - ./_base_pretext_screening.yaml
+
+meta:
+  experiment_id: sp_s_congressional_screening
+
+data:
+  dataset_name: congressional
+  train_path: ../thesis_platform/datasets/congressional/formatted/congressional_train.json
+  eval_path: ../thesis_platform/datasets/congressional/formatted/congressional_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

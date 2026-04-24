@@ -309,7 +309,7 @@ def experiment_def(label: str) -> ExperimentDef:
 def any_remote_experiment_running() -> bool:
     cmd = (
         "ps -ef | grep -E "
-        "'paper_new_selector.run_selector_single_node|pretext_platform.scripts.run_pipeline|pretext_platform.scripts.run_eval_small' "
+        "'paper_new_selector.run_selector_single_node|pretext_platform.scripts.run_pipeline' "
         "| grep -v grep || true"
     )
     code, out, err, host = run_remote(cmd, timeout=40)
@@ -325,10 +325,7 @@ def any_remote_experiment_running() -> bool:
 def _experiment_process_patterns(exp: ExperimentDef) -> list[str]:
     if exp.family == "paper_new":
         return [f"python -m paper_new_selector.run_selector_single_node --config {exp.remote_config_arg}"]
-    return [
-        f"python -m pretext_platform.scripts.run_pipeline --config {exp.remote_config_arg}",
-        f"python -m pretext_platform.scripts.run_eval_small --config {exp.remote_config_arg}",
-    ]
+    return [f"python -m pretext_platform.scripts.run_pipeline --config {exp.remote_config_arg}"]
 
 
 def _experiment_process_snapshot(exp: ExperimentDef) -> tuple[bool, str]:
@@ -447,8 +444,7 @@ def start_experiment(exp: ExperimentDef) -> str:
             f"source {REMOTE_CONDA} && conda activate {exp.env_name} && cd {REMOTE_PRETEXT_REPO} "
             f"&& export PYTHONUNBUFFERED=1 && export CUDA_DEVICE_ORDER={CUDA_DEVICE_ORDER} "
             f"&& export CUDA_VISIBLE_DEVICES={VISIBLE_DEVICE_INDEX} "
-            f"&& python -m pretext_platform.scripts.run_pipeline --config {exp.remote_config_arg} "
-            f"&& python -m pretext_platform.scripts.run_eval_small --config {exp.remote_config_arg}"
+            f"&& python -m pretext_platform.scripts.run_pipeline --config {exp.remote_config_arg}"
         )
     cmd = f"""
 set -e

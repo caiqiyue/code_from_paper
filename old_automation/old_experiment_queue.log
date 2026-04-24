@@ -228,3 +228,5 @@ bash: -c: line 0: `bash -lc 'source /home/k8smaster/anaconda3/etc/profile.d/cond
 [2026-04-23 01:37:59] SN-C1 is still running: artifacts present (stage_a) without metrics_summary
 [2026-04-24 14:15:06] Queue: NS-C1(pretext), NS-C2(pretext), NS-C3(pretext), NS-C4(pretext), SP-C1(pretext), SP-C2(pretext), SP-C3(pretext), SP-C4(pretext), NS-C5(pretext), SP-C5(pretext), NS-C6(pretext), SP-C6(pretext), NS-C7(pretext), SP-C7(pretext), NS-C8(pretext), SP-C8(pretext), NS-C9(pretext), SP-C9(pretext)
 [2026-04-24 14:15:16] Started NS-C1 on 58.217.205.244 with PID 29143; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/NS-C1.remote.log
+[2026-04-24 14:30:43] Queue: NS-C1(pretext), NS-C2(pretext), NS-C3(pretext), NS-C4(pretext), SP-C1(pretext), SP-C2(pretext), SP-C3(pretext), SP-C4(pretext), NS-C5(pretext), SP-C5(pretext), NS-C6(pretext), SP-C6(pretext), NS-C7(pretext), SP-C7(pretext), NS-C8(pretext), SP-C8(pretext), NS-C9(pretext), SP-C9(pretext)
+[2026-04-24 14:30:53] Started NS-C1 on 58.217.205.244 with PID 19858; env=pretext; log=/mnt/public/caiqiyue_file/code_from_paper/old_automation/NS-C1.remote.log

@@ -1,0 +1,37 @@
+inherits:
+  - ../single_node_formal/_base_pretext_formal.yaml
+
+meta:
+  stage: single_node_screening
+  seed: 42
+
+data:
+  max_samples_per_client: 16
+  train_limit: 256
+  eval_limit: 256
+  initialization_limit: 1024
+  initialization_min_words: 20
+
+stage1:
+  rounds: 6
+  lookahead: 2
+  multiplier: 2
+  batch_size: 16
+  embed_batch_size: 32
+
+bootstrap:
+  num_prompts: 100
+  max_tokens: 85
+
+eval_small:
+  enabled: true
+  eval_mode: gpt2
+  epochs: 6
+  batch_size: 8
+  eval_batch_size: 2
+  grad_accum_steps: 4
+  learning_rate: 0.0002
+  num_proc: 1
+
+eval_large:
+  enabled: false
