@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from .contracts import CandidateGeneratorHandle, GeneratorContract
+from .shared_vllm import build_shared_vllm_session
 from .thesis_bridge import load_yaml_config, resolve_repo_root, resolve_worktree_root
 
 
@@ -74,10 +75,12 @@ def build_candidate_generator(config_path: str | Path) -> CandidateGeneratorHand
         tensor_parallel_size=int(llm_cfg["tensor_parallel_size"]),
         enforce_eager=bool(llm_cfg["enforce_eager"]),
     ).to_dict()
+    shared_session = build_shared_vllm_session(text_backend)
     return CandidateGeneratorHandle(
         generator=generator,
         text_backend=text_backend,
         contract=contract,
         repo_root=repo_root,
         resource_root=resource_root,
+        shared_session=shared_session,
     )

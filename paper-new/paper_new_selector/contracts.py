@@ -84,3 +84,19 @@ class CandidateGeneratorHandle:
     contract: dict[str, Any]
     repo_root: Path
     resource_root: Path
+    shared_session: Any | None = None
+
+
+@dataclass(slots=True)
+class SharedSessionContract:
+    """Public contract describing the shared Stage 1/Stage 2 vLLM runtime."""
+
+    llm_backend: str
+    model_path: str
+    max_model_len: int
+    gpu_memory_utilization: float
+    tensor_parallel_size: int
+    enforce_eager: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)

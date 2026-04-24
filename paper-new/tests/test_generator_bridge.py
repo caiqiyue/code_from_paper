@@ -49,6 +49,8 @@ class GeneratorBridgeTests(unittest.TestCase):
         self.assertEqual(handle.contract["gpu_memory_utilization"], 0.35)
         self.assertEqual(handle.contract["tensor_parallel_size"], 1)
         self.assertTrue(handle.contract["enforce_eager"])
+        self.assertIsNotNone(handle.shared_session)
+        self.assertEqual(handle.shared_session.to_dict()["llm_backend"], "vllm")
 
     def test_stage1_generator_runtime_uses_llm_generator_sampling_values_as_single_source(self):
         config_path = self._write_temp_config(
@@ -69,6 +71,11 @@ class GeneratorBridgeTests(unittest.TestCase):
         handle = build_candidate_generator(str(config_path))
         self.assertEqual(handle.generator.temperature, 0.9)
         self.assertEqual(handle.generator.max_new_tokens, 55)
+
+    def test_generator_handle_exposes_shared_vllm_backend_methods(self):
+        handle = build_candidate_generator("configs/single_node_jobs_selector.yaml")
+        self.assertTrue(hasattr(handle.text_backend, "ensure_session"))
+        self.assertTrue(hasattr(handle.text_backend, "generate_batch"))
 
 
 if __name__ == "__main__":

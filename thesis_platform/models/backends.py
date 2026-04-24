@@ -535,6 +535,47 @@ class VllmTextBackend(BaseTextBackend):
             return ""
         return str(outputs[0].outputs[0].text).strip()
 
+    def ensure_session(self) -> tuple[Any, Any]:
+        """Expose the reusable vLLM engine and SamplingParams class."""
+
+        return self._ensure_loaded()
+
+    def generate_batch(
+        self,
+        prompts: list[str],
+        *,
+        max_new_tokens: int = 256,
+        temperature: float | None = None,
+    ) -> list[str]:
+        """Generate a batch of prompts with the same loaded vLLM engine."""
+
+        if not prompts:
+            return []
+        llm, sampling_params_cls = self._ensure_loaded()
+        effective_temperature = temperature if temperature is not None else self._default_temperature
+        sampling_params = sampling_params_cls(
+            temperature=float(effective_temperature),
+            top_p=float(self._top_p),
+            max_tokens=int(max_new_tokens or self._default_max_new_tokens),
+        )
+        try:
+            outputs = llm.generate([self._format_prompt(prompt) for prompt in prompts], sampling_params)
+        except Exception as exc:
+            if _is_cuda_oom(exc):
+                raise VllmGenerationError(
+                    "vllm_runtime_gpu_oom",
+                    "vLLM hit CUDA out of memory during batched generation.",
+                    details=self._startup_memory_details,
+                ) from exc
+            raise
+        generated: list[str] = []
+        for output in outputs:
+            if not output or not getattr(output, "outputs", None):
+                generated.append("")
+                continue
+            generated.append(str(output.outputs[0].text).strip())
+        return generated
+
     def negative_log_likelihood(self, prompt: str, completion: str) -> float:
         del prompt, completion
         raise NotImplementedError("VllmTextBackend does not support negative_log_likelihood().")

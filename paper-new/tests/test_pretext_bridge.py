@@ -6,7 +6,11 @@ from unittest.mock import patch
 
 import yaml
 
-from paper_new_selector.pretext_bridge import prepare_bootstrap_runtime, resolve_bootstrap_model_path
+from paper_new_selector.pretext_bridge import (
+    generate_with_shared_vllm_session,
+    prepare_bootstrap_runtime,
+    resolve_bootstrap_model_path,
+)
 from paper_new_selector.thesis_bridge import load_yaml_config, resolve_dataset_paths
 
 
@@ -89,6 +93,24 @@ class BridgeTests(unittest.TestCase):
 
         self.assertEqual(patch_calls, ["patched"])
         self.assertEqual(outputs, ["prompt::demo-model::vllm"])
+
+    def test_shared_stage2_generation_uses_existing_backend_batch_generate(self):
+        class _FakeBackend:
+            def __init__(self):
+                self.calls = []
+
+            def generate_batch(self, prompts, *, max_new_tokens, temperature=None):
+                self.calls.append((list(prompts), max_new_tokens, temperature))
+                return ["alpha", "beta"]
+
+        backend = _FakeBackend()
+        outputs = generate_with_shared_vllm_session(
+            ["p1", "p2"],
+            shared_session={"backend": backend},
+            bootstrap_cfg={"max_tokens": 85, "temperature": 1.0},
+        )
+        self.assertEqual(outputs, ["alpha", "beta"])
+        self.assertEqual(backend.calls, [(["p1", "p2"], 85, 1.0)])
 
 
 if __name__ == "__main__":

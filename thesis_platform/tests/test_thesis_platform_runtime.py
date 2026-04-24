@@ -487,6 +487,78 @@ class BackendRuntimeTests(unittest.TestCase):
         self.assertEqual(output, "generated:prompt text")
         self.assertIs(captured_llm_kwargs["enforce_eager"], True)
 
+    def test_vllm_backend_exposes_reusable_session_and_batch_generation(self) -> None:
+        from thesis_platform.models.backends import VllmTextBackend
+
+        captured_prompts: list[str] = []
+        captured_sampling_kwargs: dict[str, object] = {}
+
+        class FakeLLM:
+            def __init__(self, **_kwargs):
+                pass
+
+            def generate(self, prompts, sampling_params):
+                del sampling_params
+                captured_prompts.extend(prompts)
+                return [
+                    SimpleNamespace(outputs=[SimpleNamespace(text=f"generated:{prompt}")])
+                    for prompt in prompts
+                ]
+
+        class FakeSamplingParams:
+            def __init__(self, **kwargs):
+                captured_sampling_kwargs.update(kwargs)
+
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def current_device():
+                return 0
+
+            @staticmethod
+            def mem_get_info(_device_index):
+                return int(29 * 1024**3), int(47.5 * 1024**3)
+
+            @staticmethod
+            def empty_cache():
+                pass
+
+            @staticmethod
+            def ipc_collect():
+                pass
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+        fake_torch = types.ModuleType("torch")
+        fake_torch.cuda = FakeCuda()
+
+        backend = VllmTextBackend(
+            model_path=Path("local-llama"),
+            max_model_len=512,
+            gpu_memory_utilization=0.35,
+            startup_required_free_gb=2,
+            tensor_parallel_size=1,
+            temperature=0.7,
+            max_new_tokens=48,
+            top_p=0.9,
+            enforce_eager=True,
+        )
+        with patch.dict(sys.modules, {"vllm": fake_vllm, "torch": fake_torch}):
+            llm, sampling_params_cls = backend.ensure_session()
+            outputs = backend.generate_batch(["prompt one", "prompt two"], max_new_tokens=64, temperature=0.5)
+
+        self.assertIsInstance(llm, FakeLLM)
+        self.assertIs(sampling_params_cls, FakeSamplingParams)
+        self.assertEqual(outputs, ["generated:prompt one", "generated:prompt two"])
+        self.assertEqual(captured_prompts, ["prompt one", "prompt two"])
+        self.assertEqual(captured_sampling_kwargs["max_tokens"], 64)
+        self.assertEqual(captured_sampling_kwargs["temperature"], 0.5)
+        self.assertEqual(captured_sampling_kwargs["top_p"], 0.9)
+
     def test_vllm_backend_patches_host_ip_when_runtime_get_ip_depends_on_dns(self) -> None:
         from thesis_platform.models.backends import VllmTextBackend
 

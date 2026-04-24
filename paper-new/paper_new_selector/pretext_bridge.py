@@ -61,6 +61,27 @@ def resolve_bootstrap_model_path(models_root: str | Path, model_name: str) -> Pa
     return resolved.resolve()
 
 
+def generate_with_shared_vllm_session(
+    prompt_list: list[str],
+    *,
+    shared_session: dict[str, Any] | Any,
+    bootstrap_cfg: dict[str, Any],
+) -> list[str]:
+    """Generate Stage 2 outputs with the already-loaded shared Stage 1 vLLM backend."""
+
+    if isinstance(shared_session, dict):
+        backend = shared_session.get("backend")
+    else:
+        backend = getattr(shared_session, "backend", None)
+    if backend is None:
+        raise ValueError("shared_session must expose a backend for Stage 2 shared generation.")
+    return backend.generate_batch(
+        prompt_list,
+        max_new_tokens=int(bootstrap_cfg.get("max_tokens", 85)),
+        temperature=float(bootstrap_cfg.get("temperature", 1.0)),
+    )
+
+
 def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
     config = load_yaml_config(config_path)
     repo_root = resolve_repo_root()
@@ -103,6 +124,7 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
     return {
         "build_bootstrap_prompts": build_bootstrap_prompts,
         "generate_bootstrapped_samples": generator_fn,
+        "generate_with_shared_session": generate_with_shared_vllm_session,
         "bootstrap_cfg": bootstrap_cfg,
         "model_path": model_path,
     }

@@ -47,27 +47,43 @@ def _select_seed_samples(
     return [init_samples[index] for index in selected_indices]
 
 
-def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[str, Any]:
+def run_stage1_with_runtime(
+    config_path: str | Path,
+    *,
+    validate_only: bool = False,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     config = load_yaml_config(config_path)
     sample_bundle = load_text_samples(config_path)
     generator_handle = build_candidate_generator(config_path)
     embedder: Any | None = None
-    try:
-        if validate_only:
-            return {
+    if validate_only:
+        return (
+            {
                 "mode": str(config["pipeline"]["stage1_mode"]),
                 "train_count": len(sample_bundle["train_samples"]),
                 "eval_count": len(sample_bundle["eval_samples"]),
                 "init_count": len(sample_bundle["init_samples"]),
                 "generator_contract": dict(generator_handle.contract),
+                "shared_session": (
+                    generator_handle.shared_session.to_dict()
+                    if getattr(generator_handle, "shared_session", None) is not None
+                    else None
+                ),
                 "boundary_state": {
                     "reject_score_ceiling": 0.0,
                     "reject_score_floor": 0.0,
                     "negative_centroid": [],
                     "negative_pattern_stats": {"count": 0},
                 },
-            }
+            },
+            {
+                "generator_handle": generator_handle,
+                "shared_session": getattr(generator_handle, "shared_session", None),
+                "embedder": None,
+            },
+        )
 
+    try:
         embedder = build_embedder_from_config(config_path)
         private_samples = sample_bundle["train_samples"]
         init_samples = sample_bundle["init_samples"]
@@ -185,6 +201,22 @@ def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[
                 "delta": float(stage1_cfg.get("delta", privacy_cfg.get("delta", 0.0))),
             },
             "decision": decision.to_dict(),
+            "shared_session": (
+                generator_handle.shared_session.to_dict()
+                if getattr(generator_handle, "shared_session", None) is not None
+                else None
+            ),
+        }, {
+            "generator_handle": generator_handle,
+            "shared_session": getattr(generator_handle, "shared_session", None),
+            "embedder": embedder,
         }
-    finally:
+    except Exception:
         release_runtime_memory(getattr(generator_handle, "text_backend", None), embedder)
+        raise
+
+
+def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[str, Any]:
+    summary, runtime = run_stage1_with_runtime(config_path, validate_only=validate_only)
+    release_runtime_memory(getattr(runtime.get("generator_handle"), "text_backend", None), runtime.get("embedder"))
+    return summary
