@@ -43,22 +43,22 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
 
             @staticmethod
             def mem_get_info(_device_index):
-                return int(27 * BYTES_PER_GIB), int(47.5 * BYTES_PER_GIB)
+                return int(19 * BYTES_PER_GIB), int(47.5 * BYTES_PER_GIB)
 
         fake_torch = types.ModuleType("torch")
         fake_torch.cuda = FakeCuda()
 
         with patch.dict(sys.modules, {"torch": fake_torch}):
             with self.assertRaises(PretextFailure) as context:
-                ensure_vllm_startup_memory({"startup_required_free_gb": 28})
+                ensure_vllm_startup_memory({"startup_required_free_gb": 20})
 
         self.assertEqual(
             context.exception.failure_code,
             "insufficient_free_gpu_memory_before_stage2",
         )
         self.assertEqual(context.exception.phase, "stage2_precheck")
-        self.assertEqual(context.exception.details["required_free_gib"], 28.0)
-        self.assertEqual(context.exception.details["observed_free_gib"], 27.0)
+        self.assertEqual(context.exception.details["required_free_gib"], 20.0)
+        self.assertEqual(context.exception.details["observed_free_gib"], 19.0)
 
     def test_vllm_generation_prechecks_memory_and_passes_bounded_constructor_args(self) -> None:
         captured_llm_kwargs: dict[str, object] = {}
@@ -86,7 +86,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
         bootstrap_cfg = {
             "max_model_len": 512,
             "gpu_memory_utilization": 0.55,
-            "startup_required_free_gb": 28,
+            "startup_required_free_gb": 20,
             "temperature": 0.4,
             "top_p": 0.9,
             "max_tokens": 33,
@@ -162,7 +162,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
 
         with patch.dict(sys.modules, {"vllm": fake_vllm}), patch(
             "pretext_platform.algorithms.bootstrap.ensure_vllm_startup_memory",
-            return_value={"observed_free_gib": 29.0, "required_free_gib": 28.0},
+            return_value={"observed_free_gib": 29.0, "required_free_gib": 20.0},
         ):
             with self.assertRaises(PretextFailure) as context:
                 generate_bootstrapped_samples_vllm(
@@ -177,8 +177,8 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
     def test_formal_vllm_configs_define_shared_a6000_memory_budget(self) -> None:
         root = Path(__file__).resolve().parents[1]
         expected_budgets = {
-            root / "configs" / "experiments" / "single_node_formal" / "sp_c1_jobs_base.yaml": 26,
-            root / "configs" / "experiments" / "federated_formal" / "fp_c1_jobs_base.yaml": 28,
+            root / "configs" / "experiments" / "single_node_formal" / "sp_c1_jobs_base.yaml": 20,
+            root / "configs" / "experiments" / "federated_formal" / "fp_c1_jobs_base.yaml": 20,
         }
 
         for config_path, expected_budget in expected_budgets.items():
@@ -222,8 +222,8 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
             "enforce_eager",
         ):
             self.assertEqual(smoke.bootstrap[key], formal.bootstrap[key])
-        self.assertEqual(formal.bootstrap["startup_required_free_gb"], 26)
-        self.assertEqual(smoke.bootstrap["startup_required_free_gb"], 25)
+        self.assertEqual(formal.bootstrap["startup_required_free_gb"], 20)
+        self.assertEqual(smoke.bootstrap["startup_required_free_gb"], 20)
 
     def test_pipeline_writes_failure_artifacts_for_stage2_startup_rejection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -247,9 +247,9 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
             )
             failure = PretextFailure(
                 "insufficient_free_gpu_memory_before_stage2",
-                "free GPU memory 27.0 GiB is below required 28.0 GiB",
+                "free GPU memory 27.0 GiB is below required 20.0 GiB",
                 phase="stage2_precheck",
-                details={"observed_free_gib": 27.0, "required_free_gib": 28.0},
+                details={"observed_free_gib": 27.0, "required_free_gib": 20.0},
             )
             with patch("pretext_platform.core.pipeline.run_stage1", return_value=stage1_summary), patch(
                 "pretext_platform.core.pipeline.run_bootstrap",

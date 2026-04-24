@@ -14,7 +14,7 @@ llm:
     max_new_tokens: 192
     max_model_len: 512
     gpu_memory_utilization: 0.55
-    startup_required_free_gb: 26
+    startup_required_free_gb: 20
     tensor_parallel_size: 1
     enforce_eager: true
     role: generator

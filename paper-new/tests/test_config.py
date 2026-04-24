@@ -27,7 +27,7 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(config["llm"]["generator"]["model_name_or_path"], "thesis_platform/open_model/llama_2_7b_hf")
         self.assertEqual(config["llm"]["generator"]["max_model_len"], 512)
         self.assertEqual(config["llm"]["generator"]["gpu_memory_utilization"], 0.55)
-        self.assertEqual(config["llm"]["generator"]["startup_required_free_gb"], 26)
+        self.assertEqual(config["llm"]["generator"]["startup_required_free_gb"], 20)
         self.assertEqual(config["llm"]["generator"]["tensor_parallel_size"], 1)
         self.assertTrue(config["llm"]["generator"]["enforce_eager"])
         self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
@@ -47,7 +47,7 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(config["data"]["dataset_name"], "jobs")
         self.assertEqual(config["bootstrap"]["num_prompts"], 1500)
         self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
-        self.assertEqual(config["bootstrap"]["startup_required_free_gb"], 26)
+        self.assertEqual(config["bootstrap"]["startup_required_free_gb"], 20)
         self.assertEqual(config["privacy"]["epsilon"], 1.29)
         self.assertEqual(config["stage1"]["sigma"], 11.3)
 

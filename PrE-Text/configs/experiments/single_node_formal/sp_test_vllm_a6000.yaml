@@ -24,4 +24,4 @@ stage1:
 bootstrap:
   num_prompts: 4
   max_tokens: 32
-  startup_required_free_gb: 25
+  startup_required_free_gb: 20
