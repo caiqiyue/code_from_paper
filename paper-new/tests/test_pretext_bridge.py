@@ -50,7 +50,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(runtime["bootstrap_cfg"]["top_p"], 1.0)
         self.assertEqual(runtime["bootstrap_cfg"]["max_tokens"], 32)
         self.assertTrue(runtime["bootstrap_cfg"]["enforce_eager"])
-        self.assertEqual(runtime["bootstrap_cfg"]["startup_required_free_gb"], 20)
+        self.assertEqual(runtime["bootstrap_cfg"]["startup_required_free_gb"], 2)
 
     def test_pretext_bridge_rejects_non_vllm_backend(self):
         config_path = self._write_temp_config(

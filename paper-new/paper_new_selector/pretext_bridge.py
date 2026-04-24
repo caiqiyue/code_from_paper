@@ -91,7 +91,7 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
         "max_model_len": int(config["bootstrap"].get("max_model_len", 512)),
         "tensor_parallel_size": int(config["bootstrap"].get("tensor_parallel_size", 1)),
         "gpu_memory_utilization": float(config["bootstrap"].get("gpu_memory_utilization", 0.55)),
-        "startup_required_free_gb": float(config["bootstrap"].get("startup_required_free_gb", 20)),
+        "startup_required_free_gb": float(config["bootstrap"].get("startup_required_free_gb", 2)),
         "enforce_eager": bool(config["bootstrap"].get("enforce_eager", True)),
         "device": str(config["bootstrap"].get("device", "cuda")),
         "batch_size": int(config["bootstrap"].get("batch_size", 1)),
