@@ -50,7 +50,7 @@ bootstrap:
   top_p: 1.0
   max_model_len: 512
   tensor_parallel_size: 1
-  gpu_memory_utilization: 0.55
+  gpu_memory_utilization: 0.35
   startup_required_free_gb: 2
   enforce_eager: true
   device: cuda

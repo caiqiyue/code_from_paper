@@ -9,18 +9,18 @@ import old_automation.old_experiment_queue as queue
 
 
 class OldExperimentQueueTests(unittest.TestCase):
-    def test_thesis_metrics_summary_counts_as_success_without_latest_pointer(self) -> None:
-        exp = queue.experiment_def("SN-C1")
+    def test_paper_new_downstream_summary_counts_as_success(self) -> None:
+        exp = queue.experiment_def("NS-C1")
         remote_outputs = [
             (0, "", "", "host-a"),
-            (0, "success:metrics_summary present\n", "", "host-a"),
+            (0, "success:downstream summary and stage2 corpus present\n", "", "host-a"),
         ]
 
         with patch.object(queue, "run_remote", side_effect=remote_outputs):
             status, note = queue.inspect_experiment(exp)
 
         self.assertEqual(status, "success")
-        self.assertEqual(note, "metrics_summary present")
+        self.assertEqual(note, "downstream summary and stage2 corpus present")
 
     def test_pretext_partial_artifacts_with_live_process_counts_as_running(self) -> None:
         exp = queue.experiment_def("SP-C1")
@@ -45,11 +45,11 @@ class OldExperimentQueueTests(unittest.TestCase):
         state = {
             "queue": [
                 {
-                    "label": "SN-C1",
-                    "actual_experiment_id": "sn_c1_jobs_base",
-                    "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml",
-                    "env_name": "caiqiyue-vllm",
-                    "family": "thesis",
+                    "label": "NS-C1",
+                    "actual_experiment_id": "ns_c1_jobs_base",
+                    "config_path": "paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml",
+                    "env_name": "pretext",
+                    "family": "paper_new",
                     "status": "running",
                     "note": "stale",
                     "pid": "111",
@@ -67,11 +67,11 @@ class OldExperimentQueueTests(unittest.TestCase):
                     "last_checked_at": None,
                 },
                 {
-                    "label": "SN-C2",
-                    "actual_experiment_id": "sn_c2_congressional_base",
-                    "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml",
-                    "env_name": "caiqiyue-vllm",
-                    "family": "thesis",
+                    "label": "NS-C2",
+                    "actual_experiment_id": "ns_c2_congressional_base",
+                    "config_path": "paper-new/configs/experiments/single_node_formal/ns_c2_congressional_base.yaml",
+                    "env_name": "pretext",
+                    "family": "paper_new",
                     "status": "pending",
                     "note": "",
                     "pid": None,
@@ -89,7 +89,7 @@ class OldExperimentQueueTests(unittest.TestCase):
                     "last_checked_at": None,
                 },
             ],
-            "current_label": "SN-C1",
+            "current_label": "NS-C1",
         }
 
         inspect_results = [
@@ -106,10 +106,10 @@ class OldExperimentQueueTests(unittest.TestCase):
         ):
             queue.main()
 
-        self.assertEqual(state["current_label"], "SP-C1")
+        self.assertEqual(state["current_label"], "NS-C2")
         self.assertEqual(state["queue"][0]["status"], "failed")
         self.assertEqual(state["queue"][0]["pid"], None)
-        self.assertEqual(state["queue"][1]["status"], "running")
+        self.assertEqual(state["queue"][2]["status"], "running")
 
 
 if __name__ == "__main__":

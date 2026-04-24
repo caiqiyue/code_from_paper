@@ -20,7 +20,7 @@ bootstrap:
   generator_backend: vllm
   num_prompts: 1500
   max_model_len: 512
-  gpu_memory_utilization: 0.55
+  gpu_memory_utilization: 0.35
   enforce_eager: true
   startup_required_free_gb: 2
   tensor_parallel_size: 1

@@ -1,44 +1,44 @@
 {
   "queue": [
     {
-      "label": "SN-C1",
-      "actual_experiment_id": "sn_c1_jobs_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C1",
+      "actual_experiment_id": "ns_c1_jobs_base",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "running",
-      "note": "artifacts present (stage_a) without metrics_summary",
-      "pid": "7004",
-      "last_checked_at": "2026-04-23T01:37:59"
+      "note": "started by old server scheduler",
+      "pid": "29143",
+      "last_checked_at": "2026-04-24T14:15:16"
     },
     {
-      "label": "SN-C2",
-      "actual_experiment_id": "sn_c2_congressional_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C2",
+      "actual_experiment_id": "ns_c2_congressional_base",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c2_congressional_base.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
       "last_checked_at": null
     },
     {
-      "label": "SN-C3",
-      "actual_experiment_id": "sn_c3_forums_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c3_forums_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C3",
+      "actual_experiment_id": "ns_c3_forums_base",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c3_forums_base.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
       "last_checked_at": null
     },
     {
-      "label": "SN-C4",
-      "actual_experiment_id": "sn_c4_microblog_base",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c4_microblog_base.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C4",
+      "actual_experiment_id": "ns_c4_microblog_base",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c4_microblog_base.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
@@ -89,11 +89,11 @@
       "last_checked_at": "2026-04-22T22:06:33"
     },
     {
-      "label": "SN-C5",
-      "actual_experiment_id": "sn_c5_jobs_eps05",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c5_jobs_eps05.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C5",
+      "actual_experiment_id": "ns_c5_jobs_eps05",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c5_jobs_eps05.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
@@ -111,11 +111,11 @@
       "last_checked_at": null
     },
     {
-      "label": "SN-C6",
-      "actual_experiment_id": "sn_c6_jobs_eps758",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c6_jobs_eps758.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C6",
+      "actual_experiment_id": "ns_c6_jobs_eps758",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c6_jobs_eps758.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
@@ -133,11 +133,11 @@
       "last_checked_at": null
     },
     {
-      "label": "SN-C7",
-      "actual_experiment_id": "sn_c7_jobs_no_privacy",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c7_jobs_no_privacy.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C7",
+      "actual_experiment_id": "ns_c7_jobs_no_privacy",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c7_jobs_no_privacy.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
@@ -155,11 +155,11 @@
       "last_checked_at": null
     },
     {
-      "label": "SN-C8",
-      "actual_experiment_id": "sn_c8_jobs_seed123",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c8_jobs_seed123.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C8",
+      "actual_experiment_id": "ns_c8_jobs_seed123",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c8_jobs_seed123.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
@@ -177,11 +177,11 @@
       "last_checked_at": null
     },
     {
-      "label": "SN-C9",
-      "actual_experiment_id": "sn_c9_jobs_seed456",
-      "config_path": "thesis_platform/configs/experiments/single_node_formal/sn_c9_jobs_seed456.yaml",
-      "env_name": "caiqiyue-vllm",
-      "family": "thesis",
+      "label": "NS-C9",
+      "actual_experiment_id": "ns_c9_jobs_seed456",
+      "config_path": "paper-new/configs/experiments/single_node_formal/ns_c9_jobs_seed456.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
       "status": "pending",
       "note": "",
       "pid": null,
@@ -199,6 +199,6 @@
       "last_checked_at": null
     }
   ],
-  "current_label": "SN-C1",
-  "updated_at": "2026-04-23T01:37:59"
+  "current_label": "NS-C1",
+  "updated_at": "2026-04-24T14:15:16"
 }

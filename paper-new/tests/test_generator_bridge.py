@@ -46,7 +46,7 @@ class GeneratorBridgeTests(unittest.TestCase):
         handle = build_candidate_generator("configs/single_node_jobs_selector.yaml")
         self.assertEqual(handle.contract["llm_backend"], "vllm")
         self.assertEqual(handle.contract["max_model_len"], 512)
-        self.assertEqual(handle.contract["gpu_memory_utilization"], 0.55)
+        self.assertEqual(handle.contract["gpu_memory_utilization"], 0.35)
         self.assertEqual(handle.contract["tensor_parallel_size"], 1)
         self.assertTrue(handle.contract["enforce_eager"])
 

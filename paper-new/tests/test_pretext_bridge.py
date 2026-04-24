@@ -44,7 +44,7 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(callable(runtime["generate_bootstrapped_samples"]))
         self.assertEqual(runtime["bootstrap_cfg"]["generator_backend"], "vllm")
         self.assertEqual(runtime["bootstrap_cfg"]["max_model_len"], 512)
-        self.assertEqual(runtime["bootstrap_cfg"]["gpu_memory_utilization"], 0.55)
+        self.assertEqual(runtime["bootstrap_cfg"]["gpu_memory_utilization"], 0.35)
         self.assertEqual(runtime["bootstrap_cfg"]["tensor_parallel_size"], 1)
         self.assertEqual(runtime["bootstrap_cfg"]["temperature"], 1.0)
         self.assertEqual(runtime["bootstrap_cfg"]["top_p"], 1.0)

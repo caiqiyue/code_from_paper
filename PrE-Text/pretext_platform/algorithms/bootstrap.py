@@ -70,7 +70,7 @@ def generate_bootstrapped_samples_vllm(prompt_list: list[str], model_path: Path,
             model=str(model_path),
             max_model_len=int(bootstrap_cfg.get("max_model_len", 1000)),
             tensor_parallel_size=int(bootstrap_cfg.get("tensor_parallel_size", 1)),
-            gpu_memory_utilization=float(bootstrap_cfg.get("gpu_memory_utilization", 0.9)),
+            gpu_memory_utilization=float(bootstrap_cfg.get("gpu_memory_utilization", 0.35)),
             enforce_eager=bool(bootstrap_cfg.get("enforce_eager", False)),
         )
         sampling_params = SamplingParams(

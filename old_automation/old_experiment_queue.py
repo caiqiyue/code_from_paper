@@ -22,6 +22,8 @@ PASSWORD = "k8s"
 
 REMOTE_REPO = "/mnt/public/caiqiyue_file/code_from_paper"
 REMOTE_THESIS_OUTPUT = f"{REMOTE_REPO}/outputs/thesis_platform"
+REMOTE_PAPER_NEW_REPO = f"{REMOTE_REPO}/paper-new"
+REMOTE_PAPER_NEW_OUTPUT = f"{REMOTE_PAPER_NEW_REPO}/outputs"
 REMOTE_PRETEXT_REPO = f"{REMOTE_REPO}/PrE-Text"
 REMOTE_PRETEXT_OUTPUT = f"{REMOTE_PRETEXT_REPO}/outputs/pretext_platform"
 REMOTE_CONDA = "/home/k8smaster/anaconda3/etc/profile.d/conda.sh"
@@ -36,15 +38,17 @@ class ExperimentDef:
     actual_experiment_id: str
     config_path: str
     env_name: str
-    family: str  # "thesis" or "pretext"
+    family: str  # "paper_new" or "pretext"
 
     @property
     def output_root(self) -> str:
-        return REMOTE_THESIS_OUTPUT if self.family == "thesis" else REMOTE_PRETEXT_OUTPUT
+        if self.family == "paper_new":
+            return REMOTE_PAPER_NEW_OUTPUT
+        return REMOTE_PRETEXT_OUTPUT
 
     @property
     def remote_workdir(self) -> str:
-        return REMOTE_REPO if self.family == "thesis" else REMOTE_PRETEXT_REPO
+        return REMOTE_PAPER_NEW_REPO if self.family == "paper_new" else REMOTE_PRETEXT_REPO
 
     @property
     def remote_config_file(self) -> str:
@@ -52,6 +56,8 @@ class ExperimentDef:
 
     @property
     def remote_config_arg(self) -> str:
+        if self.family == "paper_new" and self.config_path.startswith("paper-new/"):
+            return self.config_path.removeprefix("paper-new/")
         if self.family == "pretext" and self.config_path.startswith("PrE-Text/"):
             return self.config_path.removeprefix("PrE-Text/")
         return self.config_path
@@ -59,32 +65,32 @@ class ExperimentDef:
 
 QUEUE: list[ExperimentDef] = [
     ExperimentDef(
-        label="SN-C1",
-        actual_experiment_id="sn_c1_jobs_base",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c1_jobs_base.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C1",
+        actual_experiment_id="ns_c1_jobs_base",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
-        label="SN-C2",
-        actual_experiment_id="sn_c2_congressional_base",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c2_congressional_base.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C2",
+        actual_experiment_id="ns_c2_congressional_base",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c2_congressional_base.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
-        label="SN-C3",
-        actual_experiment_id="sn_c3_forums_base",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c3_forums_base.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C3",
+        actual_experiment_id="ns_c3_forums_base",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c3_forums_base.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
-        label="SN-C4",
-        actual_experiment_id="sn_c4_microblog_base",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c4_microblog_base.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C4",
+        actual_experiment_id="ns_c4_microblog_base",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c4_microblog_base.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
         label="SP-C1",
@@ -115,11 +121,11 @@ QUEUE: list[ExperimentDef] = [
         family="pretext",
     ),
     ExperimentDef(
-        label="SN-C5",
-        actual_experiment_id="sn_c5_jobs_eps05",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c5_jobs_eps05.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C5",
+        actual_experiment_id="ns_c5_jobs_eps05",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c5_jobs_eps05.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
         label="SP-C5",
@@ -129,11 +135,11 @@ QUEUE: list[ExperimentDef] = [
         family="pretext",
     ),
     ExperimentDef(
-        label="SN-C6",
-        actual_experiment_id="sn_c6_jobs_eps758",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c6_jobs_eps758.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C6",
+        actual_experiment_id="ns_c6_jobs_eps758",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c6_jobs_eps758.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
         label="SP-C6",
@@ -143,11 +149,11 @@ QUEUE: list[ExperimentDef] = [
         family="pretext",
     ),
     ExperimentDef(
-        label="SN-C7",
-        actual_experiment_id="sn_c7_jobs_no_privacy",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c7_jobs_no_privacy.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C7",
+        actual_experiment_id="ns_c7_jobs_no_privacy",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c7_jobs_no_privacy.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
         label="SP-C7",
@@ -157,11 +163,11 @@ QUEUE: list[ExperimentDef] = [
         family="pretext",
     ),
     ExperimentDef(
-        label="SN-C8",
-        actual_experiment_id="sn_c8_jobs_seed123",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c8_jobs_seed123.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C8",
+        actual_experiment_id="ns_c8_jobs_seed123",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c8_jobs_seed123.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
         label="SP-C8",
@@ -171,11 +177,11 @@ QUEUE: list[ExperimentDef] = [
         family="pretext",
     ),
     ExperimentDef(
-        label="SN-C9",
-        actual_experiment_id="sn_c9_jobs_seed456",
-        config_path="thesis_platform/configs/experiments/single_node_formal/sn_c9_jobs_seed456.yaml",
-        env_name="caiqiyue-vllm",
-        family="thesis",
+        label="NS-C9",
+        actual_experiment_id="ns_c9_jobs_seed456",
+        config_path="paper-new/configs/experiments/single_node_formal/ns_c9_jobs_seed456.yaml",
+        env_name="pretext",
+        family="paper_new",
     ),
     ExperimentDef(
         label="SP-C9",
@@ -303,7 +309,7 @@ def experiment_def(label: str) -> ExperimentDef:
 def any_remote_experiment_running() -> bool:
     cmd = (
         "ps -ef | grep -E "
-        "'thesis_platform.scripts.run_experiment|pretext_platform.scripts.run_pipeline|pretext_platform.scripts.run_eval_small' "
+        "'paper_new_selector.run_selector_single_node|pretext_platform.scripts.run_pipeline|pretext_platform.scripts.run_eval_small' "
         "| grep -v grep || true"
     )
     code, out, err, host = run_remote(cmd, timeout=40)
@@ -317,8 +323,8 @@ def any_remote_experiment_running() -> bool:
 
 
 def _experiment_process_patterns(exp: ExperimentDef) -> list[str]:
-    if exp.family == "thesis":
-        return [f"python -m thesis_platform.scripts.run_experiment --config {exp.config_path}"]
+    if exp.family == "paper_new":
+        return [f"python -m paper_new_selector.run_selector_single_node --config {exp.remote_config_arg}"]
     return [
         f"python -m pretext_platform.scripts.run_pipeline --config {exp.remote_config_arg}",
         f"python -m pretext_platform.scripts.run_eval_small --config {exp.remote_config_arg}",
@@ -337,43 +343,26 @@ def _experiment_process_snapshot(exp: ExperimentDef) -> tuple[bool, str]:
     return bool(lines), (lines[0] if lines else "")
 
 
-def _inspect_thesis_experiment(exp: ExperimentDef) -> tuple[str, str]:
+def _inspect_paper_new_experiment(exp: ExperimentDef) -> tuple[str, str]:
     cmd = f"""
-cd {REMOTE_REPO} || exit 1
+cd {REMOTE_PAPER_NEW_REPO} || exit 1
 /home/k8smaster/anaconda3/bin/python - <<'PY'
 import json
 from pathlib import Path
 
 experiment_id = {exp.actual_experiment_id!r}
-experiment_dir = Path({REMOTE_THESIS_OUTPUT!r}) / experiment_id
+experiment_dir = Path({REMOTE_PAPER_NEW_OUTPUT!r}) / experiment_id
 if not experiment_dir.exists():
     print("failed:missing experiment dir")
     raise SystemExit
-run_state = experiment_dir / "run_state.json"
-metrics = experiment_dir / "metrics_summary.json"
-stage_a = experiment_dir / "stage_a"
-stage_b = experiment_dir / "stage_b"
+summary = experiment_dir / "eval" / "downstream_eval_summary.json"
+stage2 = experiment_dir / "eval" / "stage2" / "llama7b_text_syn.json"
 eval_dir = experiment_dir / "eval"
-if run_state.exists():
-    state = json.loads(run_state.read_text(encoding="utf-8"))
-    status = str(state.get("status") or "").lower()
-    phase = state.get("phase", "")
-    completed = state.get("completed_rounds")
-    total = state.get("rounds_total")
-    last_error = state.get("last_error")
-    if status == "completed" and metrics.exists():
-        print(f"success:completed {{completed}}/{{total}}")
-    elif status in {{"running", "started"}}:
-        print(f"running:{{phase}} {{completed}}/{{total}}")
-    elif last_error:
-        print(f"failed:{{last_error}}")
-    else:
-        print(f"failed:run_state status={{status}}")
-elif metrics.exists():
-    print("success:metrics_summary present")
-elif any(path.exists() for path in (stage_a, stage_b, eval_dir)):
-    names = [name for name, path in (("stage_a", stage_a), ("stage_b", stage_b), ("eval", eval_dir)) if path.exists()]
-    print(f"partial:artifacts present ({{','.join(names)}}) without metrics_summary")
+if summary.exists() and stage2.exists():
+    print("success:downstream summary and stage2 corpus present")
+elif any(path.exists() for path in (stage2, eval_dir)):
+    names = [name for name, path in (("stage2", stage2), ("eval", eval_dir)) if path.exists()]
+    print(f"partial:artifacts present ({{','.join(names)}}) without final downstream summary")
 else:
     print("failed:no result artifacts")
 PY
@@ -430,8 +419,8 @@ PY
 
 def inspect_experiment(exp: ExperimentDef) -> tuple[str, str]:
     process_running, process_note = _experiment_process_snapshot(exp)
-    if exp.family == "thesis":
-        artifact_status, artifact_note = _inspect_thesis_experiment(exp)
+    if exp.family == "paper_new":
+        artifact_status, artifact_note = _inspect_paper_new_experiment(exp)
     else:
         artifact_status, artifact_note = _inspect_pretext_experiment(exp)
     if artifact_status == "success":
@@ -445,12 +434,13 @@ def inspect_experiment(exp: ExperimentDef) -> tuple[str, str]:
 
 def start_experiment(exp: ExperimentDef) -> str:
     remote_log = f"{REMOTE_AUTOMATION}/{exp.label}.remote.log"
-    if exp.family == "thesis":
+    if exp.family == "paper_new":
         run_cmd = (
-            f"source {REMOTE_CONDA} && conda activate {exp.env_name} && cd {REMOTE_REPO} "
+            f"source {REMOTE_CONDA} && conda activate {exp.env_name} && cd {REMOTE_PAPER_NEW_REPO} "
             f"&& export PYTHONUNBUFFERED=1 && export CUDA_DEVICE_ORDER={CUDA_DEVICE_ORDER} "
             f"&& export CUDA_VISIBLE_DEVICES={VISIBLE_DEVICE_INDEX} "
-            f"&& python -m thesis_platform.scripts.run_experiment --config {exp.config_path}"
+            f"&& export VLLM_HOST_IP=127.0.0.1 && export HOST_IP=127.0.0.1 "
+            f"&& python -m paper_new_selector.run_selector_single_node --config {exp.remote_config_arg}"
         )
     else:
         run_cmd = (

@@ -85,7 +85,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
 
         bootstrap_cfg = {
             "max_model_len": 512,
-            "gpu_memory_utilization": 0.55,
+            "gpu_memory_utilization": 0.35,
             "startup_required_free_gb": 2,
             "temperature": 0.4,
             "top_p": 0.9,
@@ -106,7 +106,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
         self.assertEqual(captured_llm_kwargs["model"], "local-llama")
         self.assertEqual(captured_llm_kwargs["max_model_len"], 512)
         self.assertEqual(captured_llm_kwargs["tensor_parallel_size"], 1)
-        self.assertEqual(captured_llm_kwargs["gpu_memory_utilization"], 0.55)
+        self.assertEqual(captured_llm_kwargs["gpu_memory_utilization"], 0.35)
         self.assertEqual(captured_sampling_kwargs["max_tokens"], 33)
 
     def test_vllm_generation_can_disable_cuda_graph_capture_for_shared_gpu_runs(self) -> None:
@@ -137,7 +137,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
                 Path("local-llama"),
                 {
                     "max_model_len": 512,
-                    "gpu_memory_utilization": 0.55,
+                    "gpu_memory_utilization": 0.35,
                     "enforce_eager": True,
                 },
             )
@@ -168,7 +168,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
                 generate_bootstrapped_samples_vllm(
                     ["prompt a"],
                     Path("local-llama"),
-                    {"max_model_len": 512, "gpu_memory_utilization": 0.55},
+                    {"max_model_len": 512, "gpu_memory_utilization": 0.35},
                 )
 
         self.assertEqual(context.exception.failure_code, "stage2_runtime_gpu_oom")
@@ -187,7 +187,7 @@ class VllmBootstrapMemoryGuardTests(unittest.TestCase):
                 self.assertEqual(config.bootstrap.get("generator_backend"), "vllm")
                 self.assertEqual(config.bootstrap.get("max_model_len"), 512)
                 self.assertEqual(config.bootstrap.get("startup_required_free_gb"), expected_budget)
-                self.assertAlmostEqual(float(config.bootstrap.get("gpu_memory_utilization")), 0.55)
+                self.assertAlmostEqual(float(config.bootstrap.get("gpu_memory_utilization")), 0.35)
                 self.assertTrue(config.bootstrap.get("enforce_eager"))
 
     def test_single_node_a6000_smoke_config_matches_sp_c1_with_tiny_scale(self) -> None:
