@@ -63,6 +63,13 @@ class GeneratorContract:
     max_prompt_chars: int
     max_exemplar_chars: int
     llm_backend: str
+    temperature: float
+    top_p: float
+    max_model_len: int
+    gpu_memory_utilization: float
+    startup_required_free_gb: float
+    tensor_parallel_size: int
+    enforce_eager: bool
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

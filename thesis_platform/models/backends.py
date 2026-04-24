@@ -417,6 +417,7 @@ class VllmTextBackend(BaseTextBackend):
         startup_required_free_gb: float | None = None,
         tensor_parallel_size: int = 1,
         top_p: float = 1.0,
+        enforce_eager: bool = False,
     ) -> None:
         self._model_path = model_path
         self._device = device
@@ -429,6 +430,7 @@ class VllmTextBackend(BaseTextBackend):
         self._startup_required_free_gb = startup_required_free_gb
         self._tensor_parallel_size = tensor_parallel_size
         self._top_p = top_p
+        self._enforce_eager = enforce_eager
         self._llm = None
         self._sampling_params_cls = None
         self._startup_memory_details: dict[str, Any] = {}
@@ -454,6 +456,7 @@ class VllmTextBackend(BaseTextBackend):
             "max_model_len": int(self._max_model_len),
             "tensor_parallel_size": int(self._tensor_parallel_size),
             "gpu_memory_utilization": float(self._gpu_memory_utilization),
+            "enforce_eager": bool(self._enforce_eager),
         }
         if self._dtype not in {"", "auto", None}:
             llm_kwargs["dtype"] = self._dtype
@@ -566,6 +569,7 @@ def build_text_backend(
             startup_required_free_gb=_optional_float(config.get("startup_required_free_gb")),
             tensor_parallel_size=int(config.get("tensor_parallel_size", 1)),
             top_p=float(config.get("top_p", 1.0)),
+            enforce_eager=bool(config.get("enforce_eager", False)),
         )
     if engine != "transformers":
         raise ValueError(f"Unsupported text backend engine '{engine}'.")

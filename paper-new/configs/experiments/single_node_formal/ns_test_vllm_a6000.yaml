@@ -1,0 +1,53 @@
+inherits:
+  - _base_selector_formal.yaml
+
+meta:
+  experiment_id: ns_test_vllm_a6000
+  stage: single_node_vllm_a6000_smoke
+  seed: 42
+
+paths:
+  output_root: paper-new/outputs/ns_test_vllm_a6000
+
+data:
+  dataset_name: jobs
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  train_limit: 64
+  eval_limit: 32
+  initialization_limit: 128
+
+embedding:
+  model_path: thesis_platform/open_model/all_minilm_l6_v2
+  device: cpu
+
+llm:
+  generator:
+    max_new_tokens: 48
+
+generator:
+  initial_prompt: "Generate realistic job-domain texts that match the private corpus style."
+  candidate_count: 8
+  generated_per_round: 2
+  exemplars_per_prompt: 3
+  max_new_tokens: 48
+  max_rounds: 6
+  max_prompt_chars: 192
+  max_exemplar_chars: 220
+
+selector:
+  seed_top_k: 3
+  hard_negative_top_k: 3
+
+bootstrap:
+  num_prompts: 4
+  max_tokens: 32
+
+eval:
+  max_samples_per_client: 8
+  small_epochs: 1
+  small_batch_size: 1
+  small_eval_batch_size: 1
+  small_grad_accum_steps: 1
+  small_num_proc: 1

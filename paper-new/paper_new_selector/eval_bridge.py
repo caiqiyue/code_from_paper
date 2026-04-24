@@ -6,6 +6,12 @@ from typing import Any
 from .thesis_bridge import load_yaml_config, resolve_output_root, resolve_repo_root
 
 
+def _optional_int(value: Any, default: int | None = None) -> int | None:
+    if value in (None, ""):
+        return default
+    return int(value)
+
+
 def prepare_eval_runtime(config_path: str | Path) -> dict[str, Any]:
     config = load_yaml_config(config_path)
     eval_cfg = dict(config.get("eval", {}))
@@ -48,9 +54,9 @@ def _build_thesis_eval_config(config_path: str | Path):
             "initialization_path": str(selector_cfg["data"]["initialization_path"]),
             "max_samples_per_client": int(eval_cfg.get("max_samples_per_client", 8)),
             "initialization_min_words": int(eval_cfg.get("initialization_min_words", 20)),
-            "train_limit": int(selector_cfg["data"].get("train_limit", 64)),
-            "eval_limit": int(selector_cfg["data"].get("eval_limit", 32)),
-            "initialization_limit": int(selector_cfg["data"].get("initialization_limit", 128)),
+            "train_limit": _optional_int(selector_cfg["data"].get("train_limit")),
+            "eval_limit": _optional_int(selector_cfg["data"].get("eval_limit")),
+            "initialization_limit": _optional_int(selector_cfg["data"].get("initialization_limit")),
         },
         "runtime": {
             "device": str(eval_cfg.get("device", "cuda")),

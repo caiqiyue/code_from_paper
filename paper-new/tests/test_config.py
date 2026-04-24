@@ -23,9 +23,14 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(config["selector"]["novelty_lambda"], 0.30)
         self.assertEqual(config["selector"]["length_lambda"], 0.20)
         self.assertEqual(config["embedding"]["model_path"], "thesis_platform/open_model/all_minilm_l6_v2")
-        self.assertEqual(config["llm"]["generator"]["engine"], "transformers")
-        self.assertEqual(config["llm"]["generator"]["model_name_or_path"], "thesis_platform/open_model/distilgpt2")
-        self.assertEqual(config["bootstrap"]["generator_backend"], "huggingface")
+        self.assertEqual(config["llm"]["generator"]["engine"], "vllm")
+        self.assertEqual(config["llm"]["generator"]["model_name_or_path"], "thesis_platform/open_model/llama_2_7b_hf")
+        self.assertEqual(config["llm"]["generator"]["max_model_len"], 512)
+        self.assertEqual(config["llm"]["generator"]["gpu_memory_utilization"], 0.55)
+        self.assertEqual(config["llm"]["generator"]["startup_required_free_gb"], 26)
+        self.assertEqual(config["llm"]["generator"]["tensor_parallel_size"], 1)
+        self.assertTrue(config["llm"]["generator"]["enforce_eager"])
+        self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
         self.assertTrue(config["eval"]["enabled"])
         self.assertEqual(config["eval"]["mode"], "pretext_small")
 
@@ -41,9 +46,35 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(config["meta"]["stage"], "single_node_formal")
         self.assertEqual(config["data"]["dataset_name"], "jobs")
         self.assertEqual(config["bootstrap"]["num_prompts"], 1500)
-        self.assertEqual(config["bootstrap"]["generator_backend"], "huggingface")
+        self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
+        self.assertEqual(config["bootstrap"]["startup_required_free_gb"], 26)
         self.assertEqual(config["privacy"]["epsilon"], 1.29)
         self.assertEqual(config["stage1"]["sigma"], 11.3)
+
+    def test_formal_config_uses_vllm_for_stage1_and_stage2(self):
+        config = load_yaml_config("paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml")
+        self.assertEqual(config["llm"]["generator"]["engine"], "vllm")
+        self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
+
+    def test_smoke_config_uses_real_local_vllm_models_only(self):
+        config = load_yaml_config("paper-new/configs/single_node_jobs_selector.yaml")
+        self.assertEqual(config["llm"]["generator"]["engine"], "vllm")
+        self.assertEqual(config["llm"]["generator"]["model_name_or_path"], "thesis_platform/open_model/llama_2_7b_hf")
+        self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
+
+    def test_vllm_a6000_smoke_config_matches_strict_vllm_contract_with_tiny_scale(self):
+        config = load_yaml_config("paper-new/configs/experiments/single_node_formal/ns_test_vllm_a6000.yaml")
+        self.assertEqual(config["meta"]["experiment_id"], "ns_test_vllm_a6000")
+        self.assertEqual(config["llm"]["generator"]["engine"], "vllm")
+        self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
+        self.assertEqual(config["generator"]["candidate_count"], 8)
+        self.assertEqual(config["generator"]["generated_per_round"], 2)
+        self.assertEqual(config["llm"]["generator"]["max_new_tokens"], 48)
+        self.assertEqual(config["bootstrap"]["num_prompts"], 4)
+        self.assertEqual(config["eval"]["small_epochs"], 1)
+        self.assertEqual(config["data"]["train_limit"], 64)
+        self.assertEqual(config["data"]["eval_limit"], 32)
+        self.assertEqual(config["data"]["initialization_limit"], 128)
 
     def test_formal_privacy_variants_and_seed_variants_override_base_values(self):
         eps05 = load_yaml_config("paper-new/configs/experiments/single_node_formal/ns_c5_jobs_eps05.yaml")

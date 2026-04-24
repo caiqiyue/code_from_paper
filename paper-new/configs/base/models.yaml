@@ -4,12 +4,17 @@ embedding:
 
 llm:
   generator:
-    engine: transformers
+    engine: vllm
     model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
     device: cuda
     dtype: auto
     use_chat_template: false
-    use_fast: false
-    temperature: 0.2
+    temperature: 1.0
+    top_p: 1.0
     max_new_tokens: 192
+    max_model_len: 512
+    gpu_memory_utilization: 0.55
+    startup_required_free_gb: 26
+    tensor_parallel_size: 1
+    enforce_eager: true
     role: generator

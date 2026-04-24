@@ -33,23 +33,20 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
 
     from pretext_platform.algorithms.bootstrap import (
         build_bootstrap_prompts,
-        generate_bootstrapped_samples,
-        generate_bootstrapped_samples_hf,
         generate_bootstrapped_samples_vllm,
     )
 
     backend = str(config["bootstrap"]["generator_backend"]).strip().lower()
-    if backend not in {"vllm", "huggingface"}:
+    if backend != "vllm":
         raise ValueError(
-            f"bootstrap.generator_backend must be 'vllm' or 'huggingface', got '{backend}'."
+            "paper-new Stage 2 bootstrap requires bootstrap.generator_backend='vllm'. "
+            "Non-vLLM backends are rejected to keep formal/test runs aligned with PrE-Text."
         )
-    generator_fn = generate_bootstrapped_samples if backend == "vllm" else generate_bootstrapped_samples_hf
-    if backend == "vllm":
-        generator_fn = generate_bootstrapped_samples_vllm
+    generator_fn = generate_bootstrapped_samples_vllm
 
     bootstrap_cfg = {
         "num_prompts": int(config["bootstrap"]["num_prompts"]),
-        "generator_backend": backend,
+        "generator_backend": "vllm",
         "generator_model": str(config["bootstrap"]["generator_model"]),
         "max_tokens": int(config["bootstrap"].get("max_tokens", 85)),
         "temperature": float(config["bootstrap"].get("temperature", 1.0)),
@@ -57,6 +54,7 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
         "max_model_len": int(config["bootstrap"].get("max_model_len", 512)),
         "tensor_parallel_size": int(config["bootstrap"].get("tensor_parallel_size", 1)),
         "gpu_memory_utilization": float(config["bootstrap"].get("gpu_memory_utilization", 0.55)),
+        "startup_required_free_gb": float(config["bootstrap"].get("startup_required_free_gb", 26)),
         "enforce_eager": bool(config["bootstrap"].get("enforce_eager", True)),
         "device": str(config["bootstrap"].get("device", "cuda")),
         "batch_size": int(config["bootstrap"].get("batch_size", 1)),

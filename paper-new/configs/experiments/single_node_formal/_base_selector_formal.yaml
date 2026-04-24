@@ -42,7 +42,7 @@ selector:
 
 bootstrap:
   num_prompts: 1500
-  generator_backend: huggingface
+  generator_backend: vllm
   generator_model: llama2_7b
   batch_size: 1
   max_tokens: 85
@@ -51,6 +51,7 @@ bootstrap:
   max_model_len: 512
   tensor_parallel_size: 1
   gpu_memory_utilization: 0.55
+  startup_required_free_gb: 26
   enforce_eager: true
   device: cuda
 

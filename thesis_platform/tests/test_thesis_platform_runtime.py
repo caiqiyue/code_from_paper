@@ -428,6 +428,64 @@ class BackendRuntimeTests(unittest.TestCase):
         self.assertEqual(captured_sampling_kwargs["max_tokens"], 33)
         self.assertEqual(captured_sampling_kwargs["temperature"], 0.4)
 
+    def test_vllm_backend_passes_enforce_eager_to_llm_constructor(self) -> None:
+        from thesis_platform.models.backends import VllmTextBackend
+
+        captured_llm_kwargs: dict[str, object] = {}
+
+        class FakeLLM:
+            def __init__(self, **kwargs):
+                captured_llm_kwargs.update(kwargs)
+
+            def generate(self, prompts, sampling_params):
+                del sampling_params
+                return [SimpleNamespace(outputs=[SimpleNamespace(text=f"generated:{prompts[0]}")])]
+
+        class FakeSamplingParams:
+            def __init__(self, **_kwargs):
+                pass
+
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def current_device():
+                return 0
+
+            @staticmethod
+            def mem_get_info(_device_index):
+                return int(29 * 1024**3), int(47.5 * 1024**3)
+
+            @staticmethod
+            def empty_cache():
+                pass
+
+            @staticmethod
+            def ipc_collect():
+                pass
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+        fake_torch = types.ModuleType("torch")
+        fake_torch.cuda = FakeCuda()
+
+        backend = VllmTextBackend(
+            model_path=Path("local-llama"),
+            max_model_len=512,
+            gpu_memory_utilization=0.55,
+            startup_required_free_gb=28,
+            tensor_parallel_size=1,
+            enforce_eager=True,
+        )
+        with patch.dict(sys.modules, {"vllm": fake_vllm, "torch": fake_torch}):
+            output = backend.generate("prompt text", max_new_tokens=16, temperature=0.7)
+
+        self.assertEqual(output, "generated:prompt text")
+        self.assertIs(captured_llm_kwargs["enforce_eager"], True)
+
     def test_vllm_backend_rejects_startup_when_memory_is_below_threshold(self) -> None:
         from thesis_platform.models.backends import VllmGenerationError, VllmTextBackend
 

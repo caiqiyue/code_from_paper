@@ -69,3 +69,69 @@
 - 在 selector 完成 seed 选择后，对所有 rejected candidates 基于最终 selected set 重新计算 `redundancy_penalty` 和 `accept_score`。
 - 为 Stage 1 加入稳定可复现的 exemplar 采样函数，避免每轮固定使用初始化集前缀样本。
 - 在测试配置里显式加入 `generator.max_prompt_chars` 和 `generator.max_exemplar_chars`，把 Stage 1 prompt 长度控制纳入实验超参数，而不是依赖隐式截断或随机幸运值。
+## 2026-04-24 Formal Eval Bug
+
+### Observations
+
+- Server-side `NS-C1` did not hang. It exited with a Python traceback after the second checkpoint load finished.
+- The traceback points to `paper_new_selector/eval_bridge.py` inside `_build_thesis_eval_config()`.
+- The exact failure is: `TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'`.
+- Local reproduction matches the server failure:
+  - `_build_thesis_eval_config('configs/experiments/single_node_formal/ns_c1_jobs_base.yaml')`
+  - raises the same `TypeError`.
+- All 9 formal configs define:
+  - `train_limit: null`
+  - `eval_limit: null`
+  - `initialization_limit: null`
+- `thesis_bridge.load_text_samples()` already treats `(None, "")` as "no limit", so Stage 1 can run with the formal configs.
+- `eval_bridge._build_thesis_eval_config()` is inconsistent with that contract because it forces all three limits through `int(...)`.
+
+### Hypotheses
+
+#### H1: `_build_thesis_eval_config()` is the only production path that mishandles formal `null` limits (ROOT HYPOTHESIS)
+- Supports: stack trace points exactly to `int(selector_cfg["data"].get("train_limit", 64))`.
+- Supports: every formal config sets the three limits to `null`.
+- Supports: Stage 1 passed, which means the data-loading path already tolerates `None`.
+- Conflicts: none found.
+- Test: preserve `None` for the three limits in `_build_thesis_eval_config()` and add a regression test over all 9 formal configs.
+
+#### H2: formal configs themselves are wrong and should use numeric defaults instead of `null`
+- Supports: `eval_bridge` currently expects numeric values.
+- Conflicts: the formal intent is "full dataset", and `thesis_bridge` already models that as `None`.
+- Conflicts: changing all configs to arbitrary integers would silently change experiment semantics.
+- Test: compare the existing Stage 1 loader contract with formal config design; if `None` already means "full dataset", keep configs unchanged.
+
+#### H3: there are additional `None -> int()` conversions in the formal experiment path beyond `eval_bridge`
+- Supports: once one bridge drifts from config semantics, others may too.
+- Conflicts: repo search shows the only formal-limit conversions are in `thesis_bridge` and `eval_bridge`, and `thesis_bridge` already guards `None`.
+- Test: grep `paper_new_selector` for `train_limit|eval_limit|initialization_limit` and inspect every conversion site.
+
+### Experiments
+
+#### E1: Reproduce the failure locally with one formal config
+- Change: no code change; directly call `_build_thesis_eval_config()` for `ns_c1_jobs_base`.
+- Expected confirm: same `TypeError`.
+- Result: Confirmed.
+
+#### E2: Check whether this is a one-off config issue or a formal-config family issue
+- Change: no code change; inspect `train_limit`, `eval_limit`, `initialization_limit` across all 9 formal configs.
+- Expected confirm: all 9 use `None`.
+- Result: Confirmed.
+
+#### E3: Inspect all limit conversion sites in `paper_new_selector`
+- Change: no code change; grep all `train_limit|eval_limit|initialization_limit` uses.
+- Expected confirm: only `eval_bridge` mishandles `None`.
+- Result: Confirmed.
+
+### Root Cause
+
+- The formal experiment configs intentionally use `null` to mean "no dataset cap", but `eval_bridge._build_thesis_eval_config()` violates that contract by forcing those `None` values through `int(...)`, so every formal experiment fails as soon as it enters the eval-config construction path.
+
+### Fix Plan
+
+- Add one shared helper in `eval_bridge` that preserves `None` for optional integer limits.
+- Use that helper for `train_limit`, `eval_limit`, and `initialization_limit`.
+- Add regression tests that:
+  - reproduce the old failure path through `_build_thesis_eval_config()`
+  - verify all 9 formal configs now build successfully
+  - verify the three limits remain `None` in the derived thesis eval config.

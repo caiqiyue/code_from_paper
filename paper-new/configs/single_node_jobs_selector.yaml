@@ -55,15 +55,16 @@ selector:
 
 bootstrap:
   num_prompts: 4
-  generator_backend: huggingface
+  generator_backend: vllm
   generator_model: llama2_7b
   batch_size: 1
   max_tokens: 32
-  temperature: 0.7
+  temperature: 1.0
   top_p: 1.0
   max_model_len: 512
   tensor_parallel_size: 1
   gpu_memory_utilization: 0.55
+  startup_required_free_gb: 26
   enforce_eager: true
   device: cuda
 
@@ -84,11 +85,17 @@ eval:
 
 llm:
   generator:
-    engine: transformers
-    model_name_or_path: thesis_platform/open_model/distilgpt2
-    device: cpu
-    dtype: float32
+    engine: vllm
+    model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
+    device: cuda
+    dtype: auto
     use_chat_template: false
-    temperature: 0.0
+    temperature: 1.0
+    top_p: 1.0
     max_new_tokens: 48
+    max_model_len: 512
+    gpu_memory_utilization: 0.55
+    startup_required_free_gb: 26
+    tensor_parallel_size: 1
+    enforce_eager: true
     role: generator

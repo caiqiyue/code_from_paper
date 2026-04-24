@@ -1,10 +1,31 @@
+import tempfile
 import unittest
+from pathlib import Path
+
+import yaml
 
 from paper_new_selector.pretext_bridge import prepare_bootstrap_runtime, resolve_bootstrap_model_path
-from paper_new_selector.thesis_bridge import resolve_dataset_paths
+from paper_new_selector.thesis_bridge import load_yaml_config, resolve_dataset_paths
 
 
 class BridgeTests(unittest.TestCase):
+    def _deep_merge(self, base: dict, override: dict) -> dict:
+        merged = dict(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                merged[key] = self._deep_merge(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
+
+    def _write_temp_config(self, base_config: str, overrides: dict) -> Path:
+        config = self._deep_merge(load_yaml_config(base_config), overrides)
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        path = Path(temp_dir.name) / "config.yaml"
+        path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+        return path
+
     def test_thesis_bridge_resolves_existing_dataset_roots(self):
         train_path, eval_path, init_path = resolve_dataset_paths("configs/single_node_jobs_selector.yaml")
         self.assertIn("thesis_platform/datasets", train_path.as_posix())
@@ -19,11 +40,23 @@ class BridgeTests(unittest.TestCase):
         runtime = prepare_bootstrap_runtime("configs/single_node_jobs_selector.yaml")
         self.assertTrue(callable(runtime["build_bootstrap_prompts"]))
         self.assertTrue(callable(runtime["generate_bootstrapped_samples"]))
-        self.assertEqual(runtime["bootstrap_cfg"]["generator_backend"], "huggingface")
+        self.assertEqual(runtime["bootstrap_cfg"]["generator_backend"], "vllm")
+        self.assertEqual(runtime["bootstrap_cfg"]["max_model_len"], 512)
+        self.assertEqual(runtime["bootstrap_cfg"]["gpu_memory_utilization"], 0.55)
+        self.assertEqual(runtime["bootstrap_cfg"]["tensor_parallel_size"], 1)
+        self.assertEqual(runtime["bootstrap_cfg"]["temperature"], 1.0)
+        self.assertEqual(runtime["bootstrap_cfg"]["top_p"], 1.0)
+        self.assertEqual(runtime["bootstrap_cfg"]["max_tokens"], 32)
+        self.assertTrue(runtime["bootstrap_cfg"]["enforce_eager"])
+        self.assertEqual(runtime["bootstrap_cfg"]["startup_required_free_gb"], 26)
 
     def test_pretext_bridge_rejects_non_vllm_backend(self):
-        runtime = prepare_bootstrap_runtime("configs/single_node_jobs_selector.yaml")
-        self.assertEqual(runtime["generate_bootstrapped_samples"].__name__, "generate_bootstrapped_samples_hf")
+        config_path = self._write_temp_config(
+            "configs/single_node_jobs_selector.yaml",
+            {"bootstrap": {"generator_backend": "huggingface"}},
+        )
+        with self.assertRaisesRegex(ValueError, "bootstrap.generator_backend='vllm'"):
+            prepare_bootstrap_runtime(str(config_path))
 
 
 if __name__ == "__main__":

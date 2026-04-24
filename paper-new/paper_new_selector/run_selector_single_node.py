@@ -12,7 +12,13 @@ def main() -> None:
     parser.add_argument("--validate-only", action="store_true", help="Resolve contracts without heavy execution.")
     args = parser.parse_args()
 
-    summary = run_pipeline(args.config, validate_only=args.validate_only)
+    try:
+        summary = run_pipeline(args.config, validate_only=args.validate_only)
+    except ValueError as exc:
+        raise SystemExit(
+            "paper-new configuration is invalid for strict vLLM generation. "
+            f"{exc}"
+        ) from exc
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 

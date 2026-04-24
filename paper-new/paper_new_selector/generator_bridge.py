@@ -26,15 +26,35 @@ def build_candidate_generator(config_path: str | Path) -> CandidateGeneratorHand
     if not llm_cfg:
         raise ValueError("llm.generator must be configured for a real local model backend.")
     llm_engine = str(llm_cfg.get("engine", "")).strip().lower()
-    if llm_engine not in {"transformers", "vllm"}:
+    if llm_engine != "vllm":
         raise ValueError(
-            f"llm.generator.engine must be 'transformers' or 'vllm', got '{llm_engine or '<empty>'}'."
+            "Stage 1 candidate generation requires llm.generator.engine='vllm'. "
+            "Transformers and other backends are rejected for paper-new formal/test runs."
         )
+    required_keys = [
+        "model_name_or_path",
+        "max_new_tokens",
+        "max_model_len",
+        "gpu_memory_utilization",
+        "startup_required_free_gb",
+        "tensor_parallel_size",
+        "top_p",
+        "temperature",
+        "enforce_eager",
+    ]
+    missing = [key for key in required_keys if key not in llm_cfg]
+    if missing:
+        raise ValueError(f"Missing required llm.generator vLLM settings: {missing}")
+    effective_generator_cfg = {
+        **generator_cfg,
+        "temperature": float(llm_cfg["temperature"]),
+        "max_new_tokens": int(llm_cfg["max_new_tokens"]),
+    }
     model_name_or_path = str(llm_cfg.get("model_name_or_path", "")).strip()
     if not model_name_or_path:
         raise ValueError("llm.generator.model_name_or_path must be configured.")
     text_backend = build_text_backend({**llm_cfg, "role": "generator"}, repo_root=resource_root)
-    generator = PretextPromptLLMGenerator(generator_cfg, resource_root)
+    generator = PretextPromptLLMGenerator(effective_generator_cfg, resource_root)
     contract = GeneratorContract(
         backend=str(generator_cfg["backend"]),
         source=str(generator_cfg["source"]),
@@ -42,10 +62,17 @@ def build_candidate_generator(config_path: str | Path) -> CandidateGeneratorHand
         candidate_count=int(generator_cfg["candidate_count"]),
         generated_per_round=int(generator_cfg["generated_per_round"]),
         exemplars_per_prompt=int(generator_cfg["exemplars_per_prompt"]),
-        max_new_tokens=int(generator_cfg["max_new_tokens"]),
+        max_new_tokens=int(effective_generator_cfg["max_new_tokens"]),
         max_prompt_chars=int(generator_cfg.get("max_prompt_chars", 0)),
         max_exemplar_chars=int(generator_cfg.get("max_exemplar_chars", 0)),
         llm_backend=llm_engine,
+        temperature=float(llm_cfg["temperature"]),
+        top_p=float(llm_cfg["top_p"]),
+        max_model_len=int(llm_cfg["max_model_len"]),
+        gpu_memory_utilization=float(llm_cfg["gpu_memory_utilization"]),
+        startup_required_free_gb=float(llm_cfg["startup_required_free_gb"]),
+        tensor_parallel_size=int(llm_cfg["tensor_parallel_size"]),
+        enforce_eager=bool(llm_cfg["enforce_eager"]),
     ).to_dict()
     return CandidateGeneratorHandle(
         generator=generator,
