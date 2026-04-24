@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import socket
 import sys
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,39 @@ def _ensure_pretext_importable(repo_root: Path) -> None:
     pretext_root = (repo_root / "PrE-Text").resolve()
     if str(pretext_root) not in sys.path:
         sys.path.insert(0, str(pretext_root))
+
+
+def _resolve_vllm_host_ip() -> str:
+    for env_key in ("VLLM_HOST_IP", "HOST_IP"):
+        configured = str(os.environ.get(env_key, "")).strip()
+        if configured:
+            return configured
+    try:
+        host_ip = socket.gethostbyname(socket.gethostname())
+        if host_ip and not host_ip.startswith("127."):
+            return host_ip
+    except OSError:
+        pass
+    return "127.0.0.1"
+
+
+def _patch_vllm_network_host_ip() -> str:
+    host_ip = _resolve_vllm_host_ip()
+    os.environ.setdefault("VLLM_HOST_IP", host_ip)
+    os.environ.setdefault("HOST_IP", host_ip)
+    try:
+        import vllm.utils as vllm_utils
+
+        vllm_utils.get_ip = lambda: host_ip
+    except Exception:
+        pass
+    try:
+        import vllm.engine.llm_engine as llm_engine
+
+        llm_engine.get_ip = lambda: host_ip
+    except Exception:
+        pass
+    return host_ip
 
 
 def resolve_bootstrap_model_path(models_root: str | Path, model_name: str) -> Path:
@@ -42,7 +77,9 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
             "paper-new Stage 2 bootstrap requires bootstrap.generator_backend='vllm'. "
             "Non-vLLM backends are rejected to keep formal/test runs aligned with PrE-Text."
         )
-    generator_fn = generate_bootstrapped_samples_vllm
+    def generator_fn(prompt_list, model_path, bootstrap_cfg):
+        _patch_vllm_network_host_ip()
+        return generate_bootstrapped_samples_vllm(prompt_list, model_path, bootstrap_cfg)
 
     bootstrap_cfg = {
         "num_prompts": int(config["bootstrap"]["num_prompts"]),

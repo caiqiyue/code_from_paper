@@ -5,6 +5,7 @@ import sys
 import tempfile
 import types
 import unittest
+import thesis_platform.models.backends as backend_module
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -548,8 +549,9 @@ class BackendRuntimeTests(unittest.TestCase):
                 "vllm.engine.llm_engine": fake_vllm_llm_engine,
                 "torch": fake_torch,
             },
-        ), patch("thesis_platform.models.backends.socket.gethostbyname", return_value="10.0.0.8"), patch(
-            "thesis_platform.models.backends.socket.gethostname",
+        ), patch.object(backend_module.socket, "gethostbyname", return_value="10.0.0.8"), patch.object(
+            backend_module.socket,
+            "gethostname",
             return_value="node03",
         ), patch.dict("os.environ", {}, clear=True):
             output = backend.generate("prompt text", max_new_tokens=12, temperature=0.7)

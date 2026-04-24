@@ -5,6 +5,7 @@ from typing import Any
 
 from .eval_bridge import prepare_eval_runtime, run_eval
 from .pretext_bridge import prepare_bootstrap_runtime
+from .runtime_cleanup import release_runtime_memory
 from .stage1_runner import run_stage1
 from .thesis_bridge import load_yaml_config, resolve_output_root
 
@@ -46,6 +47,7 @@ def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dic
     summary["stage2"]["prompt_count"] = len(prompt_list)
     summary["stage2"]["generated_count"] = len(generated_outputs)
     summary["stage2"]["synthetic_outputs"] = generated_outputs
+    release_runtime_memory()
     if eval_runtime.get("enabled", False):
         summary["eval"] = run_eval(
             synthetic_texts=generated_outputs,
