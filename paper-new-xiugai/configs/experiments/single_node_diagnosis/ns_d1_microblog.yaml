@@ -1,0 +1,14 @@
+inherits:
+  - ./_variant_genericity_off.yaml
+
+meta:
+  experiment_id: ns_d1_microblog
+
+paths:
+  output_root: paper-new-xiugai/outputs/ns_d1_microblog
+
+data:
+  dataset_name: microblog
+  train_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json
+  eval_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

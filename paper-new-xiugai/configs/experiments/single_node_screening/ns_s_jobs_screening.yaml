@@ -1,12 +1,11 @@
 inherits:
-  - ../../base/stage2_seed_aware_formal_base.yaml
+  - ./_base_selector_screening.yaml
 
 meta:
-  experiment_id: sas_c1_jobs_base
-  seed: 42
+  experiment_id: ns_s_jobs_screening
 
 paths:
-  output_root: paper-new-2/outputs/sas_c1_jobs_base
+  output_root: paper-new/outputs/ns_s_jobs_screening
 
 data:
   dataset_name: jobs

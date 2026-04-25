@@ -14,7 +14,7 @@ class PipelineSmokeTests(unittest.TestCase):
         )
         self.assertEqual(summary["stage1_mode"], "pretext_stage1_passthrough")
         self.assertEqual(summary["stage2_mode"], "pretext_bootstrap_seed_aware_selector")
-        self.assertEqual(summary["stage2"]["selector"]["target_count_mode"], "match_baseline_clean_count")
+        self.assertEqual(summary["stage2"]["selector"]["target_count_mode"], "match_eval_clean_count")
 
     def test_pipeline_inserts_selector_between_bootstrap_and_eval(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -31,7 +31,7 @@ class PipelineSmokeTests(unittest.TestCase):
                     },
                     "bootstrap": {"num_prompts": 2},
                     "selector": {
-                        "target_count_mode": "match_baseline_clean_count",
+                        "target_count_mode": "match_eval_clean_count",
                         "consistency_threshold": 0.42,
                         "duplicate_threshold": 0.95,
                         "min_words": 4,

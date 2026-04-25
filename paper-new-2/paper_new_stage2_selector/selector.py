@@ -17,7 +17,8 @@ def select_seed_aware_records(
         raise ValueError("records, generated_vectors, and prompt_seed_vectors must align.")
 
     raw_clean_count = sum(1 for record in records if record.baseline_text)
-    if str(selector_cfg.get("target_count_mode", "")).strip().lower() == "match_baseline_clean_count":
+    target_count_mode = str(selector_cfg.get("target_count_mode", "")).strip().lower()
+    if target_count_mode in {"match_eval_clean_count", "match_baseline_clean_count"}:
         target_count = raw_clean_count
     else:
         target_count = len(records)
@@ -36,7 +37,7 @@ def select_seed_aware_records(
             rejected.append(record)
             continue
         record.template_penalty = compute_template_penalty(
-            record.baseline_text,
+            record.raw_text,
             record.prompt_text,
             record.seed_texts,
             min_words=int(selector_cfg["min_words"]),

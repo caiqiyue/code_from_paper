@@ -1,0 +1,8 @@
+inherits:
+  - ./_base_selector_diagnosis.yaml
+
+meta:
+  diagnosis_variant: redundancy_up
+
+selector:
+  lambda_redundancy: 0.45

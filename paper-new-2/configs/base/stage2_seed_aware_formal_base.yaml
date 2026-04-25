@@ -1,5 +1,5 @@
 meta:
-  experiment_id: stage2_seed_aware_base
+  experiment_id: stage2_seed_aware_formal_base
   seed: 42
 
 pipeline:
@@ -11,16 +11,16 @@ paths:
   datasets_root: thesis_platform/datasets
   models_root: thesis_platform/open_model
   pretext_root: PrE-Text
-  output_root: paper-new-2/outputs/stage2_seed_aware_base
+  output_root: paper-new-2/outputs/stage2_seed_aware_formal_base
 
 data:
   dataset_name: jobs
   train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
   eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
   initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
-  train_limit: 256
-  eval_limit: 256
-  initialization_limit: 1024
+  train_limit: null
+  eval_limit: null
+  initialization_limit: null
   max_samples_per_client: 16
   initialization_min_words: 20
 
@@ -29,14 +29,14 @@ embedding:
   device: cpu
 
 stage1:
-  rounds: 6
+  rounds: 25
   mask: 0.3
-  lookahead: 2
-  multiplier: 2
+  lookahead: 4
+  multiplier: 4
   seq_len: 64
   t_steps: 2
-  batch_size: 16
-  embed_batch_size: 32
+  batch_size: 64
+  embed_batch_size: 128
   temperature: 1.0
   top_p: 1.0
   top_k: 0
@@ -49,7 +49,7 @@ stage1:
 
 bootstrap:
   enabled: true
-  num_prompts: 100
+  num_prompts: 1500
   generator_backend: vllm
   generator_model: llama2_7b
   temperature: 1.0
@@ -82,10 +82,10 @@ eval:
   device: cuda
   max_samples_per_client: 16
   initialization_min_words: 20
-  small_epochs: 6
+  small_epochs: 20
   small_batch_size: 8
   small_eval_batch_size: 2
-  small_grad_accum_steps: 4
+  small_grad_accum_steps: 8
   small_cutoff_len: 64
   small_learning_rate: 0.0002
   small_num_proc: 1

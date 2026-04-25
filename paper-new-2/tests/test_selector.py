@@ -20,7 +20,7 @@ class Stage2SelectorTests(unittest.TestCase):
                 [[0.0, 1.0], [0.1, 0.9], [0.2, 0.8]],
             ],
             selector_cfg={
-                "target_count_mode": "match_baseline_clean_count",
+                "target_count_mode": "match_eval_clean_count",
                 "consistency_threshold": 0.42,
                 "duplicate_threshold": 0.95,
                 "min_words": 1,

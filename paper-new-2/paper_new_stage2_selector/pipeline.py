@@ -39,7 +39,7 @@ def _records_payload(records: list[Any]) -> list[dict[str, Any]]:
 def embed_records(records: list[Any], config_path: str | Path) -> tuple[list[list[float]], list[list[list[float]]]]:
     embedder = build_embedder_from_config(config_path)
     try:
-        generated_inputs = [record.baseline_text or record.raw_text for record in records]
+        generated_inputs = [record.raw_text for record in records]
         generated_vectors = [list(map(float, row)) for row in embedder.embed_texts(generated_inputs)]
         seed_vectors = []
         for record in records:
@@ -87,7 +87,7 @@ def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dic
 
     output_root = resolve_output_root(config_path)
     stage2_dir = write_selected_stage2_dir(
-        [record.baseline_text for record in selection_result.selected_records],
+        [record.raw_text for record in selection_result.selected_records],
         output_dir=output_root,
     )
     metadata_path = stage2_dir / "selection_metadata.json"
@@ -116,5 +116,8 @@ def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dic
     summary["stage2"]["target_count"] = int(selection_result.target_count)
     summary["stage2"]["selected_stage2_dir"] = str(stage2_dir)
     summary["stage2"]["selection_metadata_path"] = str(metadata_path)
-    summary["eval"] = run_eval_from_stage2_dir(config_path, stage2_dir=stage2_dir, output_dir=output_root / "eval")
+    if bool(config.get("pipeline", {}).get("run_eval", True)):
+        summary["eval"] = run_eval_from_stage2_dir(config_path, stage2_dir=stage2_dir, output_dir=output_root / "eval")
+    else:
+        summary["eval"] = {"enabled": False, "mode": "disabled"}
     return summary

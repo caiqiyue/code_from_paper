@@ -1,0 +1,8 @@
+inherits:
+  - ./_base_selector_diagnosis.yaml
+
+meta:
+  diagnosis_variant: genericity_off
+
+selector:
+  lambda_generic: 0.0

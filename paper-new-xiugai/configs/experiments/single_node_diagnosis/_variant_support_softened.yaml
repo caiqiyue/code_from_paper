@@ -1,0 +1,12 @@
+inherits:
+  - ./_base_selector_diagnosis.yaml
+
+meta:
+  diagnosis_variant: support_softened
+
+selector:
+  top_q: 2
+  rank_weights: [1.0, 0.4]
+  density_lambda: 0.35
+  novelty_lambda: 0.45
+  length_lambda: 0.20
