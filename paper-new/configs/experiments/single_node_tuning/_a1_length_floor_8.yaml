@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_selector_tuning.yaml
+
+selector:
+  length_floor: 8

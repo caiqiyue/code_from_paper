@@ -88,6 +88,56 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(seed456["meta"]["seed"], 456)
         self.assertEqual(seed456["paths"]["output_root"], "paper-new/outputs/ns_c9_jobs_seed456")
 
+    def test_tuning_base_contract_matches_screening_scale(self):
+        config = load_yaml_config("paper-new/configs/experiments/single_node_tuning/_base_selector_tuning.yaml")
+        self.assertEqual(config["meta"]["stage"], "single_node_tuning")
+        self.assertEqual(config["data"]["train_limit"], 256)
+        self.assertEqual(config["data"]["eval_limit"], 256)
+        self.assertEqual(config["data"]["initialization_limit"], 1024)
+        self.assertEqual(config["generator"]["candidate_count"], 24)
+        self.assertEqual(config["generator"]["generated_per_round"], 8)
+        self.assertEqual(config["selector"]["seed_top_k"], 6)
+        self.assertEqual(config["selector"]["hard_negative_top_k"], 6)
+        self.assertEqual(config["bootstrap"]["num_prompts"], 100)
+        self.assertEqual(config["eval"]["small_epochs"], 6)
+
+    def test_tuning_group_overrides_apply_expected_selector_values(self):
+        a1 = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_a1_microblog.yaml")
+        a2 = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_a2_microblog.yaml")
+        b1 = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_b1_forums.yaml")
+        b2 = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_b2_forums.yaml")
+        c1 = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_c1_jobs.yaml")
+        d1 = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_d1_congressional.yaml")
+
+        self.assertEqual(a1["selector"]["length_floor"], 8)
+        self.assertEqual(a2["selector"]["length_lambda"], 0.10)
+        self.assertEqual(b1["selector"]["lambda_generic"], 0.30)
+        self.assertEqual(b2["selector"]["lambda_generic"], 0.25)
+        self.assertEqual(c1["selector"]["lambda_redundancy"], 0.35)
+        self.assertEqual(d1["selector"]["length_floor"], 8)
+        self.assertEqual(d1["selector"]["lambda_generic"], 0.30)
+        self.assertEqual(d1["selector"]["lambda_redundancy"], 0.35)
+
+    def test_tuning_dataset_leaf_configs_keep_dataset_paths_and_output_roots_explicit(self):
+        jobs = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_b1_jobs.yaml")
+        forums = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_c1_forums.yaml")
+        micro = load_yaml_config("paper-new/configs/experiments/single_node_tuning/ns_tune_d1_microblog.yaml")
+
+        self.assertEqual(jobs["meta"]["experiment_id"], "ns_tune_b1_jobs")
+        self.assertEqual(jobs["paths"]["output_root"], "paper-new/outputs/ns_tune_b1_jobs")
+        self.assertEqual(jobs["data"]["dataset_name"], "jobs")
+        self.assertEqual(jobs["data"]["train_path"], "thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json")
+
+        self.assertEqual(forums["meta"]["experiment_id"], "ns_tune_c1_forums")
+        self.assertEqual(forums["paths"]["output_root"], "paper-new/outputs/ns_tune_c1_forums")
+        self.assertEqual(forums["data"]["dataset_name"], "forums")
+        self.assertEqual(forums["data"]["eval_path"], "thesis_platform/datasets/pretext_forums/formatted/forums_eval.json")
+
+        self.assertEqual(micro["meta"]["experiment_id"], "ns_tune_d1_microblog")
+        self.assertEqual(micro["paths"]["output_root"], "paper-new/outputs/ns_tune_d1_microblog")
+        self.assertEqual(micro["data"]["dataset_name"], "microblog")
+        self.assertEqual(micro["data"]["train_path"], "thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json")
+
 
 if __name__ == "__main__":
     unittest.main()
