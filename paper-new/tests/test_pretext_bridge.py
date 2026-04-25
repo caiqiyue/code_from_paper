@@ -7,6 +7,7 @@ from unittest.mock import patch
 import yaml
 
 from paper_new_selector.pretext_bridge import (
+    _patch_vllm_network_host_ip,
     generate_with_shared_vllm_session,
     prepare_bootstrap_runtime,
     resolve_bootstrap_model_path,
@@ -111,6 +112,58 @@ class BridgeTests(unittest.TestCase):
         )
         self.assertEqual(outputs, ["alpha", "beta"])
         self.assertEqual(backend.calls, [(["p1", "p2"], 85, 1.0)])
+
+    def test_pretext_bridge_defaults_vllm_host_to_loopback_without_env_override(self):
+        fake_vllm = ModuleType("vllm")
+        fake_utils = ModuleType("vllm.utils")
+        fake_utils.get_ip = lambda: "dns.google"
+        fake_engine = ModuleType("vllm.engine")
+        fake_llm_engine = ModuleType("vllm.engine.llm_engine")
+        fake_llm_engine.get_ip = lambda: "dns.google"
+        fake_vllm.utils = fake_utils
+        fake_vllm.engine = fake_engine
+        fake_engine.llm_engine = fake_llm_engine
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "vllm": fake_vllm,
+                "vllm.utils": fake_utils,
+                "vllm.engine": fake_engine,
+                "vllm.engine.llm_engine": fake_llm_engine,
+            },
+        ), patch.dict("os.environ", {}, clear=True):
+            host_ip = _patch_vllm_network_host_ip()
+
+        self.assertEqual(host_ip, "127.0.0.1")
+        self.assertEqual(fake_utils.get_ip(), "127.0.0.1")
+        self.assertEqual(fake_llm_engine.get_ip(), "127.0.0.1")
+
+    def test_pretext_bridge_honors_explicit_vllm_host_override(self):
+        fake_vllm = ModuleType("vllm")
+        fake_utils = ModuleType("vllm.utils")
+        fake_utils.get_ip = lambda: "dns.google"
+        fake_engine = ModuleType("vllm.engine")
+        fake_llm_engine = ModuleType("vllm.engine.llm_engine")
+        fake_llm_engine.get_ip = lambda: "dns.google"
+        fake_vllm.utils = fake_utils
+        fake_vllm.engine = fake_engine
+        fake_engine.llm_engine = fake_llm_engine
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "vllm": fake_vllm,
+                "vllm.utils": fake_utils,
+                "vllm.engine": fake_engine,
+                "vllm.engine.llm_engine": fake_llm_engine,
+            },
+        ), patch.dict("os.environ", {"HOST_IP": "10.0.0.8"}, clear=True):
+            host_ip = _patch_vllm_network_host_ip()
+
+        self.assertEqual(host_ip, "10.0.0.8")
+        self.assertEqual(fake_utils.get_ip(), "10.0.0.8")
+        self.assertEqual(fake_llm_engine.get_ip(), "10.0.0.8")
 
 
 if __name__ == "__main__":

@@ -181,3 +181,57 @@
 - Add `train_limit`, `eval_limit`, and `initialization_limit` to `_build_pretext_raw(...)[\"data\"]`.
 - Add one regression test in `thesis_platform` for the raw bridge.
 - Add one end-to-end regression test in `paper-new` that proves a screening config keeps its limits all the way into the generated `PrE-Text` raw config.
+
+## 2026-04-25 vLLM Rendezvous Host Drift
+
+### Observations
+
+- The restarted remote `NS-S-JOBS` run failed in `Stage 1` before any output directory was created.
+- The traceback is not an OOM. It fails inside `torch.distributed.init_process_group(...)` while `vllm.LLM(...)` is starting.
+- The exact error is a rendezvous connect timeout to `node03:45937`, then to `192.168.1.113:45937`.
+- On the server, `env | grep -E 'HOST_IP|VLLM_HOST_IP|MASTER_ADDR'` returns nothing, so there is no explicit override.
+- On the server, `/etc/hosts` maps `node03` to `192.168.1.113`.
+- On the same server, `hostname -I` reports live interface addresses `10.168.1.100`, `172.26.0.1`, `172.17.0.1`.
+- Current code in both `thesis_platform.models.backends` and `paper_new_selector.pretext_bridge` resolves the fallback host as:
+  - first explicit `VLLM_HOST_IP/HOST_IP`
+  - otherwise `socket.gethostbyname(socket.gethostname())`
+- The patch layer currently uses `os.environ.setdefault(...)`, so it preserves any pre-existing bad values instead of forcing a safe rendezvous address.
+
+### Hypotheses
+
+#### H1: fallback host resolution is using `/etc/hosts` hostname mapping (`192.168.1.113`), which is not a valid local rendezvous address for the current vLLM/torch.distributed startup path (ROOT HYPOTHESIS)
+- Supports: the error connects exactly to `node03` / `192.168.1.113`.
+- Supports: the server has no explicit `HOST_IP/VLLM_HOST_IP`, so the fallback path is active.
+- Supports: `/etc/hosts` maps `node03` to `192.168.1.113`, while the live host IPs are different.
+- Conflicts: previous runs succeeded, so the bug is environment-sensitive rather than deterministic.
+- Test: make the default fallback `127.0.0.1`, force-export that value into `VLLM_HOST_IP`, `HOST_IP`, and `MASTER_ADDR`, then verify the patch helper returns loopback when no override is present.
+
+#### H2: the monkey-patch to `vllm.utils.get_ip` / `vllm.engine.llm_engine.get_ip` is correct, but `torch.distributed` is reading `MASTER_ADDR` from somewhere else and bypassing the patch
+- Supports: the failing stack is inside `torch.distributed.init_process_group`.
+- Conflicts: there is no `MASTER_ADDR` in the environment, so without an explicit set this still depends on vLLM's chosen address.
+- Test: set `MASTER_ADDR` alongside `VLLM_HOST_IP/HOST_IP` and verify the patch helper exports all three consistently.
+
+#### H3: the problem is only in `paper-new`, while `thesis_platform` Stage 1 startup is fine
+- Supports: the visible failure happened in `paper-new`.
+- Conflicts: `paper-new` Stage 1 uses `thesis_platform.models.backends.VllmTextBackend`, so both code paths share the same fallback logic.
+- Test: fix the shared helper in `thesis_platform` and mirror the same rule in `paper-new/pretext_bridge`.
+
+### Experiments
+
+#### E1: Inspect remote runtime environment and hostname mapping
+- Change: no code change; read remote `env`, `/etc/hosts`, and `hostname -I`.
+- Expected confirm: no explicit host override vars, but hostname resolution path points at `192.168.1.113`.
+- Result: Confirmed.
+
+### Root Cause
+
+- When no explicit `VLLM_HOST_IP/HOST_IP` is set, the current vLLM patch code falls back to `socket.gethostbyname(socket.gethostname())`, and on the server that resolves `node03` to `/etc/hosts` entry `192.168.1.113`; vLLM then feeds that address into `torch.distributed` rendezvous, which times out. The fallback is therefore not a safe default for these single-host experiments.
+
+### Fix Plan
+
+- Change the no-override fallback host to `127.0.0.1` in both `thesis_platform.models.backends` and `paper_new_selector.pretext_bridge`.
+- Force-export the resolved host into `VLLM_HOST_IP`, `HOST_IP`, and `MASTER_ADDR` instead of using `setdefault(...)`.
+- Add regression tests that verify:
+  - no-env fallback chooses loopback
+  - explicit env override is still honored
+  - the patch helper exports the resolved host consistently.

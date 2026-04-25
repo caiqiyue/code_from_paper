@@ -16,23 +16,18 @@ def _ensure_pretext_importable(repo_root: Path) -> None:
 
 
 def _resolve_vllm_host_ip() -> str:
-    for env_key in ("VLLM_HOST_IP", "HOST_IP"):
+    for env_key in ("VLLM_HOST_IP", "HOST_IP", "MASTER_ADDR"):
         configured = str(os.environ.get(env_key, "")).strip()
         if configured:
             return configured
-    try:
-        host_ip = socket.gethostbyname(socket.gethostname())
-        if host_ip and not host_ip.startswith("127."):
-            return host_ip
-    except OSError:
-        pass
     return "127.0.0.1"
 
 
 def _patch_vllm_network_host_ip() -> str:
     host_ip = _resolve_vllm_host_ip()
-    os.environ.setdefault("VLLM_HOST_IP", host_ip)
-    os.environ.setdefault("HOST_IP", host_ip)
+    os.environ["VLLM_HOST_IP"] = host_ip
+    os.environ["HOST_IP"] = host_ip
+    os.environ["MASTER_ADDR"] = host_ip
     try:
         import vllm.utils as vllm_utils
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import types
@@ -621,12 +622,81 @@ class BackendRuntimeTests(unittest.TestCase):
                 "vllm.engine.llm_engine": fake_vllm_llm_engine,
                 "torch": fake_torch,
             },
-        ), patch.object(backend_module.socket, "gethostbyname", return_value="10.0.0.8"), patch.object(
-            backend_module.socket,
-            "gethostname",
-            return_value="node03",
         ), patch.dict("os.environ", {}, clear=True):
             output = backend.generate("prompt text", max_new_tokens=12, temperature=0.7)
+            self.assertEqual(os.environ["VLLM_HOST_IP"], "127.0.0.1")
+            self.assertEqual(os.environ["HOST_IP"], "127.0.0.1")
+            self.assertEqual(os.environ["MASTER_ADDR"], "127.0.0.1")
+
+        self.assertEqual(output, "generated:prompt text")
+        self.assertEqual(fake_vllm_utils.get_ip(), "127.0.0.1")
+        self.assertEqual(fake_vllm_llm_engine.get_ip(), "127.0.0.1")
+
+    def test_vllm_backend_honors_explicit_host_override(self) -> None:
+        from thesis_platform.models.backends import VllmTextBackend
+
+        class FakeLLM:
+            def __init__(self, **_kwargs):
+                pass
+
+            def generate(self, prompts, sampling_params):
+                del sampling_params
+                return [SimpleNamespace(outputs=[SimpleNamespace(text=f"generated:{prompts[0]}")])]
+
+        class FakeSamplingParams:
+            def __init__(self, **_kwargs):
+                pass
+
+        class FakeCuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def current_device():
+                return 0
+
+            @staticmethod
+            def mem_get_info(_device_index):
+                return int(29 * 1024**3), int(47.5 * 1024**3)
+
+            @staticmethod
+            def empty_cache():
+                pass
+
+            @staticmethod
+            def ipc_collect():
+                pass
+
+        fake_vllm = types.ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+        fake_vllm_utils = types.ModuleType("vllm.utils")
+        fake_vllm_utils.get_ip = lambda: "dns.google"
+        fake_vllm_engine = types.ModuleType("vllm.engine")
+        fake_vllm_llm_engine = types.ModuleType("vllm.engine.llm_engine")
+        fake_vllm_llm_engine.get_ip = lambda: "dns.google"
+        fake_torch = types.ModuleType("torch")
+        fake_torch.cuda = FakeCuda()
+
+        backend = VllmTextBackend(
+            model_path=Path("local-llama"),
+            startup_required_free_gb=28,
+            max_model_len=512,
+        )
+
+        with patch.dict(
+            sys.modules,
+            {
+                "vllm": fake_vllm,
+                "vllm.utils": fake_vllm_utils,
+                "vllm.engine": fake_vllm_engine,
+                "vllm.engine.llm_engine": fake_vllm_llm_engine,
+                "torch": fake_torch,
+            },
+        ), patch.dict("os.environ", {"VLLM_HOST_IP": "10.0.0.8"}, clear=True):
+            output = backend.generate("prompt text", max_new_tokens=12, temperature=0.7)
+            self.assertEqual(os.environ["MASTER_ADDR"], "10.0.0.8")
 
         self.assertEqual(output, "generated:prompt text")
         self.assertEqual(fake_vllm_utils.get_ip(), "10.0.0.8")
