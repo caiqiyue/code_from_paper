@@ -11,6 +11,7 @@ from thesis_platform.core.config import load_experiment_config
 from thesis_platform.core.experiment_runner import ExperimentRunner
 from thesis_platform.core.logging_utils import close_experiment_file_logger
 from thesis_platform.core.preflight import validate_preflight
+from thesis_platform.evaluation.downstream_eval import _build_pretext_raw
 
 
 class V3PipelineTests(unittest.TestCase):
@@ -594,6 +595,23 @@ llm:
             self.assertEqual(summary["tasks"]["sst2"]["metrics"]["best_accuracy"], 0.88)
             self.assertTrue((tmp_root / "glue_eval" / "glue_sst2_summary.json").exists())
             self.assertTrue((tmp_root / "glue_eval" / "glue_summary.json").exists())
+
+    def test_build_pretext_raw_preserves_dataset_limits(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        config = load_experiment_config(
+            repo_root / "paper-new" / "configs" / "experiments" / "single_node_screening" / "ns_s_jobs_screening.yaml"
+        )
+
+        raw = _build_pretext_raw(
+            config,
+            output_dir=repo_root / "paper-new" / "outputs" / "test_thesis_platform_v3",
+            enable_large_eval=False,
+            enable_small_eval=True,
+        )
+
+        self.assertEqual(raw["data"].get("train_limit"), 256)
+        self.assertEqual(raw["data"].get("eval_limit"), 256)
+        self.assertEqual(raw["data"].get("initialization_limit"), 1024)
 
 
 if __name__ == "__main__":

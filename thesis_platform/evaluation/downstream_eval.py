@@ -211,6 +211,9 @@ def _build_pretext_raw(
             ),
             "max_samples_per_client": int(thesis_config.data.get("max_samples_per_client", 8)),
             "initialization_min_words": int(thesis_config.data.get("initialization_min_words", 20)),
+            "train_limit": thesis_config.data.get("train_limit"),
+            "eval_limit": thesis_config.data.get("eval_limit"),
+            "initialization_limit": thesis_config.data.get("initialization_limit"),
         },
         "models": {
             "minilm_path": str(
@@ -764,6 +767,5 @@ class DownstreamEvalManager:
             if c4_path:
                 assets["c4_checkpoint_path"] = self.thesis_config.resolve_path(c4_path)
         return assets
-
 
 

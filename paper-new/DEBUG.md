@@ -135,3 +135,49 @@
   - reproduce the old failure path through `_build_thesis_eval_config()`
   - verify all 9 formal configs now build successfully
   - verify the three limits remain `None` in the derived thesis eval config.
+
+## 2026-04-25 Screening Eval Limit Drift
+
+### Observations
+
+- `PrE-Text` screening runs report `eval_count = 256`, which matches the screening configs.
+- `paper-new` screening runs report full-dataset `eval_count` values such as `1000` and `28632`, even though the screening configs also set `data.eval_limit = 256`.
+- `paper_new_selector.eval_bridge._build_thesis_eval_config()` preserves `train_limit`, `eval_limit`, and `initialization_limit` in `thesis_config.data`.
+- `thesis_platform.evaluation.downstream_eval._build_pretext_raw()` rebuilds a `PrE-Text` config, but its `data` section omits all three limit fields.
+- `PrE-Text/pretext_platform/data/loaders.py` applies `train_limit`, `eval_limit`, and `initialization_limit` when those fields are present.
+
+### Hypotheses
+
+#### H1: `_build_pretext_raw()` drops the three data limits, so `paper-new` screening eval silently falls back to full datasets (ROOT HYPOTHESIS)
+- Supports: `thesis_config.data` already contains the limit fields before the call.
+- Supports: `_build_pretext_raw()` copies dataset paths and other data fields, but not the limits.
+- Supports: `PrE-Text` loaders honor the limits if present.
+- Conflicts: none found.
+- Test: assert that `_build_pretext_raw()` output contains the three limits for a screening config.
+
+#### H2: the limits are present in `_build_pretext_raw()` but later lost when building `PretextExperimentConfig`
+- Supports: there is an additional config conversion layer after `_build_pretext_raw()`.
+- Conflicts: inspecting `_build_pretext_raw()` already shows the keys are absent at the raw-mapping stage.
+- Test: compare `thesis_config.data` with raw output before `PretextExperimentConfig.from_mapping(...)`.
+
+#### H3: `PrE-Text` small eval ignores `eval_limit` even when the config carries it
+- Supports: the user-visible symptom is a wrong `eval_count`.
+- Conflicts: `pretext_platform.data.loaders.load_dataset_bundle()` clearly applies `_apply_limit(..., eval_limit, ...)`.
+- Test: verify the raw config passed into `PrE-Text` actually carries the field; if it does, the loader path should be correct.
+
+### Experiments
+
+#### E1: Compare `paper-new` eval config with `PrE-Text` raw config for one screening run
+- Change: no code change; inspect `_build_thesis_eval_config()` output and `_build_pretext_raw()` output for `ns_s_jobs_screening.yaml`.
+- Expected confirm: `thesis_config.data.eval_limit == 256`, but `_build_pretext_raw(...)[\"data\"].get(\"eval_limit\") is None`.
+- Result: Confirmed.
+
+### Root Cause
+
+- `paper-new` correctly stores screening dataset caps in `thesis_config.data`, but `thesis_platform.evaluation.downstream_eval._build_pretext_raw()` drops `train_limit`, `eval_limit`, and `initialization_limit` when translating that config into the `PrE-Text` eval config, so downstream eval runs on full datasets instead of the intended screening subset.
+
+### Fix Plan
+
+- Add `train_limit`, `eval_limit`, and `initialization_limit` to `_build_pretext_raw(...)[\"data\"]`.
+- Add one regression test in `thesis_platform` for the raw bridge.
+- Add one end-to-end regression test in `paper-new` that proves a screening config keeps its limits all the way into the generated `PrE-Text` raw config.

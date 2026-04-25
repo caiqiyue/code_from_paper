@@ -1,4 +1,10 @@
+import sys
+from pathlib import Path
 import unittest
+
+repo_root = Path(__file__).resolve().parents[2]
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 from paper_new_selector.eval_bridge import _build_thesis_eval_config, prepare_eval_runtime
 
@@ -34,6 +40,24 @@ class EvalBridgeTests(unittest.TestCase):
                 self.assertEqual(thesis_config.data.get("train_limit"), None)
                 self.assertEqual(thesis_config.data.get("eval_limit"), None)
                 self.assertEqual(thesis_config.data.get("initialization_limit"), None)
+
+    def test_screening_eval_config_preserves_dataset_limits_into_pretext_raw(self):
+        from thesis_platform.evaluation.downstream_eval import _build_pretext_raw
+
+        thesis_config = _build_thesis_eval_config("configs/experiments/single_node_screening/ns_s_jobs_screening.yaml")
+        self.assertEqual(thesis_config.data.get("train_limit"), 256)
+        self.assertEqual(thesis_config.data.get("eval_limit"), 256)
+        self.assertEqual(thesis_config.data.get("initialization_limit"), 1024)
+
+        raw = _build_pretext_raw(
+            thesis_config,
+            output_dir=thesis_config.resolve_path("paper-new/outputs/test_eval_bridge"),
+            enable_large_eval=False,
+            enable_small_eval=True,
+        )
+        self.assertEqual(raw["data"].get("train_limit"), 256)
+        self.assertEqual(raw["data"].get("eval_limit"), 256)
+        self.assertEqual(raw["data"].get("initialization_limit"), 1024)
 
 
 if __name__ == "__main__":
