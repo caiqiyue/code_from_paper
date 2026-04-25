@@ -1,81 +1,164 @@
-# `PrE-Text` 与新版创新算法快速对比实验结果
+# `paper-2` 分支创新算法流程与快速对比实验结果
+
 更新时间：2026-04-25
 
 ## 1. 文档用途
-本文档统一记录当前 `screening-balanced` 快速对比实验中，两条算法线的结果：
 
-- 对照算法：`PrE-Text`
-- 创新算法：新版 selector 创新算法
+本文档用于统一记录两部分内容：
 
-这份文档的用途不是替代 formal 正式实验，而是作为“创新点是否值得继续投入”的 screening 判断依据。
+1. `paper-2` 分支中当前版本新版创新算法的完整具体流程。
+2. `PrE-Text` 与新版创新算法在 4 个数据集上的 `screening-balanced` 快速对比实验结果。
 
-## 2. 统一实验口径
+本文档的用途不是替代后续 `formal` 正式实验，而是作为“当前创新点是否值得继续投入”的快速筛选依据。
 
-- 实验类型：`single_node_screening`
+## 2. 实验运行背景
+
 - 运行分支：`paper-2`
 - 运行环境：旧服务器 `pretext`
-- 运行 GPU：`A6000`
-- Stage 2：统一使用本地 `llama_2_7b_hf + vllm`
-- 下游评估：统一使用 `gpt2 small eval`
-- screening 统一参数：
+- 运行显卡：`A6000`
+- 实验类型：`single_node_screening`
+- Stage 2 生成模型：本地 `llama_2_7b_hf + vllm`
+- 下游评估：`gpt2 small eval`
+- 统一 screening 参数：
   - `train_limit = 256`
   - `eval_limit = 256`
   - `initialization_limit = 1024`
   - `num_prompts = 100`
   - `epochs = 6`
 
-需要说明：
+## 3. `paper-2` 分支中创新算法的整个具体流程
 
-- `eval_limit = 256` 是 screening 配置的统一缩参设计
-- 实际 `eval_count` 由下游评估器真实读取的数据决定，因此不同数据集最终显示的 `eval_count` 可能不同
+当前版本的新版创新算法是在 `PrE-Text` 两阶段框架上做局部替换与增强，核心创新集中在 `Stage 1 selector`，而不是修改 Stage 2 的 bootstrap 思想。
 
-## 3. 当前版本新版创新算法具体流程
+### 3.1 整体流程概览
 
-当前版本新版创新算法是在 `PrE-Text` 基础上做的局部修改，核心不在 Stage 2，而在 Stage 1 的 selector 设计与两阶段生成链的工程打通。
-
-### 3.1 算法主流程
-
-1. 使用固定初始提示词和公共初始化样本，通过本地 `llama_2_7b_hf + vllm` 生成 Stage 1 候选样本。
-2. 对私有训练样本建立嵌入表示，计算每个私有样本的 `importance prior`。
-3. 对候选样本计算 `Top-Q private support`。
-4. 对候选样本计算 `genericity penalty`。
-5. 对候选样本计算动态 `redundancy penalty`。
-6. 通过贪心选择器输出：
+1. 从初始化数据集 `D_init` 中采样 exemplar。
+2. 使用固定模板提示词，通过本地 `llama_2_7b_hf + vllm` 生成 Stage 1 候选样本。
+3. 对私有训练样本建立向量表示。
+4. 对每个私有样本计算 `importance prior`。
+5. 对每个候选样本计算 `Top-Q private support`。
+6. 对每个候选样本计算 `genericity penalty`。
+7. 对候选集合进行动态 `redundancy penalty` 计算。
+8. 通过贪心选择器输出：
    - `selected seeds`
    - `hard negatives`
    - `boundary_state`
-7. Stage 1 结束后不释放已加载的 `vllm 7B engine`。
-8. Stage 2 继续复用 `PrE-Text` 的 `build_bootstrap_prompts` 逻辑构造 bootstrap prompts。
-9. Stage 2 不再重新初始化新的 `LLM(...)`，而是直接复用 Stage 1 已加载好的同一个 `vllm engine` 批量生成 synthetic corpus。
-10. 生成结果进入统一的 `gpt2 small eval`，输出 `best_top1 / top3 / top5 / top10`。
+9. 使用 `selected seeds` 进入 Stage 2。
+10. Stage 2 继续复用 `PrE-Text` 的 `build_bootstrap_prompts` 逻辑构造 bootstrap prompts。
+11. Stage 2 直接复用 Stage 1 已经加载好的同一个 `vllm 7B engine`，不重新初始化新的 `LLM(...)`。
+12. 生成 synthetic corpus。
+13. 将 synthetic corpus 送入统一的 `gpt2 small eval`。
+14. 输出：
+   - `synthetic_train_count`
+   - `eval_count`
+   - `best_top1`
+   - `best_top3`
+   - `best_top5`
+   - `best_top10`
 
-### 3.2 本轮工程关键点
+### 3.2 Stage 1 详细流程
 
-当前这版创新算法有一个重要工程变化：
+#### 3.2.1 候选生成
 
-- `Stage 1` 与 `Stage 2` 共享同一个 `llama_2_7b_hf + vllm` engine
-- 避免了 `Stage 2` 再次初始化 7B 模型带来的显存峰值和 OOM
+- 输入：
+  - 初始化样本 `D_init`
+  - 固定 prompt 模板
+  - 本地 `llama_2_7b_hf + vllm`
+- 输出：
+  - 一批 Stage 1 候选样本
 
-## 4. 四个数据集总对比表
+当前 screening 配置下，Stage 1 会在较小规模参数下生成候选，但仍保持完整算法链，不是只做简化版流程验证。
+
+#### 3.2.2 私有样本重要性建模
+
+对私有训练样本建立 embedding，并计算每个私有样本的重要性先验 `importance prior`。  
+这一部分用于增强“更值得被候选样本覆盖的私有样本”在后续支持度计算中的权重。
+
+#### 3.2.3 候选支持度计算
+
+对每个候选样本，基于私有样本 embedding 计算 `Top-Q private support`。  
+它反映的是候选样本在私有数据分布上的支持程度，而不是简单的最近邻单点匹配。
+
+#### 3.2.4 泛化惩罚
+
+对候选样本计算 `genericity penalty`。  
+目标是抑制那些过于模板化、过于泛化、虽然“像样本”但对目标任务区分性不强的候选。
+
+#### 3.2.5 冗余惩罚
+
+在选择 seeds 的过程中动态计算 `redundancy penalty`。  
+目标是避免多个 seeds 高度相似，导致最终 synthetic corpus 覆盖面变窄。
+
+#### 3.2.6 贪心选择器输出
+
+基于：
+
+- `importance prior`
+- `Top-Q private support`
+- `genericity penalty`
+- `redundancy penalty`
+
+进行综合评分与贪心选择，最终得到：
+
+- `selected seeds`
+- `hard negatives`
+- `boundary_state`
+
+其中：
+
+- `selected seeds` 用于进入 Stage 2
+- `hard negatives` 与 `boundary_state` 用于刻画被拒绝候选与边界信息
+
+### 3.3 Stage 2 详细流程
+
+#### 3.3.1 Prompt 构造
+
+Stage 2 不重新发明生成逻辑，而是继续复用 `PrE-Text` 的 `build_bootstrap_prompts` 机制，根据 Stage 1 输出的 `selected seeds` 构造 bootstrap prompts。
+
+#### 3.3.2 共享 vLLM 生成
+
+这是当前 `paper-2` 分支中的关键工程改动：
+
+- Stage 1 与 Stage 2 共用同一个 `llama_2_7b_hf + vllm` engine
+- Stage 2 不再重新初始化新的 `LLM(...)`
+
+这样做的目的有两个：
+
+1. 避免 Stage 2 二次加载 7B 模型造成额外显存峰值。
+2. 避免在 screening 与 formal 运行中频繁出现 Stage 2 初始化 OOM。
+
+#### 3.3.3 Synthetic Corpus 导出
+
+Stage 2 将生成得到的 synthetic texts 导出为：
+
+- `llama7b_text_syn.json`
+
+后续下游评估直接读取该 synthetic corpus。
+
+### 3.4 下游评估流程
+
+下游统一走 `gpt2 small eval`，并且当前代码已经保证 `paper-new -> thesis_platform -> PrE-Text eval` 这条链正确传递：
+
+- `train_limit`
+- `eval_limit`
+- `initialization_limit`
+
+因此，新版创新算法与 `PrE-Text` 的 screening 现在已经能在同一数据规模口径下进行公平比较。
+
+## 4. 四个数据集快速对比实验总表
 
 | 数据集 | 算法 | synthetic_train_count | eval_count | best_top1 | best_top3 | best_top5 | best_top10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `jobs` | `PrE-Text` | 94 | 256 | 0.2731984829329962 | - | - | - |
-| `jobs` | 新版创新算法 | 88 | 1000 | 0.2786768628845812 | 0.42998722778199927 | 0.4955458910642976 | 0.5781126218615104 |
-| `congressional` | `PrE-Text` | 94 | 256 | 0.2949640287769784 | - | - | - |
-| `congressional` | 新版创新算法 | 95 | 28632 | 0.29074027492465426 | 0.4589837290440988 | 0.5311561089450663 | 0.6199033897436614 |
-| `forums` | `PrE-Text` | 92 | 256 | 0.25014487154722814 | - | - | - |
-| `forums` | 新版创新算法 | 92 | 1000 | 0.24976645852795124 | 0.3872527328449448 | 0.4511529573725355 | 0.5367192749561598 |
-| `microblog` | `PrE-Text` | 96 | 256 | 0.2762705387848682 | - | - | - |
-| `microblog` | 新版创新算法 | 91 | 1000 | 0.2768144075953084 | 0.41841079264612324 | 0.48367889593970737 | 0.5665160437839514 |
+| `jobs` | `PrE-Text` | 94 | 256 | 0.2731984829329962 | 0.42237673830594186 | 0.4890012642225032 | 0.5697850821744627 |
+| `jobs` | 新版创新算法 | 88 | 256 | 0.2761061946902655 | 0.4275600505689001 | 0.4928571428571429 | 0.5747155499367889 |
+| `congressional` | `PrE-Text` | 94 | 256 | 0.2949640287769784 | 0.4601075896039925 | 0.5315963445459848 | 0.6188346620001296 |
+| `congressional` | 新版创新算法 | 96 | 256 | 0.2969732322250308 | 0.4610149718063387 | 0.5337999870373971 | 0.6212975565493551 |
+| `forums` | `PrE-Text` | 92 | 256 | 0.25014487154722814 | 0.3876762603824609 | 0.4547678835876634 | 0.5375056338935034 |
+| `forums` | 新版创新算法 | 90 | 256 | 0.2470542785396948 | 0.3820101732019831 | 0.44935934582448006 | 0.5317751593587019 |
+| `microblog` | `PrE-Text` | 96 | 256 | 0.2762705387848682 | 0.4185454082282512 | 0.4803846643739651 | 0.5627945484651636 |
+| `microblog` | 新版创新算法 | 88 | 256 | 0.27493312953763854 | 0.41911858361992105 | 0.4793019997452554 | 0.5648325054133232 |
 
-说明：
-
-- `PrE-Text` 这轮 screening 记录里目前已确认的主指标是 `best_top1`
-- 新版创新算法的 screening 结果文件中保留了 `best_top1 / top3 / top5 / top10`
-- 因此总表中，`PrE-Text` 暂只放入当前已整理出来的主指标
-
-## 5. `PrE-Text` 四个 screening 实验结果
+## 5. `PrE-Text` 四个快速对比实验结果
 
 ### 5.1 `SP-S-JOBS`
 
@@ -86,6 +169,9 @@
   - `synthetic_train_count = 94`
   - `eval_count = 256`
   - `best_top1 = 0.2731984829329962`
+  - `best_top3 = 0.42237673830594186`
+  - `best_top5 = 0.4890012642225032`
+  - `best_top10 = 0.5697850821744627`
 
 ### 5.2 `SP-S-CONG`
 
@@ -96,6 +182,9 @@
   - `synthetic_train_count = 94`
   - `eval_count = 256`
   - `best_top1 = 0.2949640287769784`
+  - `best_top3 = 0.4601075896039925`
+  - `best_top5 = 0.5315963445459848`
+  - `best_top10 = 0.6188346620001296`
 
 ### 5.3 `SP-S-FORUMS`
 
@@ -106,6 +195,9 @@
   - `synthetic_train_count = 92`
   - `eval_count = 256`
   - `best_top1 = 0.25014487154722814`
+  - `best_top3 = 0.3876762603824609`
+  - `best_top5 = 0.4547678835876634`
+  - `best_top10 = 0.5375056338935034`
 
 ### 5.4 `SP-S-MICRO`
 
@@ -116,8 +208,11 @@
   - `synthetic_train_count = 96`
   - `eval_count = 256`
   - `best_top1 = 0.2762705387848682`
+  - `best_top3 = 0.4185454082282512`
+  - `best_top5 = 0.4803846643739651`
+  - `best_top10 = 0.5627945484651636`
 
-## 6. 新版创新算法四个 screening 实验结果
+## 6. 新版创新算法四个快速对比实验结果
 
 ### 6.1 `NS-S-JOBS`
 
@@ -130,11 +225,11 @@
 - 结果：
   - `epochs = 6`
   - `synthetic_train_count = 88`
-  - `eval_count = 1000`
-  - `best_top1 = 0.2786768628845812`
-  - `best_top3 = 0.42998722778199927`
-  - `best_top5 = 0.4955458910642976`
-  - `best_top10 = 0.5781126218615104`
+  - `eval_count = 256`
+  - `best_top1 = 0.2761061946902655`
+  - `best_top3 = 0.4275600505689001`
+  - `best_top5 = 0.4928571428571429`
+  - `best_top10 = 0.5747155499367889`
 
 ### 6.2 `NS-S-CONG`
 
@@ -146,12 +241,12 @@
   - `/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/ns_s_congressional_screening/eval/downstream_eval_summary.json`
 - 结果：
   - `epochs = 6`
-  - `synthetic_train_count = 95`
-  - `eval_count = 28632`
-  - `best_top1 = 0.29074027492465426`
-  - `best_top3 = 0.4589837290440988`
-  - `best_top5 = 0.5311561089450663`
-  - `best_top10 = 0.6199033897436614`
+  - `synthetic_train_count = 96`
+  - `eval_count = 256`
+  - `best_top1 = 0.2969732322250308`
+  - `best_top3 = 0.4610149718063387`
+  - `best_top5 = 0.5337999870373971`
+  - `best_top10 = 0.6212975565493551`
 
 ### 6.3 `NS-S-FORUMS`
 
@@ -163,12 +258,12 @@
   - `/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/ns_s_forums_screening/eval/downstream_eval_summary.json`
 - 结果：
   - `epochs = 6`
-  - `synthetic_train_count = 92`
-  - `eval_count = 1000`
-  - `best_top1 = 0.24976645852795124`
-  - `best_top3 = 0.3872527328449448`
-  - `best_top5 = 0.4511529573725355`
-  - `best_top10 = 0.5367192749561598`
+  - `synthetic_train_count = 90`
+  - `eval_count = 256`
+  - `best_top1 = 0.2470542785396948`
+  - `best_top3 = 0.3820101732019831`
+  - `best_top5 = 0.44935934582448006`
+  - `best_top10 = 0.5317751593587019`
 
 ### 6.4 `NS-S-MICRO`
 
@@ -180,43 +275,34 @@
   - `/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/ns_s_microblog_screening/eval/downstream_eval_summary.json`
 - 结果：
   - `epochs = 6`
-  - `synthetic_train_count = 91`
-  - `eval_count = 1000`
-  - `best_top1 = 0.2768144075953084`
-  - `best_top3 = 0.41841079264612324`
-  - `best_top5 = 0.48367889593970737`
-  - `best_top10 = 0.5665160437839514`
+  - `synthetic_train_count = 88`
+  - `eval_count = 256`
+  - `best_top1 = 0.27493312953763854`
+  - `best_top3 = 0.41911858361992105`
+  - `best_top5 = 0.4793019997452554`
+  - `best_top10 = 0.5648325054133232`
 
 ## 7. 当前快速对比结论
 
-从当前这轮 screening 结果看：
+从这轮 `screening-balanced` 快速对比结果看：
 
 1. `jobs`
-   - 新版创新算法 `0.2786768628845812`
-   - `PrE-Text` `0.2731984829329962`
-   - 新版创新算法略高
-
+   - 新版创新算法优于 `PrE-Text`
 2. `congressional`
-   - 新版创新算法 `0.29074027492465426`
-   - `PrE-Text` `0.2949640287769784`
-   - `PrE-Text` 略高
-
+   - 新版创新算法优于 `PrE-Text`
 3. `forums`
-   - 新版创新算法 `0.24976645852795124`
-   - `PrE-Text` `0.25014487154722814`
-   - 两者接近，`PrE-Text` 略高
-
+   - `PrE-Text` 优于新版创新算法
 4. `microblog`
-   - 新版创新算法 `0.2768144075953084`
-   - `PrE-Text` `0.2762705387848682`
-   - 新版创新算法极小幅领先
+   - `PrE-Text` 优于新版创新算法
 
 当前判断：
 
-- 这版创新算法在 `jobs` 和 `microblog` 上表现为正向
-- 在 `congressional` 和 `forums` 上没有超出 `PrE-Text`
-- 因此它还不能直接判定为“screening 明确通过”
-- 但这版实现至少证明了：
-  - 创新算法并非全面失效
-  - 共享 `vLLM` 改造后，4 个 screening 全部稳定跑通
-  - 这条线仍值得继续做局部修改和下一轮 screening
+- 这版创新算法不是“完全无效”，因为它已经在 `jobs` 与 `congressional` 上表现出正向趋势。
+- 但它也没有达到“全面超过 `PrE-Text`”的程度，因为在 `forums` 与 `microblog` 上仍然落后。
+- 因此，这条创新线当前更适合继续做局部修改，而不是直接进入正式实验定稿。
+
+下一步更合理的方向是：
+
+- 围绕 `forums / microblog` 上的劣势继续分析；
+- 优先找出当前 selector 设计在这两类数据集上的失效原因；
+- 修改后继续进入下一轮 screening，而不是立即扩大为 formal。

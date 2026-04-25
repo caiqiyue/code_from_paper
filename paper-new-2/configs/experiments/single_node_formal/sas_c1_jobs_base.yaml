@@ -1,0 +1,21 @@
+inherits:
+  - ../../base/stage2_seed_aware_base.yaml
+
+meta:
+  experiment_id: sas_c1_jobs_base
+  seed: 42
+
+paths:
+  output_root: paper-new-2/outputs/sas_c1_jobs_base
+
+data:
+  dataset_name: jobs
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  train_limit: null
+  eval_limit: null
+  initialization_limit: null
+
+bootstrap:
+  num_prompts: 50000

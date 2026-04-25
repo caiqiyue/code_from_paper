@@ -1,0 +1,21 @@
+inherits:
+  - ../../base/stage2_seed_aware_base.yaml
+
+meta:
+  experiment_id: sas_s_microblog_screening
+  seed: 42
+
+paths:
+  output_root: paper-new-2/outputs/sas_s_microblog_screening
+
+data:
+  dataset_name: microblog
+  train_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json
+  eval_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  train_limit: 256
+  eval_limit: 256
+  initialization_limit: 1024
+
+bootstrap:
+  num_prompts: 100
