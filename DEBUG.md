@@ -236,3 +236,55 @@
 ## Interim Conclusion
 
 - Current evidence supports "normal running" rather than "failed" or "stuck".
+
+## Debug: paper-new-2 downstream eval circular import
+
+### Observations
+
+- 服务器上 `paper-new-2` 的 `sas_s_jobs_screening` 已经完成了 Stage 1 和 Stage 2 selector，但在进入下游评测时崩溃。
+- 远端 traceback 的最后错误是：
+  `ImportError: cannot import name 'rank_eval_summary' from partially initialized module 'thesis_platform.evaluation.downstream_eval'`
+- 本地最小复现成立：在仓库根目录下执行 `from thesis_platform.evaluation.downstream_eval import DownstreamEvalManager` 会稳定报同样的循环导入错误。
+- `thesis_platform/evaluation/downstream_eval.py` 顶部会导入 `thesis_platform.core.artifact_manifest` 和 `thesis_platform.core.io_utils`。
+- Python 在导入 `thesis_platform.core.artifact_manifest` 前会先执行 `thesis_platform/core/__init__.py`。
+- `thesis_platform/core/__init__.py` 当前会立即执行 `from thesis_platform.core.single_node_runner import SingleNodeRunner`。
+- `thesis_platform/core/single_node_runner.py` 顶部又会执行 `from thesis_platform.evaluation.downstream_eval import rank_eval_summary`。
+- 顺序实验成立：如果先 `import thesis_platform.core`，再导入 `DownstreamEvalManager`，就不会报错。这说明问题不是 `DownstreamEvalManager` 本身损坏，而是 fresh interpreter 下的包初始化顺序。
+
+### Hypotheses
+
+### H1: `thesis_platform.core.__init__` 的 eager import 触发了循环导入（ROOT HYPOTHESIS）
+- Supports: `downstream_eval -> core.artifact_manifest -> core.__init__ -> single_node_runner -> downstream_eval.rank_eval_summary` 正好闭环；先导入 `core` 再导入 `downstream_eval` 可以绕过这个顺序问题。
+- Conflicts: 暂无。
+- Test: 把 `core.__init__` 改成惰性导出 `SingleNodeRunner`，然后在 fresh interpreter 下重新导入 `DownstreamEvalManager`。
+
+### H2: `single_node_runner.py` 顶部导入 `rank_eval_summary` 才是唯一问题
+- Supports: 循环闭环里确实包含这条导入。
+- Conflicts: 如果 `core.__init__` 不主动拉起 `single_node_runner`，`downstream_eval` 自身导入其实可以成功。
+- Test: 不动 `single_node_runner.py`，只打断 `core.__init__` 的 eager import，观察问题是否消失。
+
+### H3: `paper-new-2` 的 eval bridge 调用方式不对，导致误触发 `thesis_platform` 的内部循环
+- Supports: 报错发生在 `paper-new-2 -> paper-new -> thesis_platform` 的桥接链里。
+- Conflicts: 本地最小复现不需要 `paper-new-2`，只导入 `DownstreamEvalManager` 就会报错，说明根因在共享平台包。
+- Test: 在 fresh interpreter 下直接导入 `DownstreamEvalManager`，不经过 `paper-new-2`。
+
+### Experiments
+
+- E1: 在 fresh interpreter 下运行 `from thesis_platform.evaluation.downstream_eval import DownstreamEvalManager`
+  - Result: confirmed，稳定报循环导入错误。
+- E2: 在 fresh interpreter 下先 `import thesis_platform.core`，再导入 `DownstreamEvalManager`
+  - Result: confirmed，导入成功。
+- E3: 只导入 `thesis_platform.core.artifact_manifest` 与 `thesis_platform.core.io_utils`
+  - Result: both import successfully，说明崩溃边界在 `core.__init__` 拉起 `single_node_runner` 时才出现。
+
+### Root Cause
+
+- `thesis_platform.core.__init__` 在包导入阶段立即导入 `SingleNodeRunner`，而 `SingleNodeRunner` 顶部又反向导入 `thesis_platform.evaluation.downstream_eval.rank_eval_summary`；因此 fresh interpreter 在导入 `DownstreamEvalManager` 时会形成 `downstream_eval -> core.__init__ -> single_node_runner -> downstream_eval` 的循环导入。
+
+### Fix
+
+- 将 `thesis_platform.core` 改为惰性导出 `SingleNodeRunner`，避免在包初始化阶段触发 `single_node_runner`。
+- 保留 `from thesis_platform.core import SingleNodeRunner` 的兼容入口。
+- 新增回归测试，覆盖 fresh interpreter 下：
+  - 直接导入 `DownstreamEvalManager` 必须成功
+  - `from thesis_platform.core import SingleNodeRunner` 仍然必须成功
