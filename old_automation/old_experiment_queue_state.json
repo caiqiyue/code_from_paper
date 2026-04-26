@@ -6,10 +6,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_jobs.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T13:22:41"
     },
     {
       "label": "NS-T3-F1-CONG",
@@ -17,10 +17,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_congressional.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T13:53:02"
     },
     {
       "label": "NS-T3-F1-FORUMS",
@@ -28,10 +28,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_forums.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T14:23:18"
     },
     {
       "label": "NS-T3-F1-MICRO",
@@ -39,10 +39,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_microblog.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T14:53:33"
     },
     {
       "label": "NS-T3-F2-JOBS",
@@ -50,10 +50,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f2_jobs.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T15:23:47"
     },
     {
       "label": "NS-T3-F2-CONG",
@@ -61,10 +61,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f2_congressional.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T15:54:05"
     },
     {
       "label": "NS-T3-F2-FORUMS",
@@ -72,10 +72,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f2_forums.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T16:09:28"
     },
     {
       "label": "NS-T3-F2-MICRO",
@@ -83,10 +83,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f2_microblog.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T16:24:24"
     },
     {
       "label": "NS-T3-F3-JOBS",
@@ -94,10 +94,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f3_jobs.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T16:54:46"
     },
     {
       "label": "NS-T3-F3-CONG",
@@ -105,10 +105,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f3_congressional.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T17:09:39"
     },
     {
       "label": "NS-T3-F3-FORUMS",
@@ -116,10 +116,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f3_forums.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T17:25:05"
     },
     {
       "label": "NS-T3-F3-MICRO",
@@ -127,10 +127,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f3_microblog.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T17:55:24"
     },
     {
       "label": "NS-T3-F4-JOBS",
@@ -138,10 +138,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f4_jobs.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T18:23:48"
     },
     {
       "label": "NS-T3-F4-CONG",
@@ -149,10 +149,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f4_congressional.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T18:55:44"
     },
     {
       "label": "NS-T3-F4-FORUMS",
@@ -160,10 +160,10 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f4_forums.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T19:01:12"
     },
     {
       "label": "NS-T3-F4-MICRO",
@@ -171,12 +171,12 @@
       "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f4_microblog.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
+      "status": "success",
+      "note": "downstream summary and stage2 corpus present",
       "pid": null,
-      "last_checked_at": null
+      "last_checked_at": "2026-04-26T19:25:57"
     }
   ],
   "current_label": null,
-  "updated_at": "2026-04-26T12:00:00"
+  "updated_at": "2026-04-26T21:55:58"
 }

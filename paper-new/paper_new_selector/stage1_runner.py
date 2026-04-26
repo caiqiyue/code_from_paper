@@ -170,6 +170,11 @@ def run_stage1_with_runtime(
             reference_vectors=reference_vectors,
             reference_top_k=int(selector_cfg["reference_top_k"]),
             reference_rank_weights=list(selector_cfg.get("reference_rank_weights", [])),
+            apply_gate=True,
+            gate_low=float(selector_cfg.get("genericity_gate_low", 0.0)),
+            gate_high=float(selector_cfg.get("genericity_gate_high", 1.0)),
+            low_scale=float(selector_cfg.get("genericity_gate_low_scale", 1.0)),
+            mid_scale=float(selector_cfg.get("genericity_gate_mid_scale", 1.0)),
         )
         decision = greedy_select_candidates(
             candidate_vectors=candidate_vectors,

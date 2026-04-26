@@ -37,12 +37,32 @@ def _resolve_reference_rank_weights(
     return weights
 
 
+def apply_genericity_gate(
+    *,
+    score: float,
+    gate_low: float,
+    gate_high: float,
+    low_scale: float,
+    mid_scale: float,
+) -> float:
+    if score <= gate_low:
+        return float(low_scale)
+    if score <= gate_high:
+        return float(mid_scale)
+    return 1.0
+
+
 def compute_genericity_penalty(
     *,
     candidate_vector: list[float],
     reference_vectors: list[list[float]],
     reference_top_k: int,
     reference_rank_weights: list[float] | None = None,
+    apply_gate: bool = False,
+    gate_low: float = 0.0,
+    gate_high: float = 1.0,
+    low_scale: float = 1.0,
+    mid_scale: float = 1.0,
 ) -> float:
     """Estimate how close a candidate stays to the public initialization distribution."""
 
@@ -60,7 +80,17 @@ def compute_genericity_penalty(
     if denominator <= 0.0:
         return 0.0
     weighted_mean = sum(score * weight for score, weight in zip(top_scores, weights)) / denominator
-    return max(0.0, min(1.0, float(weighted_mean)))
+    raw_score = max(0.0, min(1.0, float(weighted_mean)))
+    if not apply_gate:
+        return raw_score
+    gate_scale = apply_genericity_gate(
+        score=raw_score,
+        gate_low=gate_low,
+        gate_high=gate_high,
+        low_scale=low_scale,
+        mid_scale=mid_scale,
+    )
+    return raw_score * gate_scale
 
 
 def compute_genericity_penalties(
@@ -69,6 +99,11 @@ def compute_genericity_penalties(
     reference_vectors: list[list[float]],
     reference_top_k: int,
     reference_rank_weights: list[float] | None = None,
+    apply_gate: bool = False,
+    gate_low: float = 0.0,
+    gate_high: float = 1.0,
+    low_scale: float = 1.0,
+    mid_scale: float = 1.0,
 ) -> list[float]:
     return [
         compute_genericity_penalty(
@@ -76,6 +111,11 @@ def compute_genericity_penalties(
             reference_vectors=reference_vectors,
             reference_top_k=reference_top_k,
             reference_rank_weights=reference_rank_weights,
+            apply_gate=apply_gate,
+            gate_low=gate_low,
+            gate_high=gate_high,
+            low_scale=low_scale,
+            mid_scale=mid_scale,
         )
         for candidate_vector in candidate_vectors
     ]

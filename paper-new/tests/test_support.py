@@ -1,6 +1,6 @@
 import unittest
 
-from paper_new_selector.genericity import compute_genericity_penalty
+from paper_new_selector.genericity import apply_genericity_gate, compute_genericity_penalty
 from paper_new_selector.support import apply_gaussian_privacy_noise, compute_private_support
 
 
@@ -46,6 +46,54 @@ class SupportTests(unittest.TestCase):
             + 0.9701425001453318 * 0.5
             + 0.8320502943378436 * 0.5
         ) / (1.0 + 0.5 + 0.5)
+        self.assertAlmostEqual(penalty, expected, places=6)
+
+    def test_genericity_gate_uses_low_mid_high_scales(self):
+        self.assertEqual(
+            apply_genericity_gate(
+                score=0.70,
+                gate_low=0.78,
+                gate_high=0.90,
+                low_scale=0.10,
+                mid_scale=0.45,
+            ),
+            0.10,
+        )
+        self.assertEqual(
+            apply_genericity_gate(
+                score=0.84,
+                gate_low=0.78,
+                gate_high=0.90,
+                low_scale=0.10,
+                mid_scale=0.45,
+            ),
+            0.45,
+        )
+        self.assertEqual(
+            apply_genericity_gate(
+                score=0.95,
+                gate_low=0.78,
+                gate_high=0.90,
+                low_scale=0.10,
+                mid_scale=0.45,
+            ),
+            1.0,
+        )
+
+    def test_genericity_penalty_applies_gate_to_raw_score(self):
+        penalty = compute_genericity_penalty(
+            candidate_vector=[1.0, 0.0],
+            reference_vectors=[[1.0, 0.0], [0.7, 0.714142842854285], [0.0, 1.0]],
+            reference_top_k=3,
+            reference_rank_weights=[1.0, 0.5, 0.1],
+            gate_low=0.78,
+            gate_high=0.90,
+            low_scale=0.10,
+            mid_scale=0.45,
+            apply_gate=True,
+        )
+        raw_score = (1.0 * 1.0 + 0.7 * 0.5 + 0.0 * 0.1) / (1.0 + 0.5 + 0.1)
+        expected = raw_score * 0.45
         self.assertAlmostEqual(penalty, expected, places=6)
 
     def test_privacy_noise_is_deterministic_for_the_same_seed(self):
