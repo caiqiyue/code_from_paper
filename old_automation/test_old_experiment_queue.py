@@ -11,15 +11,28 @@ import old_automation.old_experiment_queue as queue
 
 
 class OldExperimentQueueTests(unittest.TestCase):
-    def test_round2_tuning_experiments_are_appended_after_existing_queue(self) -> None:
+    def test_queue_contains_only_round3_tuning_experiments(self) -> None:
         labels = [exp.label for exp in queue.QUEUE]
 
-        self.assertEqual(labels[0], "NS-C1")
-        self.assertEqual(labels[17], "SP-C9")
-        self.assertEqual(labels[18], "NS-T2-E1-JOBS")
-        self.assertEqual(labels[-1], "NS-T2-E6-MICRO")
+        self.assertEqual(len(labels), 16)
+        self.assertEqual(labels[0], "NS-T3-F1-JOBS")
+        self.assertEqual(labels[-1], "NS-T3-F4-MICRO")
+        self.assertTrue(all(label.startswith("NS-T3-") for label in labels))
 
-    def test_load_state_appends_round2_items_without_resetting_existing_current_label(self) -> None:
+    def test_queue_uses_pretext_env_a6000_and_round3_config_paths(self) -> None:
+        self.assertTrue(queue.VISIBLE_DEVICE_INDEX == "1")
+        self.assertTrue(all(exp.env_name == "pretext" for exp in queue.QUEUE))
+        self.assertTrue(all(exp.family == "paper_new" for exp in queue.QUEUE))
+        self.assertTrue(
+            all(
+                exp.config_path.startswith(
+                    "paper-new/configs/experiments/single_node_tuning_round3/"
+                )
+                for exp in queue.QUEUE
+            )
+        )
+
+    def test_load_state_replaces_legacy_queue_with_round3_items(self) -> None:
         legacy_state = {
             "queue": [
                 {
@@ -33,17 +46,6 @@ class OldExperimentQueueTests(unittest.TestCase):
                     "pid": None,
                     "last_checked_at": "2026-04-25T10:00:00",
                 },
-                {
-                    "label": "NS-C2",
-                    "actual_experiment_id": "ns_c2_congressional_base",
-                    "config_path": "paper-new/configs/experiments/single_node_formal/ns_c2_congressional_base.yaml",
-                    "env_name": "pretext",
-                    "family": "paper_new",
-                    "status": "running",
-                    "note": "in flight",
-                    "pid": "123",
-                    "last_checked_at": "2026-04-25T10:05:00",
-                },
             ],
             "current_label": "NS-C2",
         }
@@ -54,14 +56,13 @@ class OldExperimentQueueTests(unittest.TestCase):
             with patch.object(queue, "STATE_PATH", state_path):
                 state = queue.load_state()
 
-        self.assertEqual(state["current_label"], "NS-C2")
-        self.assertEqual(state["queue"][1]["status"], "running")
-        self.assertEqual(state["queue"][18]["label"], "NS-T2-E1-JOBS")
-        self.assertEqual(state["queue"][-1]["label"], "NS-T2-E6-MICRO")
-        self.assertEqual(state["queue"][18]["status"], "pending")
+        self.assertIsNone(state["current_label"])
+        self.assertEqual(state["queue"][0]["label"], "NS-T3-F1-JOBS")
+        self.assertEqual(state["queue"][-1]["label"], "NS-T3-F4-MICRO")
+        self.assertTrue(all(item["status"] == "pending" for item in state["queue"]))
 
     def test_paper_new_downstream_summary_counts_as_success(self) -> None:
-        exp = queue.experiment_def("NS-C1")
+        exp = queue.experiment_def("NS-T3-F1-JOBS")
         remote_outputs = [
             (0, "", "", "host-a"),
             (0, "success:downstream summary and stage2 corpus present\n", "", "host-a"),
@@ -74,31 +75,31 @@ class OldExperimentQueueTests(unittest.TestCase):
         self.assertEqual(note, "downstream summary and stage2 corpus present")
 
     def test_pretext_partial_artifacts_with_live_process_counts_as_running(self) -> None:
-        exp = queue.experiment_def("SP-C1")
+        exp = queue.experiment_def("NS-T3-F1-JOBS")
         remote_outputs = [
             (
                 0,
-                "k8smaster 123 1 0 python -m pretext_platform.scripts.run_pipeline --config "
-                "configs/experiments/single_node_formal/sp_c1_jobs_base.yaml\n",
+                "k8smaster 123 1 0 python -m paper_new_selector.run_selector_single_node --config "
+                "configs/experiments/single_node_tuning_round3/ns_tune3_f1_jobs.yaml\n",
                 "",
                 "host-a",
             ),
-            (0, "partial:metrics exists but eval_small missing\n", "", "host-a"),
+            (0, "partial:artifacts present (eval) without final downstream summary\n", "", "host-a"),
         ]
 
         with patch.object(queue, "run_remote", side_effect=remote_outputs):
             status, note = queue.inspect_experiment(exp)
 
         self.assertEqual(status, "running")
-        self.assertIn("metrics exists but eval_small missing", note)
+        self.assertIn("without final downstream summary", note)
 
     def test_main_reassigns_current_label_when_stale_label_is_not_running(self) -> None:
         state = {
             "queue": [
                 {
-                    "label": "NS-C1",
-                    "actual_experiment_id": "ns_c1_jobs_base",
-                    "config_path": "paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml",
+                    "label": "NS-T3-F1-JOBS",
+                    "actual_experiment_id": "ns_tune3_f1_jobs",
+                    "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_jobs.yaml",
                     "env_name": "pretext",
                     "family": "paper_new",
                     "status": "running",
@@ -107,20 +108,9 @@ class OldExperimentQueueTests(unittest.TestCase):
                     "last_checked_at": None,
                 },
                 {
-                    "label": "SP-C1",
-                    "actual_experiment_id": "sp_c1_jobs_base",
-                    "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c1_jobs_base.yaml",
-                    "env_name": "pretext",
-                    "family": "pretext",
-                    "status": "pending",
-                    "note": "",
-                    "pid": None,
-                    "last_checked_at": None,
-                },
-                {
-                    "label": "NS-C2",
-                    "actual_experiment_id": "ns_c2_congressional_base",
-                    "config_path": "paper-new/configs/experiments/single_node_formal/ns_c2_congressional_base.yaml",
+                    "label": "NS-T3-F1-CONG",
+                    "actual_experiment_id": "ns_tune3_f1_congressional",
+                    "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_congressional.yaml",
                     "env_name": "pretext",
                     "family": "paper_new",
                     "status": "pending",
@@ -129,23 +119,34 @@ class OldExperimentQueueTests(unittest.TestCase):
                     "last_checked_at": None,
                 },
                 {
-                    "label": "SP-C2",
-                    "actual_experiment_id": "sp_c2_congressional_base",
-                    "config_path": "PrE-Text/configs/experiments/single_node_formal/sp_c2_congressional_base.yaml",
+                    "label": "NS-T3-F1-FORUMS",
+                    "actual_experiment_id": "ns_tune3_f1_forums",
+                    "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_forums.yaml",
                     "env_name": "pretext",
-                    "family": "pretext",
+                    "family": "paper_new",
+                    "status": "pending",
+                    "note": "",
+                    "pid": None,
+                    "last_checked_at": None,
+                },
+                {
+                    "label": "NS-T3-F1-MICRO",
+                    "actual_experiment_id": "ns_tune3_f1_microblog",
+                    "config_path": "paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_microblog.yaml",
+                    "env_name": "pretext",
+                    "family": "paper_new",
                     "status": "pending",
                     "note": "",
                     "pid": None,
                     "last_checked_at": None,
                 },
             ],
-            "current_label": "NS-C1",
+            "current_label": "NS-T3-F1-JOBS",
         }
 
         inspect_results = [
             ("failed", "missing experiment dir"),
-            ("running", "metrics exists but eval_small missing"),
+            ("running", "artifacts present (eval) without final downstream summary"),
         ]
 
         with patch.object(queue, "PLINK", Path(sys.executable)), patch.object(
@@ -157,10 +158,10 @@ class OldExperimentQueueTests(unittest.TestCase):
         ):
             queue.main()
 
-        self.assertEqual(state["current_label"], "NS-C2")
+        self.assertEqual(state["current_label"], "NS-T3-F1-CONG")
         self.assertEqual(state["queue"][0]["status"], "failed")
         self.assertEqual(state["queue"][0]["pid"], None)
-        self.assertEqual(state["queue"][2]["status"], "running")
+        self.assertEqual(state["queue"][1]["status"], "running")
 
 
 if __name__ == "__main__":

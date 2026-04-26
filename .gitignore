@@ -58,12 +58,16 @@ start/
 
 # Local literature/code reference projects kept out of this repo
 DPGA-TextSyn/
+DataInf/
 FedCOG/
 FedPHA/
+FedTextGrad/
+GRADMM/
 KnowledgeSG/
 NeurIPS2025-C2Prompt/
 PCEvolve/
 PFPT/
+POPri/
 PrivateKT/
 RewardDS/
 TracIn/

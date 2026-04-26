@@ -31,8 +31,8 @@ REMOTE_AUTOMATION = f"{REMOTE_REPO}/old_automation"
 CUDA_DEVICE_ORDER = "PCI_BUS_ID"
 VISIBLE_DEVICE_INDEX = "1"
 
-ROUND2_GROUPS = ("e1", "e2", "e3", "e4", "e5", "e6")
-ROUND2_DATASETS = (
+ROUND3_GROUPS = ("f1", "f2", "f3", "f4")
+ROUND3_DATASETS = (
     ("jobs", "JOBS"),
     ("congressional", "CONG"),
     ("forums", "FORUMS"),
@@ -71,148 +71,18 @@ class ExperimentDef:
         return self.config_path
 
 
-QUEUE: list[ExperimentDef] = [
-    ExperimentDef(
-        label="NS-C1",
-        actual_experiment_id="ns_c1_jobs_base",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c1_jobs_base.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="NS-C2",
-        actual_experiment_id="ns_c2_congressional_base",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c2_congressional_base.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="NS-C3",
-        actual_experiment_id="ns_c3_forums_base",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c3_forums_base.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="NS-C4",
-        actual_experiment_id="ns_c4_microblog_base",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c4_microblog_base.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="SP-C1",
-        actual_experiment_id="sp_c1_jobs_base",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c1_jobs_base.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="SP-C2",
-        actual_experiment_id="sp_c2_congressional_base",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c2_congressional_base.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="SP-C3",
-        actual_experiment_id="sp_c3_forums_base",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c3_forums_base.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="SP-C4",
-        actual_experiment_id="sp_c4_microblog_base",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c4_microblog_base.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="NS-C5",
-        actual_experiment_id="ns_c5_jobs_eps05",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c5_jobs_eps05.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="SP-C5",
-        actual_experiment_id="sp_c5_jobs_eps05",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c5_jobs_eps05.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="NS-C6",
-        actual_experiment_id="ns_c6_jobs_eps758",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c6_jobs_eps758.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="SP-C6",
-        actual_experiment_id="sp_c6_jobs_eps758",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c6_jobs_eps758.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="NS-C7",
-        actual_experiment_id="ns_c7_jobs_no_privacy",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c7_jobs_no_privacy.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="SP-C7",
-        actual_experiment_id="sp_c7_jobs_no_privacy",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c7_jobs_no_privacy.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="NS-C8",
-        actual_experiment_id="ns_c8_jobs_seed123",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c8_jobs_seed123.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="SP-C8",
-        actual_experiment_id="sp_c8_jobs_seed123",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c8_jobs_seed123.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-    ExperimentDef(
-        label="NS-C9",
-        actual_experiment_id="ns_c9_jobs_seed456",
-        config_path="paper-new/configs/experiments/single_node_formal/ns_c9_jobs_seed456.yaml",
-        env_name="pretext",
-        family="paper_new",
-    ),
-    ExperimentDef(
-        label="SP-C9",
-        actual_experiment_id="sp_c9_jobs_seed456",
-        config_path="PrE-Text/configs/experiments/single_node_formal/sp_c9_jobs_seed456.yaml",
-        env_name="pretext",
-        family="pretext",
-    ),
-]
-
-
-def _build_round2_tuning_queue() -> list[ExperimentDef]:
+def _build_round3_tuning_queue() -> list[ExperimentDef]:
     queue: list[ExperimentDef] = []
-    for group in ROUND2_GROUPS:
+    for group in ROUND3_GROUPS:
         group_upper = group.upper()
-        for dataset_name, dataset_label in ROUND2_DATASETS:
-            experiment_id = f"ns_tune2_{group}_{dataset_name}"
+        for dataset_name, dataset_label in ROUND3_DATASETS:
+            experiment_id = f"ns_tune3_{group}_{dataset_name}"
             queue.append(
                 ExperimentDef(
-                    label=f"NS-T2-{group_upper}-{dataset_label}",
+                    label=f"NS-T3-{group_upper}-{dataset_label}",
                     actual_experiment_id=experiment_id,
                     config_path=(
-                        "paper-new/configs/experiments/single_node_tuning_round2/"
+                        "paper-new/configs/experiments/single_node_tuning_round3/"
                         f"{experiment_id}.yaml"
                     ),
                     env_name="pretext",
@@ -222,7 +92,7 @@ def _build_round2_tuning_queue() -> list[ExperimentDef]:
     return queue
 
 
-QUEUE.extend(_build_round2_tuning_queue())
+QUEUE: list[ExperimentDef] = _build_round3_tuning_queue()
 
 
 def log(message: str) -> None:
