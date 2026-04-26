@@ -31,8 +31,8 @@ REMOTE_AUTOMATION = f"{REMOTE_REPO}/old_automation"
 CUDA_DEVICE_ORDER = "PCI_BUS_ID"
 VISIBLE_DEVICE_INDEX = "1"
 
-ROUND3_GROUPS = ("f1", "f2", "f3", "f4")
-ROUND3_DATASETS = (
+ROUND4_GROUPS = ("g1", "g2", "g3", "g4")
+ROUND4_DATASETS = (
     ("jobs", "JOBS"),
     ("congressional", "CONG"),
     ("forums", "FORUMS"),
@@ -71,18 +71,18 @@ class ExperimentDef:
         return self.config_path
 
 
-def _build_round3_tuning_queue() -> list[ExperimentDef]:
+def _build_round4_tuning_queue() -> list[ExperimentDef]:
     queue: list[ExperimentDef] = []
-    for group in ROUND3_GROUPS:
+    for group in ROUND4_GROUPS:
         group_upper = group.upper()
-        for dataset_name, dataset_label in ROUND3_DATASETS:
-            experiment_id = f"ns_tune3_{group}_{dataset_name}"
+        for dataset_name, dataset_label in ROUND4_DATASETS:
+            experiment_id = f"ns_tune4_{group}_{dataset_name}"
             queue.append(
                 ExperimentDef(
-                    label=f"NS-T3-{group_upper}-{dataset_label}",
+                    label=f"NS-T4-{group_upper}-{dataset_label}",
                     actual_experiment_id=experiment_id,
                     config_path=(
-                        "paper-new/configs/experiments/single_node_tuning_round3/"
+                        "paper-new/configs/experiments/single_node_tuning_round4/"
                         f"{experiment_id}.yaml"
                     ),
                     env_name="pretext",
@@ -92,7 +92,7 @@ def _build_round3_tuning_queue() -> list[ExperimentDef]:
     return queue
 
 
-QUEUE: list[ExperimentDef] = _build_round3_tuning_queue()
+QUEUE: list[ExperimentDef] = _build_round4_tuning_queue()
 
 
 def log(message: str) -> None:

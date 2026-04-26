@@ -40,6 +40,10 @@ selector:
   length_ceiling: 128
   lambda_generic: 0.35
   lambda_redundancy: 0.25
+  genericity_gate_low: 0.78
+  genericity_gate_high: 0.90
+  genericity_gate_low_scale: 0.10
+  genericity_gate_mid_scale: 0.45
 
 bootstrap:
   num_prompts: 1500
