@@ -18,7 +18,8 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(config["generator"]["max_exemplar_chars"], 220)
         self.assertEqual(config["selector"]["rank_weights"], [1.0, 0.6, 0.3, 0.15])
         self.assertEqual(config["selector"]["private_knn_k"], 8)
-        self.assertEqual(config["selector"]["reference_top_k"], 4)
+        self.assertEqual(config["selector"]["reference_top_k"], 6)
+        self.assertEqual(config["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
         self.assertEqual(config["selector"]["density_lambda"], 0.50)
         self.assertEqual(config["selector"]["novelty_lambda"], 0.30)
         self.assertEqual(config["selector"]["length_lambda"], 0.20)
@@ -98,6 +99,8 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(config["generator"]["generated_per_round"], 8)
         self.assertEqual(config["selector"]["seed_top_k"], 6)
         self.assertEqual(config["selector"]["hard_negative_top_k"], 6)
+        self.assertEqual(config["selector"]["reference_top_k"], 6)
+        self.assertEqual(config["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
         self.assertEqual(config["bootstrap"]["num_prompts"], 100)
         self.assertEqual(config["eval"]["small_epochs"], 6)
 
@@ -150,6 +153,8 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(config["generator"]["generated_per_round"], 8)
         self.assertEqual(config["selector"]["seed_top_k"], 6)
         self.assertEqual(config["selector"]["hard_negative_top_k"], 6)
+        self.assertEqual(config["selector"]["reference_top_k"], 6)
+        self.assertEqual(config["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
         self.assertEqual(config["bootstrap"]["num_prompts"], 100)
         self.assertEqual(config["eval"]["small_epochs"], 6)
 
@@ -167,10 +172,12 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(e2["selector"]["rank_weights"], [1.0, 0.45, 0.20, 0.10])
         self.assertEqual(e3["selector"]["private_knn_k"], 6)
         self.assertEqual(e4["selector"]["reference_top_k"], 6)
+        self.assertEqual(e4["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
         self.assertEqual(e5["selector"]["density_lambda"], 0.45)
         self.assertEqual(e5["selector"]["novelty_lambda"], 0.35)
         self.assertEqual(e6["selector"]["top_q"], 3)
         self.assertEqual(e6["selector"]["reference_top_k"], 6)
+        self.assertEqual(e6["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
         self.assertEqual(e6["selector"]["density_lambda"], 0.45)
         self.assertEqual(e6["selector"]["novelty_lambda"], 0.35)
 
@@ -200,6 +207,41 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
             micro["data"]["train_path"],
             "thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json",
         )
+
+    def test_tuning_round3_base_contract_matches_screening_scale(self):
+        config = load_yaml_config(
+            "paper-new/configs/experiments/single_node_tuning_round3/_base_selector_tuning_round3.yaml"
+        )
+        self.assertEqual(config["meta"]["stage"], "single_node_tuning_round3")
+        self.assertEqual(config["selector"]["reference_top_k"], 6)
+        self.assertEqual(config["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
+        self.assertEqual(config["data"]["train_limit"], 256)
+        self.assertEqual(config["eval"]["small_epochs"], 6)
+
+    def test_tuning_round3_group_overrides_apply_expected_selector_values(self):
+        f1 = load_yaml_config("paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_jobs.yaml")
+        f2 = load_yaml_config("paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f2_jobs.yaml")
+        f3 = load_yaml_config("paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f3_jobs.yaml")
+        f4 = load_yaml_config("paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f4_jobs.yaml")
+
+        self.assertEqual(f1["selector"]["reference_top_k"], 6)
+        self.assertEqual(f1["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
+        self.assertEqual(f2["selector"]["reference_rank_weights"], [1.0, 0.7, 0.45, 0.25, 0.12, 0.05])
+        self.assertEqual(f3["selector"]["reference_top_k"], 8)
+        self.assertEqual(f3["selector"]["reference_rank_weights"], [1.0, 0.85, 0.7, 0.55, 0.4, 0.25, 0.12, 0.05])
+        self.assertEqual(f4["selector"]["length_lambda"], 0.10)
+        self.assertEqual(f4["selector"]["density_lambda"], 0.45)
+        self.assertEqual(f4["selector"]["novelty_lambda"], 0.35)
+
+    def test_tuning_round3_leaf_configs_keep_dataset_paths_and_output_roots_explicit(self):
+        jobs = load_yaml_config("paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f1_jobs.yaml")
+        forums = load_yaml_config("paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f3_forums.yaml")
+        micro = load_yaml_config("paper-new/configs/experiments/single_node_tuning_round3/ns_tune3_f4_microblog.yaml")
+
+        self.assertEqual(jobs["meta"]["experiment_id"], "ns_tune3_f1_jobs")
+        self.assertEqual(jobs["paths"]["output_root"], "paper-new/outputs/ns_tune3_f1_jobs")
+        self.assertEqual(forums["data"]["eval_path"], "thesis_platform/datasets/pretext_forums/formatted/forums_eval.json")
+        self.assertEqual(micro["data"]["train_path"], "thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json")
 
 
 if __name__ == "__main__":

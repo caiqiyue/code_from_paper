@@ -18,11 +18,31 @@ def _cosine(left: list[float], right: list[float]) -> float:
     return _dot(left, right) / denominator
 
 
+def _resolve_reference_rank_weights(
+    *,
+    count: int,
+    reference_rank_weights: list[float] | None,
+) -> list[float]:
+    if count <= 0:
+        return []
+    if not reference_rank_weights:
+        return [1.0] * count
+    weights: list[float] = []
+    tail_weight = float(reference_rank_weights[-1])
+    for index in range(count):
+        if index < len(reference_rank_weights):
+            weights.append(float(reference_rank_weights[index]))
+        else:
+            weights.append(tail_weight)
+    return weights
+
+
 def compute_genericity_penalty(
     *,
     candidate_vector: list[float],
     reference_vectors: list[list[float]],
     reference_top_k: int,
+    reference_rank_weights: list[float] | None = None,
 ) -> float:
     """Estimate how close a candidate stays to the public initialization distribution."""
 
@@ -32,7 +52,15 @@ def compute_genericity_penalty(
         (_cosine(candidate_vector, reference) for reference in reference_vectors),
         reverse=True,
     )[: max(1, reference_top_k)]
-    return max(0.0, min(1.0, float(sum(top_scores)) / float(len(top_scores))))
+    weights = _resolve_reference_rank_weights(
+        count=len(top_scores),
+        reference_rank_weights=reference_rank_weights,
+    )
+    denominator = float(sum(weights))
+    if denominator <= 0.0:
+        return 0.0
+    weighted_mean = sum(score * weight for score, weight in zip(top_scores, weights)) / denominator
+    return max(0.0, min(1.0, float(weighted_mean)))
 
 
 def compute_genericity_penalties(
@@ -40,12 +68,14 @@ def compute_genericity_penalties(
     candidate_vectors: list[list[float]],
     reference_vectors: list[list[float]],
     reference_top_k: int,
+    reference_rank_weights: list[float] | None = None,
 ) -> list[float]:
     return [
         compute_genericity_penalty(
             candidate_vector=candidate_vector,
             reference_vectors=reference_vectors,
             reference_top_k=reference_top_k,
+            reference_rank_weights=reference_rank_weights,
         )
         for candidate_vector in candidate_vectors
     ]

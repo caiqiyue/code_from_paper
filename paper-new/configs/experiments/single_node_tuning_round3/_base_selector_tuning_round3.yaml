@@ -1,12 +1,12 @@
-﻿inherits:
+inherits:
   - ../single_node_formal/_base_selector_formal.yaml
 
 meta:
-  stage: single_node_tuning_round2
+  stage: single_node_tuning_round3
   seed: 42
 
 paths:
-  output_root: paper-new/outputs/ns_tuning_round2_default
+  output_root: paper-new/outputs/ns_tuning_round3_default
 
 data:
   train_limit: 256

@@ -169,6 +169,7 @@ def run_stage1_with_runtime(
             candidate_vectors=candidate_vectors,
             reference_vectors=reference_vectors,
             reference_top_k=int(selector_cfg["reference_top_k"]),
+            reference_rank_weights=list(selector_cfg.get("reference_rank_weights", [])),
         )
         decision = greedy_select_candidates(
             candidate_vectors=candidate_vectors,
