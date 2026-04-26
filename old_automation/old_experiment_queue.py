@@ -31,6 +31,14 @@ REMOTE_AUTOMATION = f"{REMOTE_REPO}/old_automation"
 CUDA_DEVICE_ORDER = "PCI_BUS_ID"
 VISIBLE_DEVICE_INDEX = "1"
 
+ROUND2_GROUPS = ("e1", "e2", "e3", "e4", "e5", "e6")
+ROUND2_DATASETS = (
+    ("jobs", "JOBS"),
+    ("congressional", "CONG"),
+    ("forums", "FORUMS"),
+    ("microblog", "MICRO"),
+)
+
 
 @dataclass(frozen=True)
 class ExperimentDef:
@@ -191,6 +199,30 @@ QUEUE: list[ExperimentDef] = [
         family="pretext",
     ),
 ]
+
+
+def _build_round2_tuning_queue() -> list[ExperimentDef]:
+    queue: list[ExperimentDef] = []
+    for group in ROUND2_GROUPS:
+        group_upper = group.upper()
+        for dataset_name, dataset_label in ROUND2_DATASETS:
+            experiment_id = f"ns_tune2_{group}_{dataset_name}"
+            queue.append(
+                ExperimentDef(
+                    label=f"NS-T2-{group_upper}-{dataset_label}",
+                    actual_experiment_id=experiment_id,
+                    config_path=(
+                        "paper-new/configs/experiments/single_node_tuning_round2/"
+                        f"{experiment_id}.yaml"
+                    ),
+                    env_name="pretext",
+                    family="paper_new",
+                )
+            )
+    return queue
+
+
+QUEUE.extend(_build_round2_tuning_queue())
 
 
 def log(message: str) -> None:

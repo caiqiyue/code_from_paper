@@ -1,2 +1,0 @@
-# PrivateKT
-Codes of PrivateKT

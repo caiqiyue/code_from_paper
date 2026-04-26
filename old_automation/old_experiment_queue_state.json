@@ -17,10 +17,10 @@
       "config_path": "paper-new/configs/experiments/single_node_formal/ns_c2_congressional_base.yaml",
       "env_name": "pretext",
       "family": "paper_new",
-      "status": "pending",
-      "note": "",
-      "pid": null,
-      "last_checked_at": null
+      "status": "running",
+      "note": "missing experiment dir",
+      "pid": "20679",
+      "last_checked_at": "2026-04-25T23:10:18"
     },
     {
       "label": "NS-C3",
@@ -197,8 +197,272 @@
       "note": "",
       "pid": null,
       "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E1-JOBS",
+      "actual_experiment_id": "ns_tune2_e1_jobs",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e1_jobs.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E1-CONG",
+      "actual_experiment_id": "ns_tune2_e1_congressional",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e1_congressional.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E1-FORUMS",
+      "actual_experiment_id": "ns_tune2_e1_forums",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e1_forums.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E1-MICRO",
+      "actual_experiment_id": "ns_tune2_e1_microblog",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e1_microblog.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E2-JOBS",
+      "actual_experiment_id": "ns_tune2_e2_jobs",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e2_jobs.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E2-CONG",
+      "actual_experiment_id": "ns_tune2_e2_congressional",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e2_congressional.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E2-FORUMS",
+      "actual_experiment_id": "ns_tune2_e2_forums",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e2_forums.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E2-MICRO",
+      "actual_experiment_id": "ns_tune2_e2_microblog",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e2_microblog.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E3-JOBS",
+      "actual_experiment_id": "ns_tune2_e3_jobs",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e3_jobs.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E3-CONG",
+      "actual_experiment_id": "ns_tune2_e3_congressional",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e3_congressional.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E3-FORUMS",
+      "actual_experiment_id": "ns_tune2_e3_forums",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e3_forums.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E3-MICRO",
+      "actual_experiment_id": "ns_tune2_e3_microblog",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e3_microblog.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E4-JOBS",
+      "actual_experiment_id": "ns_tune2_e4_jobs",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e4_jobs.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E4-CONG",
+      "actual_experiment_id": "ns_tune2_e4_congressional",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e4_congressional.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E4-FORUMS",
+      "actual_experiment_id": "ns_tune2_e4_forums",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e4_forums.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E4-MICRO",
+      "actual_experiment_id": "ns_tune2_e4_microblog",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e4_microblog.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E5-JOBS",
+      "actual_experiment_id": "ns_tune2_e5_jobs",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e5_jobs.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E5-CONG",
+      "actual_experiment_id": "ns_tune2_e5_congressional",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e5_congressional.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E5-FORUMS",
+      "actual_experiment_id": "ns_tune2_e5_forums",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e5_forums.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E5-MICRO",
+      "actual_experiment_id": "ns_tune2_e5_microblog",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e5_microblog.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E6-JOBS",
+      "actual_experiment_id": "ns_tune2_e6_jobs",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e6_jobs.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E6-CONG",
+      "actual_experiment_id": "ns_tune2_e6_congressional",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e6_congressional.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E6-FORUMS",
+      "actual_experiment_id": "ns_tune2_e6_forums",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e6_forums.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
+    },
+    {
+      "label": "NS-T2-E6-MICRO",
+      "actual_experiment_id": "ns_tune2_e6_microblog",
+      "config_path": "paper-new/configs/experiments/single_node_tuning_round2/ns_tune2_e6_microblog.yaml",
+      "env_name": "pretext",
+      "family": "paper_new",
+      "status": "pending",
+      "note": "",
+      "pid": null,
+      "last_checked_at": null
     }
   ],
-  "current_label": null,
-  "updated_at": "2026-04-24T22:13:25"
+  "current_label": "NS-C2",
+  "updated_at": "2026-04-25T23:10:18"
 }

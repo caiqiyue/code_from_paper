@@ -56,3 +56,16 @@ clash_for_linux/
 !thesis_platform/scripts/
 start/
 
+# Local literature/code reference projects kept out of this repo
+DPGA-TextSyn/
+FedCOG/
+FedPHA/
+KnowledgeSG/
+NeurIPS2025-C2Prompt/
+PCEvolve/
+PFPT/
+PrivateKT/
+RewardDS/
+TracIn/
+WASP/
+

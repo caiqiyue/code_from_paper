@@ -1,1 +1,0 @@
-# Your output log information will auto be saved in this folder
