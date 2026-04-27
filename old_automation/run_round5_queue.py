@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Sequential runner for Round 5 length-adaptive experiments (16 total: r1/r2/r3/r4 × 4 datasets) on A6000 GPU."""
+"""Sequential runner for Round 5 length-adaptive experiments (17 total: 1 r0 sanity + r1-r4 × 4 datasets) on A6000 GPU."""
+
+import argparse
 import datetime
 import os
 import subprocess
@@ -9,11 +11,27 @@ PAPER_NEW_ROUND5 = REPO + "/paper-new-round5"
 AUTOMATION = REPO + "/old_automation"
 LOG_PATH = AUTOMATION + "/run_round5_queue.log"
 
-EXPERIMENTS = [
-    ("r1", "jobs"), ("r1", "congressional"), ("r1", "forums"), ("r1", "microblog"),
-    ("r2", "jobs"), ("r2", "congressional"), ("r2", "forums"), ("r2", "microblog"),
-    ("r3", "jobs"), ("r3", "congressional"), ("r3", "forums"), ("r3", "microblog"),
-    ("r4", "jobs"), ("r4", "congressional"), ("r4", "forums"), ("r4", "microblog"),
+ALL_EXPERIMENTS = [
+    (
+        "r0",
+        "forums",
+    ),  # sanity: alpha=0, same config as r1 but without length_modulation
+    ("r1", "jobs"),
+    ("r1", "congressional"),
+    ("r1", "forums"),
+    ("r1", "microblog"),
+    ("r2", "jobs"),
+    ("r2", "congressional"),
+    ("r2", "forums"),
+    ("r2", "microblog"),
+    ("r3", "jobs"),
+    ("r3", "congressional"),
+    ("r3", "forums"),
+    ("r3", "microblog"),
+    ("r4", "jobs"),
+    ("r4", "congressional"),
+    ("r4", "forums"),
+    ("r4", "microblog"),
 ]
 
 ENV = {
@@ -44,8 +62,13 @@ def run_experiment(group, dataset):
     log(f"Config: {config}")
     with open(remote_log, "w") as out:
         result = subprocess.run(
-            [PYTHON, "-m", "paper_new_selector.run_selector_single_node",
-             "--config", config],
+            [
+                PYTHON,
+                "-m",
+                "paper_new_selector.run_selector_single_node",
+                "--config",
+                config,
+            ],
             cwd=PAPER_NEW_ROUND5,
             env=ENV,
             stdout=out,
@@ -60,14 +83,33 @@ def run_experiment(group, dataset):
 
 
 def main():
-    total = len(EXPERIMENTS)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--experiments",
+        default="all",
+        help="Which experiments to run: 'all', 'r0', 'main' (r1-r4), or specific group like 'r1'",
+    )
+    args = parser.parse_args()
+
+    if args.experiments == "all":
+        experiments = ALL_EXPERIMENTS
+    elif args.experiments == "r0":
+        experiments = [("r0", "forums")]
+    elif args.experiments == "main":
+        experiments = [e for e in ALL_EXPERIMENTS if e[0] != "r0"]
+    else:
+        experiments = [e for e in ALL_EXPERIMENTS if e[0] == args.experiments]
+
+    total = len(experiments)
     done = 0
     failed = 0
-    log(f"=== Round 5 Queue Start: {total} experiments on A6000 (CUDA_VISIBLE_DEVICES=1) ===")
-    exp_ids = [f"ns_tune5_{g}_{d}" for g, d in EXPERIMENTS]
+    log(
+        f"=== Round 5 Queue Start: {total} experiments on A6000 (CUDA_VISIBLE_DEVICES=1) ==="
+    )
+    exp_ids = [f"ns_tune5_{g}_{d}" for g, d in experiments]
     log(f"Queue: {exp_ids}")
 
-    for i, (group, dataset) in enumerate(EXPERIMENTS, 1):
+    for i, (group, dataset) in enumerate(experiments, 1):
         log(f"--- [{i}/{total}] ---")
         ok = run_experiment(group, dataset)
         if ok:
