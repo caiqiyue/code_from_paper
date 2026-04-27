@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Sequential runner for Round 5 length-adaptive experiments (17 total: 1 r0 sanity + r1-r4 × 4 datasets) on A6000 GPU."""
+"""Sequential runner for Round 5ext experiments (16 total: p4-p7 × 4 datasets) on A6000 GPU.
+
+Direction B: combining g3 gate parameters (gate_low=0.75, gate_high=0.86) with
+length-adaptive penalty alpha grid [0.4, 0.5, 0.7, 0.8]."""
 
 import argparse
 import datetime
@@ -10,29 +13,25 @@ from pathlib import Path
 REPO = "/mnt/public/caiqiyue_file/code_from_paper"
 PAPER_NEW_ROUND5 = Path(REPO + "/paper-new-round5")
 AUTOMATION = Path(REPO + "/old_automation")
-LOG_PATH = AUTOMATION / "run_round5_queue.log"
+LOG_PATH = AUTOMATION / "run_round5ext_queue.log"
 
 ALL_EXPERIMENTS = [
-    (
-        "r0",
-        "forums",
-    ),  # sanity: alpha=0, same config as r1 but without length_modulation
-    ("r1", "jobs"),
-    ("r1", "congressional"),
-    ("r1", "forums"),
-    ("r1", "microblog"),
-    ("r2", "jobs"),
-    ("r2", "congressional"),
-    ("r2", "forums"),
-    ("r2", "microblog"),
-    ("r3", "jobs"),
-    ("r3", "congressional"),
-    ("r3", "forums"),
-    ("r3", "microblog"),
-    ("r4", "jobs"),
-    ("r4", "congressional"),
-    ("r4", "forums"),
-    ("r4", "microblog"),
+    ("p4", "jobs"),
+    ("p4", "congressional"),
+    ("p4", "forums"),
+    ("p4", "microblog"),
+    ("p5", "jobs"),
+    ("p5", "congressional"),
+    ("p5", "forums"),
+    ("p5", "microblog"),
+    ("p6", "jobs"),
+    ("p6", "congressional"),
+    ("p6", "forums"),
+    ("p6", "microblog"),
+    ("p7", "jobs"),
+    ("p7", "congressional"),
+    ("p7", "forums"),
+    ("p7", "microblog"),
 ]
 
 ENV = {
@@ -56,12 +55,12 @@ def log(msg):
 
 
 def run_experiment(group, dataset):
-    exp_id = f"ns_tune5_{group}_{dataset}"
+    exp_id = f"ns_tune5ext_{group}_{dataset}"
     config_rel = (
-        Path("configs/experiments/single_node_tuning_round5") / f"{exp_id}.yaml"
+        Path("configs/experiments/single_node_tuning_round5ext") / f"{exp_id}.yaml"
     )
     config_abs = (PAPER_NEW_ROUND5 / config_rel).resolve()
-    remote_log = AUTOMATION / f"NS-T5-{group.upper()}-{dataset.upper()}.remote.log"
+    remote_log = AUTOMATION / f"NS-T5EXT-{group.upper()}-{dataset.upper()}.remote.log"
     log(f"Starting {exp_id}")
     log(f"Config: {config_abs}")
     env = {**ENV, "PYTHONPATH": str(PAPER_NEW_ROUND5)}
@@ -92,16 +91,12 @@ def main():
     parser.add_argument(
         "--experiments",
         default="all",
-        help="Which experiments to run: 'all', 'r0', 'main' (r1-r4), or specific group like 'r1'",
+        help="Which experiments: 'all' or specific group like 'p4'",
     )
     args = parser.parse_args()
 
     if args.experiments == "all":
         experiments = ALL_EXPERIMENTS
-    elif args.experiments == "r0":
-        experiments = [("r0", "forums")]
-    elif args.experiments == "main":
-        experiments = [e for e in ALL_EXPERIMENTS if e[0] != "r0"]
     else:
         experiments = [e for e in ALL_EXPERIMENTS if e[0] == args.experiments]
 
@@ -109,9 +104,9 @@ def main():
     done = 0
     failed = 0
     log(
-        f"=== Round 5 Queue Start: {total} experiments on A6000 (CUDA_VISIBLE_DEVICES=1) ==="
+        f"=== Round 5ext Queue Start: {total} experiments on A6000 (CUDA_VISIBLE_DEVICES=1) ==="
     )
-    exp_ids = [f"ns_tune5_{g}_{d}" for g, d in experiments]
+    exp_ids = [f"ns_tune5ext_{g}_{d}" for g, d in experiments]
     log(f"Queue: {exp_ids}")
 
     for i, (group, dataset) in enumerate(experiments, 1):
@@ -122,7 +117,7 @@ def main():
         else:
             failed += 1
 
-    log(f"=== Round 5 Done: {done} success, {failed} failed out of {total} ===")
+    log(f"=== Round 5ext Done: {done} success, {failed} failed out of {total} ===")
 
 
 if __name__ == "__main__":
