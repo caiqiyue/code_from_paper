@@ -120,7 +120,13 @@ paper-new/configs/experiments/single_node_tuning_round4_ext/
 
 ### 3.1 数学定义
 
-对每个候选词 `c`，记其 token 数为 `L_c`，批内候选词长度的中位数为 `L_ref`。
+**长度度量定义**：candidate_texts 在 stage1_runner 中是 `list[str]`（每个元素是完整文档字符串，而非 token 列表）。其长度定义为 **word 数**：
+```
+L_c = len(c.split())
+```
+这与项目已有的 `private_lengths` 度量保持一致（参见 `paper-new/paper_new_selector/stage1_runner.py:138`）。**不要使用 `len(c)`**（那是字符数）；也不要引入额外 tokenizer。
+
+`L_ref` 为批内全部候选词长度的**中位数**。
 
 **Round 4 输出**：`gated_penalty(c) = raw_score(c) × gate_scale(raw_score(c))`
 
@@ -135,7 +141,7 @@ final_penalty(c) = gated_penalty(c) × length_factor(c)
 - α < 0 → 短候选词受**更少**惩罚（"短 = 受保护"）
 - α = 0 → 退化为 Round 4 g1，length_factor 恒为 1
 
-钳制范围：`factor_min=0.2, factor_max=5.0`，避免极端候选造成数值离群。
+钳制范围（默认值）：`factor_min=0.2, factor_max=5.0`。但**该默认值需要在实施阶段由离线分布检查确认**，见 §3.4.1。
 
 ### 3.2 代码改动
 
@@ -157,37 +163,56 @@ def compute_length_factors(
     """根据候选词长度计算调制因子。alpha=0 时全部返回 1.0。"""
 ```
 
-**修改 `compute_genericity_penalties` 签名**：
+**修改 `compute_genericity_penalties` 签名**（注意：现有代码使用 `*` 强制 keyword-only 参数，**必须保持这个风格**；参数名沿用 `candidate_vectors` / `reference_top_k` / `reference_rank_weights`，不是 `candidates` / `rank_weights`）：
+
 ```python
 def compute_genericity_penalties(
-    candidates,
-    reference_vectors,
-    rank_weights,
-    apply_gate=True,
-    gate_low=0.78,
-    gate_high=0.90,
-    low_scale=0.10,
-    mid_scale=0.45,
-    # 新增参数：
-    lengths: Optional[List[int]] = None,
+    *,
+    candidate_vectors: list[list[float]],
+    reference_vectors: list[list[float]],
+    reference_top_k: int,
+    reference_rank_weights: list[float] | None = None,
+    apply_gate: bool = False,         # 与现有默认值一致
+    gate_low: float = 0.0,
+    gate_high: float = 1.0,
+    low_scale: float = 1.0,
+    mid_scale: float = 1.0,
+    # ↓↓↓ Round 5 新增 ↓↓↓
+    candidate_lengths: list[int] | None = None,
     length_modulation_enabled: bool = False,
     length_alpha: float = 0.0,
     length_factor_min: float = 0.2,
     length_factor_max: float = 5.0,
-) -> List[float]:
+) -> list[float]:
     ...
-    # 在 gate 计算完成后：
-    if length_modulation_enabled and lengths is not None:
-        factors = compute_length_factors(lengths, length_alpha, ...)
-        gated = [g * f for g, f in zip(gated, factors)]
-    return gated
+```
+
+**同时必须修改单条版本 `compute_genericity_penalty`**（因为 `compute_genericity_penalties` 是它的 list comprehension 包装），让单条函数也接受单候选的 `candidate_length` 参数；外层批处理函数计算 `L_ref` 后逐个透传。
+
+**调用结构**：
+```python
+def compute_genericity_penalties(*, candidate_vectors, ..., candidate_lengths=None, length_modulation_enabled=False, ...):
+    l_ref = _median(candidate_lengths) if (length_modulation_enabled and candidate_lengths) else None
+    return [
+        compute_genericity_penalty(
+            candidate_vector=v,
+            ...,
+            candidate_length=l,
+            l_ref=l_ref,
+            length_modulation_enabled=length_modulation_enabled,
+            length_alpha=length_alpha,
+            length_factor_min=length_factor_min,
+            length_factor_max=length_factor_max,
+        )
+        for v, l in zip(candidate_vectors, candidate_lengths or [None] * len(candidate_vectors))
+    ]
 ```
 
 #### 3.2.3 `paper_new_selector/stage1_runner.py`
 
-- 在调用 `compute_genericity_penalties` 之前，先收集每个候选词的 token 数（候选词本身就是 token 列表 / 字符串列表，直接 `len(c)`）
-- 从 config 读出 `length_modulation_enabled / length_alpha / length_factor_min / length_factor_max`
-- 透传给 `compute_genericity_penalties`
+- 在调用 `compute_genericity_penalties` 之前，先用 `[len(text.split()) for text in candidate_texts]` 计算 `candidate_lengths`（与 `private_lengths` 在第 138 行的算法完全一致）
+- 从 `selector_cfg` 读出 `length_modulation_enabled / length_alpha / length_factor_min / length_factor_max`，全部带默认值（`.get(..., 默认值)`）以保证旧 config 不传也能跑
+- 通过 keyword arg 透传给 `compute_genericity_penalties`
 
 #### 3.2.4 base config
 
@@ -233,6 +258,24 @@ selector:
 | 极长候选 + α=+0.6 | factor 被 `factor_min=0.2` 钳住 |
 | `length_modulation_enabled=false` | 跳过 factor 计算，零开销，**严格等价 Round 4 g1** |
 
+#### 3.4.1 钳制范围的离线分布检查（实施前必做）
+
+由于不同数据集候选词的 word 数分布差异很大（forums 短帖 ~10-30 words，congressional ~40-200 words），`(L_ref / L_c) ^ 0.6` 在极端样本上很容易撞到 `factor_min=0.2` 或 `factor_max=5.0` 的边界，导致 α 被"饱和"，r3/r4 实际退化为 r1/r2 的稍强版本。
+
+**实施时必须执行的离线检查**：
+
+1. 在 `paper-new-round5/` 改完代码后，在 r1-r4 实验跑之前：
+   - 选取 **forums** 数据集（候选词长度方差最大）
+   - 跑一次 stage1 candidate generation（不需要进 stage2 / eval）
+   - dump 一批的 `candidate_lengths`，离线计算 `L_ref / L_c` 的 5%/95% 分位
+2. 检查在 α=+0.6 和 α=−0.6 下，`factor` 落在 `[factor_min, factor_max]` 之内的比例
+3. **可接受阈值**：α=±0.6 时，**至少 80% 的候选词 factor 不触边界**。否则需要：
+   - 把 `factor_min/max` 调宽（例如 0.1 / 10.0），或
+   - 缩小 r3/r4 的 α 绝对值（例如改为 ±0.5）
+4. 检查通过后，将"实际使用的 factor_min/max"写入 base config 并固定
+
+**这一步的 log 与决策记录写入** `paper-new-round5/docs/2026-04-27-round5-length-adaptive-design.md` 的"附录 A：钳制范围离线检查"。
+
 ### 3.5 测试设计（必须全部 pass 才能跑实验）
 
 | # | 测试名 | 验证内容 |
@@ -252,11 +295,17 @@ selector:
 
 1. 新建 `ns_tune5_r0_forums.yaml`：`length_modulation_enabled=true, length_alpha=0.0`
 2. 在 `paper-new-round5/` 上跑该单组 forums 实验
-3. 与 Round 4 g1 的 forums best_top1 对比：**差异 < 0.0001 视为通过**
-4. 若不通过，停下来排查代码副作用，修复后重跑
+3. **多层一致性比对（必须全部通过）**：
+   - **(a) Stage 1 中间产物文本一致性**：r0 和 Round 4 g1 在 forums 上产生的 `selected_texts` 文本（stage1 输出）**逐字符一致**——这是最强的判据，因为只要 candidate scoring 有任何数值偏差，selected_texts 都会不同
+   - **(b) hard_negative_texts 一致性**：同样要求逐字符一致
+   - **(c) 下游评估 best_top1**：差异 < 0.0001 视为通过
+   - 三项必须**全部通过**才算 sanity 通过；其中 (a) 和 (b) 是数值正确性的精确判据，(c) 是端到端的 sanity
+4. 若任一项不通过，停下来排查代码副作用，修复后重跑
 5. 通过后再跑 r1-r4 的 16 个正式实验
 
-sanity check 不计入 16 个正式实验，单独走（约 5 分钟）。
+sanity check 的文本一致性比对在 stage1 完成后即可做，秒级；不需要等整个 eval 跑完。整体 sanity check 不计入 16 个正式实验，单独走（约 5-10 分钟）。
+
+**比对实施提示**：Round 4 g1 forums 的 stage1 artifacts 在 `paper-new/outputs/ns_tune4_g1_forums/` 下，需要确保仍然存在；若已被清理，重跑一次 Round 4 g1 forums 作为对照基准（约 5 分钟）。
 
 ### 3.7 自动化执行
 
@@ -322,8 +371,20 @@ sanity check 不计入 16 个正式实验，单独走（约 5 分钟）。
 
 ## 7. 待 writing-plans 阶段澄清的子问题
 
-- 方向 2a 中"候选词 token 数"的确切定义（候选在 stage1_runner 的某一步是 `List[str]`，每个 str 是一个 token；要确认 `len(candidate)` 拿到的就是 token 数）
-- 方向 1 的 16 个 yaml 是否完全照搬 Round 4 的 yaml 模板（仅改 `inherits` 路径）
+- 方向 1 的 12 个叶子 yaml 是否完全照搬 Round 4 的 yaml 模板（仅改 `inherits` 路径与组名）
 - run_round4_ext_queue.py / run_round5_queue.py 是否完全沿用 run_round4_queue.py 的结构
+- §3.4.1 离线分布检查的具体实施方式（哪个脚本、输出格式）
 
 这些不影响整体设计，写实施计划时由 writing-plans 处理即可。
+
+---
+
+## 8. 修订记录
+
+- **2026-04-27 初版** — brainstorming 后写入
+- **2026-04-27 v2** — 通过 feasibility-reviewer 子智能体审核后修订：
+  - 修正 §3.1：候选词长度定义为 `len(c.split())`（word 数），与项目已有的 `private_lengths` 对齐；明确禁止使用 `len(c)`（字符数）
+  - 修正 §3.2.2：`compute_genericity_penalties` 函数签名遵循 keyword-only（`*`）风格，参数名沿用 `candidate_vectors` / `reference_top_k` / `reference_rank_weights`，`apply_gate=False` 默认值；明确同时改单条版本 `compute_genericity_penalty`
+  - 修正 §3.2.3：明确使用 `[len(text.split()) for text in candidate_texts]`，与第 138 行 `private_lengths` 一致
+  - 新增 §3.4.1：r1-r4 实验前必须执行钳制范围离线分布检查，避免 α 被饱和
+  - 加强 §3.6：sanity check 增加 `selected_texts` / `hard_negative_texts` 文本逐字符一致性比对，不再只看 best_top1
