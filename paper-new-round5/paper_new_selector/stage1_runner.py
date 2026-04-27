@@ -11,7 +11,11 @@ from .importance import build_private_importance_weights
 from .runtime_cleanup import release_runtime_memory
 from .selector import greedy_select_candidates
 from .support import apply_gaussian_privacy_noise, compute_private_support
-from .thesis_bridge import build_embedder_from_config, load_text_samples, load_yaml_config
+from .thesis_bridge import (
+    build_embedder_from_config,
+    load_text_samples,
+    load_yaml_config,
+)
 
 
 def _clean_candidate_texts(texts: list[str]) -> list[str]:
@@ -116,7 +120,9 @@ def run_stage1_with_runtime(
             )
             generated = generator_handle.generator.generate(round_ctx)
             before = len(candidate_texts)
-            candidate_texts.extend(_clean_candidate_texts([sample.render_text() for sample in generated]))
+            candidate_texts.extend(
+                _clean_candidate_texts([sample.render_text() for sample in generated])
+            )
             if len(candidate_texts) == before:
                 raise RuntimeError(
                     "Stage 1 candidate generation produced no usable texts. "
@@ -157,7 +163,9 @@ def run_stage1_with_runtime(
             rank_weights=list(selector_cfg["rank_weights"]),
             top_q=int(selector_cfg["top_q"]),
         )
-        privacy_enabled = bool(privacy_cfg.get("enabled", False)) and not bool(stage1_cfg.get("privacy_disabled", False))
+        privacy_enabled = bool(privacy_cfg.get("enabled", False)) and not bool(
+            stage1_cfg.get("privacy_disabled", False)
+        )
         privacy_sigma = float(stage1_cfg.get("sigma", 0.0))
         private_support = apply_gaussian_privacy_noise(
             raw_private_support,
@@ -177,11 +185,25 @@ def run_stage1_with_runtime(
             low_scale=float(selector_cfg.get("genericity_gate_low_scale", 1.0)),
             mid_scale=float(selector_cfg.get("genericity_gate_mid_scale", 1.0)),
             candidate_lengths=candidate_lengths,
-            length_modulation_enabled=bool(selector_cfg.get("length_modulation_enabled", False)),
+            length_modulation_enabled=bool(
+                selector_cfg.get("length_modulation_enabled", False)
+            ),
             length_alpha=float(selector_cfg.get("length_alpha", 0.0)),
             length_factor_min=float(selector_cfg.get("length_factor_min", 0.2)),
             length_factor_max=float(selector_cfg.get("length_factor_max", 5.0)),
         )
+        _dataset_name = str(config.get("data", {}).get("dataset_name", ""))
+        if _dataset_name == "forums":
+            _overrides = [
+                ("_forums_lambda_generic", "lambda_generic"),
+                ("_forums_lambda_redundancy", "lambda_redundancy"),
+                ("_forums_seed_top_k", "seed_top_k"),
+                ("_forums_gate_low", "genericity_gate_low"),
+                ("_forums_mid_scale", "genericity_gate_mid_scale"),
+            ]
+            for _src_key, _tgt_key in _overrides:
+                if _src_key in selector_cfg:
+                    selector_cfg[_tgt_key] = float(selector_cfg[_src_key])
         decision = greedy_select_candidates(
             candidate_vectors=candidate_vectors,
             candidate_texts=candidate_texts,
@@ -193,11 +215,19 @@ def run_stage1_with_runtime(
             hard_negative_top_k=int(selector_cfg["hard_negative_top_k"]),
         )
 
-        reject_scores = [decision.accept_scores[index] for index in decision.hard_negative_indices]
-        reject_vectors = [candidate_vectors[index] for index in decision.hard_negative_indices]
-        boundary_state = build_boundary_state(reject_scores=reject_scores, reject_vectors=reject_vectors)
+        reject_scores = [
+            decision.accept_scores[index] for index in decision.hard_negative_indices
+        ]
+        reject_vectors = [
+            candidate_vectors[index] for index in decision.hard_negative_indices
+        ]
+        boundary_state = build_boundary_state(
+            reject_scores=reject_scores, reject_vectors=reject_vectors
+        )
         selected_texts = [candidate_texts[index] for index in decision.selected_indices]
-        hard_negative_texts = [candidate_texts[index] for index in decision.hard_negative_indices]
+        hard_negative_texts = [
+            candidate_texts[index] for index in decision.hard_negative_indices
+        ]
         return {
             "mode": str(config["pipeline"]["stage1_mode"]),
             "selected_indices": decision.selected_indices,
@@ -224,11 +254,18 @@ def run_stage1_with_runtime(
             "embedder": embedder,
         }
     except Exception:
-        release_runtime_memory(getattr(generator_handle, "text_backend", None), embedder)
+        release_runtime_memory(
+            getattr(generator_handle, "text_backend", None), embedder
+        )
         raise
 
 
-def run_stage1(config_path: str | Path, *, validate_only: bool = False) -> dict[str, Any]:
+def run_stage1(
+    config_path: str | Path, *, validate_only: bool = False
+) -> dict[str, Any]:
     summary, runtime = run_stage1_with_runtime(config_path, validate_only=validate_only)
-    release_runtime_memory(getattr(runtime.get("generator_handle"), "text_backend", None), runtime.get("embedder"))
+    release_runtime_memory(
+        getattr(runtime.get("generator_handle"), "text_backend", None),
+        runtime.get("embedder"),
+    )
     return summary
