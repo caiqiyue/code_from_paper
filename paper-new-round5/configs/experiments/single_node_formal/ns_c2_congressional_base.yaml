@@ -1,0 +1,17 @@
+inherits:
+  - ./_base_selector_formal.yaml
+
+meta:
+  experiment_id: ns_c2_congressional_base
+
+paths:
+  output_root: paper-new/outputs/ns_c2_congressional_base
+
+data:
+  dataset_name: congressional
+  train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
+  eval_path: thesis_platform/datasets/congressional/formatted/congressional_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  train_limit: null
+  eval_limit: null
+  initialization_limit: null
