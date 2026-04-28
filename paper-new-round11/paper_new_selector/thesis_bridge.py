@@ -166,11 +166,22 @@ def resolve_config_path(config_path: str | Path) -> Path:
     cwd_candidate = (Path.cwd() / path).resolve()
     candidates.append(cwd_candidate)
 
-    worktree_root = resolve_worktree_root()
-    candidates.append((worktree_root / path).resolve())
+    if cwd_candidate.exists():
+        return cwd_candidate
 
-    repo_root = resolve_repo_root()
-    candidates.append((repo_root / path).resolve())
+    try:
+        worktree_root = resolve_worktree_root()
+    except FileNotFoundError:
+        worktree_root = None
+    if worktree_root is not None:
+        candidates.append((worktree_root / path).resolve())
+
+    try:
+        repo_root = resolve_repo_root()
+    except FileNotFoundError:
+        repo_root = None
+    if repo_root is not None:
+        candidates.append((repo_root / path).resolve())
 
     seen: set[Path] = set()
     for candidate in candidates:

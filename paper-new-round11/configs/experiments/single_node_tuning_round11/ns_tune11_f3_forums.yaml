@@ -4,6 +4,7 @@ inherits:
 selector:
   _forums_lambda_generic: 0.10
   _forums_lambda_redundancy: 0.08
+  _forums_max_tokens: 87
   _forums_gate_low: 0.88
   _forums_gate_high: 0.96
   _forums_low_scale: 0.25
