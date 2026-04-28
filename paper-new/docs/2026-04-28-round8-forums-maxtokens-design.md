@@ -1,8 +1,7 @@
-# Round 8: Forums Bootstrap max_tokens 调优实验设计
+# Round 8: Forums Bootstrap max_tokens 调优实验
 
 **日期**: 2026-04-28  
-**状态**: 待实施  
-**目的**: 解决 forums 数据集未能超越 PrE-Text 基线的问题
+**状态**: ✅ 已完成（实验失败，发现新 insights）
 
 ---
 
@@ -41,22 +40,14 @@
 
 ## 2. 解决方案
 
-### 2.1 代码修改说明
-
-**重要更正**：`max_tokens` 是在 `bootstrap` 配置中的，不是在 `selector` 中。
-
-- `selector` override 在 `stage1_runner.py` 中处理
-- `bootstrap` 配置在 `pretext_bridge.py` 的 `prepare_bootstrap_runtime` 函数中处理
+### 2.1 代码修改
 
 **修改文件**: `paper-new-round5/paper_new_selector/pretext_bridge.py`
 
-**修改位置**: `prepare_bootstrap_runtime` 函数（约 line 100-110）
+**修改位置**: `prepare_bootstrap_runtime` 函数
 
-**修改内容**:
-在 `bootstrap_cfg` 字典构建之前，添加 override 逻辑：
-
+**新增代码**:
 ```python
-# 在 line 100 之前添加
 _dataset_name = str(config.get("data", {}).get("dataset_name", ""))
 if _dataset_name == "forums":
     _bootstrap_overrides = [
@@ -67,118 +58,88 @@ if _dataset_name == "forums":
             if "bootstrap" not in config:
                 config["bootstrap"] = {}
             config["bootstrap"][_tgt_key] = float(config["selector"][_src_key])
-
-bootstrap_cfg = {
-    ...
-}
 ```
-
-### 2.2 修改理由
-
-1. **最小改动**：只增加几行代码
-2. **向后兼容**：不影响已有配置的行为
-3. **可逆性**：如实验失败，可快速回滚
-4. **隔离性**：只在 forums 数据集时生效
 
 ---
 
 ## 3. 实验设计
 
-### 3.1 设计原则
-
-根据 screening 方法论，保持三个已成功数据集（jobs/congressional/microblog）的现有最佳参数不变，只针对 forums 问题进行定向调整。
-
-### 3.2 现有最佳参数（保持不变）
-
-| 数据集 | seed_top_k | max_tokens | 状态 |
-|--------|-----------|-----------|------|
-| jobs | 23 | 85 | ✅ 已超越 |
-| congressional | 6 | 85 | ✅ 已超越 |
-| microblog | 23 | 85 | ✅ 已超越 |
-
-### 3.3 实验配置
-
-**实验组**: seed_top_k=23, max_tokens=150 for forums
-
 | 实验 ID | 数据集 | seed_top_k | max_tokens | 描述 |
 |---------|--------|-----------|-----------|------|
 | ns_tune8_f1_forums | forums | 23 | 150 | max_tokens 增大测试 |
 
-**对照组**: seed_top_k=23, max_tokens=85 for forums（已有）
+---
 
-| 实验 ID | 数据集 | seed_top_k | max_tokens | best_top1 | 状态 |
-|---------|--------|-----------|-----------|-----------|------|
-| ns_tune7_s09_forums | forums | 23 | 85 | 0.2498 | ❌ 未超越 |
+## 4. 实验结果
 
-### 3.4 预期结果
+### 4.1 实际结果
 
-| max_tokens | 预期合成词数 | 预期 best_top1 | 预期 vs PrE-Text |
-|-----------|------------|----------------|------------------|
-| 85 (当前) | ~42 词 | 0.2498 | -0.0003 ❌ |
-| 150 (实验) | ~70-80 词 | ? | ? |
+| 配置 | max_tokens | 合成平均词数 | best_top1 | vs PrE-Text |
+|------|-----------|-------------|-----------|-------------|
+| 对照组 (s09) | 85 | 42.6 | 0.2498 | -0.0003 ❌ |
+| 实验组 (f1) | 150 | 64.0 | **0.2465** | **-0.0036** ❌ |
+
+### 4.2 关键发现
+
+**❌ max_tokens 增大反而使性能下降！**
+
+- 合成语料确实变长了（42.6 → 64.0 词，+50%）
+- 但下游 best_top1 从 0.2498 下降到 0.2465（-0.0033）
+- 距离 PrE-Text 基线从 -0.0003 扩大到 -0.0036
 
 ---
 
-## 4. 实施计划
+## 5. 新insights
 
-### 4.1 步骤 1: 修改代码
+### 5.1 假设验证结果
 
-1. 修改 `pretext_bridge.py`，在 `prepare_bootstrap_runtime` 函数中增加 `_forums_max_tokens` override
-2. 验证修改语法正确
-3. 本地测试 import 正常
+**原假设被否定**：增加 max_tokens 不能提升 forums 性能，反而使其下降。
 
-### 4.2 步骤 2: 创建实验配置
+### 5.2 新发现
 
-创建配置目录和文件：
-```
-paper-new-round5/configs/experiments/single_node_tuning_round8/
-├── _base_selector_tuning_round8.yaml
-└── ns_tune8_f1_forums.yaml
-```
+对于 forums 数据集：
+- **较短的合成文本表现更好**（0.2498 vs 0.2465）
+- 长文本可能引入更多噪声
+- 短文本质量更高、更集中
 
-### 4.3 步骤 3: 子智能体审核
+### 5.3 可能的解释
 
-1. 检查代码修改是否正确
-2. 检查配置文件继承链
-3. 检查路径、名称是否正确
-
-### 4.4 步骤 4: 同步到服务器并执行
-
-1. 手动同步本地代码到服务器
-2. 在 A6000 GPU 上执行 `ns_tune8_f1_forums` 实验
-3. 记录结果
+1. **模型能力限制**：LLaMA-2-7B 可能更适合生成短文本
+2. **任务特性**：forums 下游任务可能更关注文本的核心信息，而非完整长度
+3. **噪声累积**：生成长文本时，模型可能在后期产生更多无关内容
 
 ---
 
-## 5. 风险评估
+## 6. 结论
 
-| 风险 | 影响 | 缓解措施 |
-|------|------|---------|
-| max_tokens 增大导致显存不足 | 中 | 使用 A6000（48GB），风险低 |
-| 生成时间显著增加 | 低 | 增加约 2x，仍可接受 |
-| 破坏其他数据集的现有优势 | 极低 | 只影响 forums，不改变其他数据集配置 |
+| 假设 | 结果 | 说明 |
+|------|------|------|
+| 增大 max_tokens 能提升 forums 性能 | ❌ **失败** | 性能反而下降 0.0033 |
 
----
-
-## 6. 成功标准
-
-**主目标**：forums 的 best_top1 > PrE-Text 0.2501
-
-**次目标**：forums 的 best_top1 有显著提升（至少 +0.001）
+**需要探索其他方向来提升 forums 性能。**
 
 ---
 
-## 7. 附录
+## 7. 下一步方向（待讨论）
 
-### 7.1 代码修改位置
+1. **减少 max_tokens**：尝试 50 或 60
+2. **调整 seed_top_k**：回退到 seed_top_k=6 或其他值
+3. **调整 genericity gate 参数**：尝试不同的 gate_low/high
+4. **改变 candidate initialization**：使用更接近 forums 领域的数据
+5. **接受现状**：forums 差距极小（0.0003），可能属于实验误差范围
+
+---
+
+## 8. 附录
+
+### 8.1 代码修改位置
 
 ```python
 # pretext_bridge.py, prepare_bootstrap_runtime 函数
 
 def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
     config = load_yaml_config(config_path)
-    
-    # ========== 新增 override 逻辑 (约 line 85-93) ==========
+
     _dataset_name = str(config.get("data", {}).get("dataset_name", ""))
     if _dataset_name == "forums":
         _bootstrap_overrides = [
@@ -189,13 +150,12 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
                 if "bootstrap" not in config:
                     config["bootstrap"] = {}
                 config["bootstrap"][_tgt_key] = float(config["selector"][_src_key])
-    # ========== 新增 override 逻辑结束 ==========
-    
+
     repo_root = resolve_repo_root()
     ...
 ```
 
-### 7.2 配置文件
+### 8.2 配置文件
 
 **_base_selector_tuning_round8.yaml**:
 ```yaml
@@ -227,14 +187,3 @@ data:
   eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
   initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
 ```
-
-### 7.3 配置路径汇总
-
-```
-paper-new-round5/
-├── paper_new_selector/
-│   └── pretext_bridge.py           # 待修改：增加 _forums_max_tokens override
-└── configs/experiments/
-    └── single_node_tuning_round8/   # 新建目录
-        ├── _base_selector_tuning_round8.yaml
-        └── ns_tune8_f1_forums.yaml
