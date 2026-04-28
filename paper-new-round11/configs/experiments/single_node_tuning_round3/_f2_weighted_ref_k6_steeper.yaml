@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_selector_tuning_round3.yaml
+
+selector:
+  reference_rank_weights: [1.0, 0.7, 0.45, 0.25, 0.12, 0.05]

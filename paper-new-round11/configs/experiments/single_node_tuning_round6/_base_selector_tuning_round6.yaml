@@ -1,0 +1,15 @@
+inherits:
+  - ../single_node_tuning_round4/_base_selector_tuning_round4.yaml
+
+meta:
+  stage: single_node_tuning_round6
+
+selector:
+  genericity_gate_low: 0.78
+  genericity_gate_high: 0.90
+  genericity_gate_low_scale: 0.10
+  genericity_gate_mid_scale: 0.45
+  length_modulation_enabled: false
+  length_alpha: 0.0
+  length_factor_min: 0.2
+  length_factor_max: 5.0

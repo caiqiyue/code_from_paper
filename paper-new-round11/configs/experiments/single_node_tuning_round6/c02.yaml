@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_selector_tuning_round6.yaml
+
+selector:
+  _forums_lambda_generic: 0.3

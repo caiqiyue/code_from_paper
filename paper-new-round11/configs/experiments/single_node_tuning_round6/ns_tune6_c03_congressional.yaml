@@ -1,0 +1,14 @@
+inherits:
+  - ./c03.yaml
+
+meta:
+  experiment_id: ns_tune6_c03_congressional
+
+paths:
+  output_root: paper-new/outputs/ns_tune6_c03_congressional
+
+data:
+  dataset_name: congressional
+  train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
+  eval_path: thesis_platform/datasets/congressional/formatted/congressional_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

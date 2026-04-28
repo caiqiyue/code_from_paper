@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_selector_tuning.yaml
+
+selector:
+  lambda_generic: 0.30

@@ -1,0 +1,5 @@
+﻿inherits:
+  - ./_base_selector_tuning_round2.yaml
+
+selector:
+  private_knn_k: 6

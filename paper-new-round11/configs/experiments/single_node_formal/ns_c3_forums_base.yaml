@@ -1,0 +1,17 @@
+inherits:
+  - ./_base_selector_formal.yaml
+
+meta:
+  experiment_id: ns_c3_forums_base
+
+paths:
+  output_root: paper-new/outputs/ns_c3_forums_base
+
+data:
+  dataset_name: forums
+  train_path: thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  train_limit: null
+  eval_limit: null
+  initialization_limit: null
