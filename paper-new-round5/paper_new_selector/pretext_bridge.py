@@ -69,7 +69,9 @@ def generate_with_shared_vllm_session(
     else:
         backend = getattr(shared_session, "backend", None)
     if backend is None:
-        raise ValueError("shared_session must expose a backend for Stage 2 shared generation.")
+        raise ValueError(
+            "shared_session must expose a backend for Stage 2 shared generation."
+        )
     return backend.generate_batch(
         prompt_list,
         max_new_tokens=int(bootstrap_cfg.get("max_tokens", 85)),
@@ -79,6 +81,18 @@ def generate_with_shared_vllm_session(
 
 def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
     config = load_yaml_config(config_path)
+
+    _dataset_name = str(config.get("data", {}).get("dataset_name", ""))
+    if _dataset_name == "forums":
+        _bootstrap_overrides = [
+            ("_forums_max_tokens", "max_tokens"),
+        ]
+        for _src_key, _tgt_key in _bootstrap_overrides:
+            if _src_key in config.get("selector", {}):
+                if "bootstrap" not in config:
+                    config["bootstrap"] = {}
+                config["bootstrap"][_tgt_key] = float(config["selector"][_src_key])
+
     repo_root = resolve_repo_root()
     _ensure_pretext_importable(repo_root)
 
@@ -93,9 +107,12 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
             "paper-new Stage 2 bootstrap requires bootstrap.generator_backend='vllm'. "
             "Non-vLLM backends are rejected to keep formal/test runs aligned with PrE-Text."
         )
+
     def generator_fn(prompt_list, model_path, bootstrap_cfg):
         _patch_vllm_network_host_ip()
-        return generate_bootstrapped_samples_vllm(prompt_list, model_path, bootstrap_cfg)
+        return generate_bootstrapped_samples_vllm(
+            prompt_list, model_path, bootstrap_cfg
+        )
 
     bootstrap_cfg = {
         "num_prompts": int(config["bootstrap"]["num_prompts"]),
@@ -106,8 +123,12 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
         "top_p": float(config["bootstrap"].get("top_p", 1.0)),
         "max_model_len": int(config["bootstrap"].get("max_model_len", 512)),
         "tensor_parallel_size": int(config["bootstrap"].get("tensor_parallel_size", 1)),
-        "gpu_memory_utilization": float(config["bootstrap"].get("gpu_memory_utilization", 0.35)),
-        "startup_required_free_gb": float(config["bootstrap"].get("startup_required_free_gb", 2)),
+        "gpu_memory_utilization": float(
+            config["bootstrap"].get("gpu_memory_utilization", 0.35)
+        ),
+        "startup_required_free_gb": float(
+            config["bootstrap"].get("startup_required_free_gb", 2)
+        ),
         "enforce_eager": bool(config["bootstrap"].get("enforce_eager", True)),
         "device": str(config["bootstrap"].get("device", "cuda")),
         "batch_size": int(config["bootstrap"].get("batch_size", 1)),
