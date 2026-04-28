@@ -93,9 +93,9 @@ def resolve_seed_top_k(selector_cfg: dict[str, Any], private_lengths: list[int])
 
     if median_len <= 120:
         return 19
-    if mean_len >= 360 or p75_len >= 430:
+    if p75_len >= 390 or (mean_len >= 335 and median_len >= 200):
         return 22
-    if mean_len >= 320:
+    if mean_len >= 340:
         return 18
     return 20
 

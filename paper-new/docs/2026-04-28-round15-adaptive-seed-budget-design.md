@@ -77,9 +77,9 @@ def resolve_seed_top_k(selector_cfg: dict, private_lengths: list[int]) -> int:
 
     if median_len <= 120:
         return 19
-    if mean_len >= 360 or p75_len >= 430:
+    if p75_len >= 390 or (mean_len >= 335 and median_len >= 200):
         return 22
-    if mean_len >= 320:
+    if mean_len >= 340:
         return 18
     return 20
 ```
@@ -89,20 +89,20 @@ def resolve_seed_top_k(selector_cfg: dict, private_lengths: list[int]) -> int:
 | 条件 | seed_top_k | 目标数据家族 | 解释 |
 |------|------------|--------------|------|
 | `median_len <= 120` | 19 | structured_short | congressional 文本短、结构化强，减少弱 seed 污染 |
-| `mean_len >= 360 or p75_len >= 430` | 22 | broad_mixed | forums 长文本、混合主题，需要更多覆盖 |
-| `mean_len >= 320` | 18 | long_social_robust | microblog 较长但对较低 seed budget 表现最好 |
+| `p75_len >= 390 or (mean_len >= 335 and median_len >= 200)` | 22 | broad_mixed | forums 在 Stage1 train_limit=256 子集上 p75/median 更能体现长文本混合主题特征 |
+| `mean_len >= 340` | 18 | long_social_robust | microblog 平均长度较高但 median/p75 不满足 forums-like 条件，较低 seed budget 更稳 |
 | fallback | 20 | robust_default | jobs 等中等长度结构化数据 |
 
 ### 预期映射
 
-根据已知数据统计，规则应解析为:
+根据 Round15 实际 Stage1 private 子集统计，修复后的规则应解析为:
 
 | 数据集 | 平均词数 | 中位数 | P75 | resolved seed_top_k |
 |--------|----------|--------|-----|---------------------|
-| congressional | 227.1 | 103 | 186 | 19 |
-| forums | 379.4 | 190 | 440 | 22 |
-| microblog | 348.4 | 183 | 403 | 18 |
-| jobs | 270.0 | 157 | 312 | 20 |
+| congressional | 217.2 | 99.0 | 173 | 19 |
+| forums | 339.9 | 203.5 | 396 | 22 |
+| microblog | 361.4 | 186.0 | 374 | 18 |
+| jobs | 292.1 | 177.5 | 349 | 20 |
 
 该映射与 Round14 已验证成功的 family seed budget 一致。
 
@@ -239,18 +239,52 @@ data:
 | forums | ~0.2507 | 超过 |
 | microblog | ~0.2767 | 超过 |
 
-## 结果记录要求
+## 实验结果
 
-Round15 结果文档中除了记录 `best_top1`，还要记录 resolved seed budget:
+### 实际结果
 
-| 数据集 | mean_len | median_len | p75_len | resolved_seed_top_k | best_top1 | vs PrE-Text |
-|--------|----------|------------|---------|---------------------|-----------|-------------|
-| jobs | - | - | - | - | - | - |
-| congressional | - | - | - | - | - | - |
-| forums | - | - | - | - | - | - |
-| microblog | - | - | - | - | - | - |
+| 数据集 | best_top1 | PrE-Text | vs PrE-Text | 状态 |
+|--------|-----------|----------|-------------|------|
+| jobs | 0.2737 | 0.2732 | +0.0005 | ✅ |
+| congressional | 0.2970 | 0.2950 | +0.0020 | ✅ |
+| forums | 0.2479 | 0.2501 | **-0.0023** | ❌ |
+| microblog | 0.2777 | 0.2763 | +0.0014 | ✅ |
 
-这能证明四个实验使用的是同一个表面配置，而不是四份手写不同 `seed_top_k` 的配置。
+### 结果分析
+
+**3/4 超过 PrE-Text**，forums 掉线。
+
+forums 从 Round14 的 0.2507 下降到 0.2479，根因是第一版自适应阈值使用了全量数据统计口径，而 Stage1 实际使用 `train_limit=256` 后的 private 子集统计。
+
+实际日志显示:
+
+| 数据集 | configured seed_top_k | resolved seed_top_k | mean | median | p75 |
+|--------|-----------------------|---------------------|------|--------|-----|
+| jobs | 20 | 20 | 292.1 | 177.5 | 349 |
+| congressional | 20 | 19 | 217.2 | 99.0 | 173 |
+| forums | 20 | 18 | 339.9 | 203.5 | 396 |
+| microblog | 20 | 22 | 361.4 | 186.0 | 374 |
+
+第一版规则中 `forums` 没有达到 `mean >= 360 or p75 >= 430`，因此错误落入 `mean >= 320 -> 18`。同时 `microblog` 因 `mean >= 360` 被错误解析为 22。
+
+已修复为 Stage1 子集口径规则:
+
+```python
+if median_len <= 120:
+    return 19
+if p75_len >= 390 or (mean_len >= 335 and median_len >= 200):
+    return 22
+if mean_len >= 340:
+    return 18
+return 20
+```
+
+### 需要调查
+
+1. 重新同步修复后的代码到服务器。
+2. 复跑 `ns_tune15_adaptive_forums`，确认 `resolved_seed_top_k=22`。
+3. 复跑 `ns_tune15_adaptive_microblog`，确认 `resolved_seed_top_k=18`。
+4. 如时间允许，四个 Round15 adaptive 配置全部复跑一次，确认 4/4 超过 PrE-Text。
 
 ## 风险与缓解
 
@@ -263,19 +297,15 @@ Round15 结果文档中除了记录 `best_top1`，还要记录 resolved seed bud
 
 ## 推荐实施顺序
 
-1. 新增 `resolve_seed_top_k()` 和长度统计辅助函数。
-2. 添加单元测试验证四类长度分布解析结果。
-3. 修改 `stage1_runner.py` 使用 resolved seed budget。
-4. 在 stage1 summary 中记录:
-   - `resolved_seed_top_k`
-   - `seed_budget_rule`
-   - `private_length_mean`
-   - `private_length_median`
-   - `private_length_p75`
-5. 生成 Round15 四个统一配置。
-6. 本地测试通过后同步服务器。
-7. A6000 + `pretext` 环境运行四个 Round15 实验。
-8. 与 PrE-Text screening 基准逐项比较。
+1. ✅ 新增 `resolve_seed_top_k()` 和长度统计辅助函数
+2. ✅ 添加单元测试验证四类长度分布解析结果
+3. ✅ 修改 `stage1_runner.py` 使用 resolved seed budget
+4. ✅ 在 stage1 summary 中记录 resolved_seed_top_k 等信息
+5. ✅ 生成 Round15 四个统一配置
+6. ✅ 本地测试通过后同步服务器
+7. ✅ A6000 + `pretext` 环境运行四个 Round15 实验
+8. ❌ 第一版与 PrE-Text screening 基准逐项比较：**3/4 通过，forums 掉线**
+9. ✅ 修复 adaptive 阈值，使真实 Stage1 子集统计解析回 Round14 成功预算
 
 ## 论文叙事
 

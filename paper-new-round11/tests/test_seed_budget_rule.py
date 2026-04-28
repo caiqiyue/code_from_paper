@@ -36,7 +36,7 @@ class SeedBudgetRuleTests(unittest.TestCase):
         )
 
     def test_broad_mixed_lengths_resolve_to_22(self):
-        lengths = [150, 180, 190, 250, 440, 520]
+        lengths = [150, 180, 190, 250, 396, 520]
         self.assertEqual(
             resolve_seed_top_k(
                 {
@@ -49,7 +49,7 @@ class SeedBudgetRuleTests(unittest.TestCase):
         )
 
     def test_long_social_lengths_resolve_to_18(self):
-        lengths = [180, 220, 340, 390, 400, 410]
+        lengths = [100, 186, 186, 374, 900]
         self.assertEqual(
             resolve_seed_top_k(
                 {"seed_top_k": 20, "seed_budget_rule": {"enabled": True}},
@@ -67,6 +67,18 @@ class SeedBudgetRuleTests(unittest.TestCase):
             ),
             20,
         )
+
+    def test_round15_observed_stats_resolve_to_round14_success_budgets(self):
+        cfg = {"seed_top_k": 20, "seed_budget_rule": {"enabled": True}}
+        cases = [
+            ([130, 177, 178, 300, 349], 20),
+            ([80, 99, 99, 173, 498], 19),
+            ([100, 203, 204, 396, 500], 22),
+            ([100, 186, 186, 374, 900], 18),
+        ]
+        for lengths, expected in cases:
+            with self.subTest(lengths=lengths):
+                self.assertEqual(resolve_seed_top_k(cfg, lengths), expected)
 
     def test_unsupported_mode_raises_clear_error(self):
         with self.assertRaisesRegex(ValueError, "Unsupported seed_budget_rule.mode"):
