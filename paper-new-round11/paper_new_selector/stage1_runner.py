@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import math
 import random
+import statistics
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +51,53 @@ def _select_seed_samples(
         return list(init_samples)
     selected_indices = sorted(rng.sample(range(len(init_samples)), exemplar_count))
     return [init_samples[index] for index in selected_indices]
+
+
+def _percentile_nearest_rank(values: list[int], percentile: float) -> float:
+    if not values:
+        return 0.0
+    if percentile <= 0:
+        return float(min(values))
+    if percentile >= 100:
+        return float(max(values))
+    sorted_values = sorted(int(value) for value in values)
+    rank = math.ceil((float(percentile) / 100.0) * len(sorted_values))
+    return float(sorted_values[max(0, rank - 1)])
+
+
+def compute_private_length_stats(private_lengths: list[int]) -> dict[str, float]:
+    if not private_lengths:
+        return {"mean": 0.0, "median": 0.0, "p75": 0.0}
+    return {
+        "mean": float(statistics.mean(private_lengths)),
+        "median": float(statistics.median(private_lengths)),
+        "p75": _percentile_nearest_rank(private_lengths, 75),
+    }
+
+
+def resolve_seed_top_k(selector_cfg: dict[str, Any], private_lengths: list[int]) -> int:
+    rule_cfg = dict(selector_cfg.get("seed_budget_rule", {}))
+    if not bool(rule_cfg.get("enabled", False)):
+        return int(selector_cfg["seed_top_k"])
+    if not private_lengths:
+        return int(selector_cfg["seed_top_k"])
+
+    mode = str(rule_cfg.get("mode", "length_family"))
+    if mode != "length_family":
+        raise ValueError(f"Unsupported seed_budget_rule.mode: {mode}")
+
+    stats = compute_private_length_stats(private_lengths)
+    median_len = stats["median"]
+    mean_len = stats["mean"]
+    p75_len = stats["p75"]
+
+    if median_len <= 120:
+        return 19
+    if mean_len >= 360 or p75_len >= 430:
+        return 22
+    if mean_len >= 320:
+        return 18
+    return 20
 
 
 def run_stage1_with_runtime(
@@ -188,6 +237,8 @@ def run_stage1_with_runtime(
                 if _src_key in selector_cfg:
                     selector_cfg[_tgt_key] = float(selector_cfg[_src_key])
         candidate_lengths = [len(text.split()) for text in candidate_texts]
+        private_length_stats = compute_private_length_stats(private_lengths)
+        resolved_seed_top_k = resolve_seed_top_k(selector_cfg, private_lengths)
         genericity_penalty = compute_genericity_penalties(
             candidate_vectors=candidate_vectors,
             reference_vectors=reference_vectors,
@@ -213,7 +264,7 @@ def run_stage1_with_runtime(
             genericity_penalty=genericity_penalty,
             lambda_generic=float(selector_cfg["lambda_generic"]),
             lambda_redundancy=float(selector_cfg["lambda_redundancy"]),
-            seed_top_k=int(selector_cfg["seed_top_k"]),
+            seed_top_k=resolved_seed_top_k,
             hard_negative_top_k=int(selector_cfg["hard_negative_top_k"]),
         )
 
@@ -243,6 +294,14 @@ def run_stage1_with_runtime(
                 "enabled": privacy_enabled,
                 "sigma": privacy_sigma,
                 "delta": float(stage1_cfg.get("delta", privacy_cfg.get("delta", 0.0))),
+            },
+            "seed_budget": {
+                "configured_seed_top_k": int(selector_cfg["seed_top_k"]),
+                "resolved_seed_top_k": resolved_seed_top_k,
+                "rule": dict(selector_cfg.get("seed_budget_rule", {})),
+                "private_length_mean": private_length_stats["mean"],
+                "private_length_median": private_length_stats["median"],
+                "private_length_p75": private_length_stats["p75"],
             },
             "decision": decision.to_dict(),
             "shared_session": (

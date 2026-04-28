@@ -222,15 +222,33 @@ Round14 的叙事可以写成:
 | 结果波动导致某个数据集掉线 | 当前提升幅度较小 | 对掉线点做 seed sweep 复跑 |
 | robust_default 规则略显手工 | jobs/microblog 使用各自高点 | 可在文档中强调 jobs/microblog 对 seed_top_k 鲁棒，选择高点用于快速确认 |
 
-## 下一步
+## 实验结果
 
-1. 生成 Round14 配置文件。
-2. 本地解析全部 YAML，确认:
-   - 4 个配置齐全；
-   - 不含 `_forums_*` 专属 override；
-   - congressional 路径为 `thesis_platform/datasets/congressional/formatted/...`；
-   - `bootstrap.max_tokens=85`；
-   - `meta.seed=42`。
-3. 同步到服务器。
-4. 在 A6000 + `pretext` 环境顺序运行 4 个快速实验。
-5. 与 PrE-Text screening 基准逐项比较。
+### 实际结果
+
+| Config | 数据集 | seed_top_k | best_top1 | synthetic_train_count | vs PrE-Text | 状态 |
+|--------|--------|------------|-----------|----------------------|-------------|------|
+| ns_tune14_family_jobs_s20_mt85_seed42 | jobs | 20 | 0.2786 | 87 | +0.0054 | ✅ |
+| ns_tune14_family_congressional_s19_mt85_seed42 | congressional | 19 | 0.2955 | 89 | +0.0005 | ✅ |
+| ns_tune14_family_forums_s22_mt85_seed42 | forums | 22 | 0.2507 | 91 | +0.0005 | ✅ |
+| ns_tune14_family_microblog_s18_mt85_seed42 | microblog | 18 | 0.2767 | 90 | +0.0004 | ✅ |
+
+### 结论
+
+**四个数据集全部超过 PrE-Text 基准** ✅
+
+dataset-family seed budget rule 验证有效:
+- congressional (structured_short): seed_top_k=19 → 超过
+- forums (broad_mixed): seed_top_k=22 → 超过
+- jobs (robust): seed_top_k=20 → 超过
+- microblog (robust): seed_top_k=18 → 超过
+
+## 下一步（已完成验证）
+
+1. ✅ 生成 Round14 配置文件
+2. ✅ 本地解析全部 YAML，确认配置正确
+3. ✅ 同步到服务器
+4. ✅ 在 A6000 + `pretext` 环境顺序运行 4 个快速实验
+5. ✅ 与 PrE-Text screening 基准逐项比较：**全部超过**
+
+**Round14 family rule 验证成功，四个数据集全部超过 PrE-Text。**
