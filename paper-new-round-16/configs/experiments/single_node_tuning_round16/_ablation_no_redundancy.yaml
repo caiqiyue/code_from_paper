@@ -1,0 +1,4 @@
+selector:
+  seed_budget_rule:
+    utility:
+      redundancy_weight: 0.0

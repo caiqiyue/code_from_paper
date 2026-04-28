@@ -1,0 +1,3 @@
+selector:
+  seed_budget_rule:
+    candidate_seed_top_k: [18, 20, 22]

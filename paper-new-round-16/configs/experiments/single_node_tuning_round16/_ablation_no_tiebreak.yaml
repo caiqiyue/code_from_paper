@@ -1,0 +1,6 @@
+selector:
+  seed_budget_rule:
+    tiebreak:
+      epsilon: 0.0
+      coverage_gain_min: 999.0
+      prefer_smaller_budget: false

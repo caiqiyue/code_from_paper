@@ -1,0 +1,19 @@
+inherits:
+  - ./_base_selector_tuning_round12.yaml
+
+selector:
+  _forums_seed_top_k: 22
+  _forums_max_tokens: 84
+
+meta:
+  experiment_id: ns_tune12_f5_forums_s22_mt84_seed42
+  seed: 42
+
+paths:
+  output_root: paper-new/outputs/ns_tune12_f5_forums_s22_mt84_seed42
+
+data:
+  dataset_name: forums
+  train_path: thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

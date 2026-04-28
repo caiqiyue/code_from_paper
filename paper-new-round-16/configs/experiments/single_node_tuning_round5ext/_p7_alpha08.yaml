@@ -1,0 +1,6 @@
+inherits:
+  - ./_base_selector_tuning_round5ext.yaml
+
+selector:
+  length_modulation_enabled: true
+  length_alpha: 0.8

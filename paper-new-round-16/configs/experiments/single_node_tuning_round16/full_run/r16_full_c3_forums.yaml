@@ -1,0 +1,10 @@
+inherits:
+  - ../_base_selector_tuning_round16.yaml
+  - ../_u_c3.yaml
+  - ../_data_forums.yaml
+
+meta:
+  experiment_id: r16_full_c3_forums
+
+paths:
+  output_root: paper-new/outputs/r16_full_c3_forums

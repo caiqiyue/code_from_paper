@@ -1,0 +1,9 @@
+inherits: [./_base_selector_tuning_round13.yaml]
+selector: {seed_top_k: 18}
+meta: {experiment_id: ns_tune13_u18_forums_s18_mt85_seed42, seed: 42}
+paths: {output_root: paper-new/outputs/ns_tune13_u18_forums_s18_mt85_seed42}
+data:
+  dataset_name: forums
+  train_path: thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

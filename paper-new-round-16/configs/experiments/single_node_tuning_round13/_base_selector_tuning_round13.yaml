@@ -1,0 +1,8 @@
+inherits:
+  - ../single_node_tuning_round12/_base_selector_tuning_round12.yaml
+
+meta:
+  stage: single_node_tuning_round13
+
+bootstrap:
+  max_tokens: 85

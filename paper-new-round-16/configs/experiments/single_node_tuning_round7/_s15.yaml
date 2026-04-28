@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_selector_tuning_round7.yaml
+
+selector:
+  _forums_seed_top_k: 29

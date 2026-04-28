@@ -1,0 +1,8 @@
+selector:
+  seed_budget_rule:
+    utility:
+      support_weight: 1.0
+      genericity_weight: 0.5
+      redundancy_weight: 0.3
+      coverage_weight: 0.4
+      budget_weight: 0.1

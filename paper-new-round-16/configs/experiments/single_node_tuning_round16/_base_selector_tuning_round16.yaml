@@ -1,0 +1,26 @@
+inherits:
+  - ../single_node_tuning_round13/_base_selector_tuning_round13.yaml
+
+meta:
+  stage: single_node_tuning_round16
+  seed: 42
+
+selector:
+  seed_top_k: 20
+  seed_budget_rule:
+    enabled: true
+    mode: self_calibrated
+    candidate_seed_top_k: [18, 19, 20, 21, 22]
+    utility:
+      support_weight: 1.0
+      genericity_weight: 0.5
+      redundancy_weight: 0.3
+      coverage_weight: 0.4
+      budget_weight: 0.1
+    tiebreak:
+      epsilon: 0.01
+      coverage_gain_min: 0.005
+      prefer_smaller_budget: true
+
+bootstrap:
+  max_tokens: 85

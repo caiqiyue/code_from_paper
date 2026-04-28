@@ -1,0 +1,14 @@
+inherits:
+  - ./_r4_protect_short_strong.yaml
+
+meta:
+  experiment_id: ns_tune5_r4_microblog
+
+paths:
+  output_root: paper-new/outputs/ns_tune5_r4_microblog
+
+data:
+  dataset_name: microblog
+  train_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json
+  eval_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

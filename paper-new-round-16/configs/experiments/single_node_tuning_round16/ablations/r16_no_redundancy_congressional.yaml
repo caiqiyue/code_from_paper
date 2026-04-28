@@ -1,0 +1,11 @@
+inherits:
+  - ../_base_selector_tuning_round16.yaml
+  - ../_u_c1.yaml
+  - ../_ablation_no_redundancy.yaml
+  - ../_data_congressional.yaml
+
+meta:
+  experiment_id: r16_no_redundancy_congressional
+
+paths:
+  output_root: paper-new/outputs/r16_no_redundancy_congressional

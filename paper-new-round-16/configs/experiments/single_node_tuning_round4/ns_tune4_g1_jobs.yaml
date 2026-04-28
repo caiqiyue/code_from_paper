@@ -1,0 +1,14 @@
+inherits:
+  - ./_g1_conditional_genericity_default.yaml
+
+meta:
+  experiment_id: ns_tune4_g1_jobs
+
+paths:
+  output_root: paper-new/outputs/ns_tune4_g1_jobs
+
+data:
+  dataset_name: jobs
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

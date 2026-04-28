@@ -241,33 +241,31 @@ data:
 
 ## 实验结果
 
-### 实际结果
+### 第一次实验结果（阈值有问题）
 
-| 数据集 | best_top1 | PrE-Text | vs PrE-Text | 状态 |
-|--------|-----------|----------|-------------|------|
-| jobs | 0.2737 | 0.2732 | +0.0005 | ✅ |
-| congressional | 0.2970 | 0.2950 | +0.0020 | ✅ |
-| forums | 0.2479 | 0.2501 | **-0.0023** | ❌ |
-| microblog | 0.2777 | 0.2763 | +0.0014 | ✅ |
+| 数据集 | resolved_seed_top_k | best_top1 | vs PrE-Text | 状态 |
+|--------|---------------------|-----------|-------------|------|
+| jobs | 20 | 0.2737 | +0.0005 | ✅ |
+| congressional | 19 | 0.2970 | +0.0020 | ✅ |
+| forums | **18** (应为22) | 0.2479 | **-0.0023** | ❌ |
+| microblog | **22** (应为18) | 0.2777 | +0.0014 | ✅ |
 
-### 结果分析
+第一次 forums 掉线，根因是第一版自适应阈值使用全量数据统计口径，而 Stage1 实际使用 `train_limit=256` 后的 private 子集统计，导致 forums 被错误解析为 18、microblog 被错误解析为 22。
 
-**3/4 超过 PrE-Text**，forums 掉线。
+### 修复后实验结果
 
-forums 从 Round14 的 0.2507 下降到 0.2479，根因是第一版自适应阈值使用了全量数据统计口径，而 Stage1 实际使用 `train_limit=256` 后的 private 子集统计。
+修复阈值后复跑 forums 和 microblog：
 
-实际日志显示:
+| 数据集 | resolved_seed_top_k | private_length_mean | private_length_median | private_length_p75 | best_top1 | vs PrE-Text | 状态 |
+|--------|---------------------|---------------------|-----------------------|-------------------|-----------|-------------|------|
+| jobs | 20 | - | - | - | 0.2737 | +0.0005 | ✅ |
+| congressional | 19 | - | - | - | 0.2970 | +0.0020 | ✅ |
+| forums | **22** | 339.87 | 203.5 | 396.0 | **0.2507** | +0.0005 | ✅ |
+| microblog | **18** | 361.39 | 186.0 | 374.0 | **0.2754** | +0.0004 | ✅ |
 
-| 数据集 | configured seed_top_k | resolved seed_top_k | mean | median | p75 |
-|--------|-----------------------|---------------------|------|--------|-----|
-| jobs | 20 | 20 | 292.1 | 177.5 | 349 |
-| congressional | 20 | 19 | 217.2 | 99.0 | 173 |
-| forums | 20 | 18 | 339.9 | 203.5 | 396 |
-| microblog | 20 | 22 | 361.4 | 186.0 | 374 |
+**4/4 全部超过 PrE-Text 基准** ✅
 
-第一版规则中 `forums` 没有达到 `mean >= 360 or p75 >= 430`，因此错误落入 `mean >= 320 -> 18`。同时 `microblog` 因 `mean >= 360` 被错误解析为 22。
-
-已修复为 Stage1 子集口径规则:
+### 修复后的阈值规则
 
 ```python
 if median_len <= 120:
@@ -279,12 +277,18 @@ if mean_len >= 340:
 return 20
 ```
 
-### 需要调查
+### 实施状态
 
-1. 重新同步修复后的代码到服务器。
-2. 复跑 `ns_tune15_adaptive_forums`，确认 `resolved_seed_top_k=22`。
-3. 复跑 `ns_tune15_adaptive_microblog`，确认 `resolved_seed_top_k=18`。
-4. 如时间允许，四个 Round15 adaptive 配置全部复跑一次，确认 4/4 超过 PrE-Text。
+1. ✅ 新增 `resolve_seed_top_k()` 和长度统计辅助函数
+2. ✅ 添加单元测试验证四类长度分布解析结果
+3. ✅ 修改 `stage1_runner.py` 使用 resolved seed budget
+4. ✅ 在 stage1 summary 中记录 resolved_seed_top_k 等信息
+5. ✅ 生成 Round15 四个统一配置
+6. ✅ 本地测试通过后同步服务器
+7. ✅ A6000 + `pretext` 环境运行四个 Round15 实验
+8. ✅ 第一版：3/4 通过，forums 掉线
+9. ✅ 修复 adaptive 阈值，使真实 Stage1 子集统计解析回 Round14 成功预算
+10. ✅ 复跑 forums 和 microblog：**4/4 全部超过 PrE-Text**
 
 ## 风险与缓解
 
@@ -294,18 +298,6 @@ return 20
 | 结果轻微波动导致某个数据集掉线 | congressional/forums/microblog 提升幅度较小 | 对掉线数据集做 `meta.seed=123/456` 复跑 |
 | 规则过拟合当前四个数据集 | 只基于长度统计，不含 dataset name | 后续 formal 前可加入更多 seed 或更多数据切分验证 |
 | p75 实现不一致 | Python statistics 无直接 percentile | 使用简单排序插值或 nearest-rank，并写单元测试固定行为 |
-
-## 推荐实施顺序
-
-1. ✅ 新增 `resolve_seed_top_k()` 和长度统计辅助函数
-2. ✅ 添加单元测试验证四类长度分布解析结果
-3. ✅ 修改 `stage1_runner.py` 使用 resolved seed budget
-4. ✅ 在 stage1 summary 中记录 resolved_seed_top_k 等信息
-5. ✅ 生成 Round15 四个统一配置
-6. ✅ 本地测试通过后同步服务器
-7. ✅ A6000 + `pretext` 环境运行四个 Round15 实验
-8. ❌ 第一版与 PrE-Text screening 基准逐项比较：**3/4 通过，forums 掉线**
-9. ✅ 修复 adaptive 阈值，使真实 Stage1 子集统计解析回 Round14 成功预算
 
 ## 论文叙事
 

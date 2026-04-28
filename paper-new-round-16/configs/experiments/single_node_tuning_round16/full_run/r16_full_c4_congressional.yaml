@@ -1,0 +1,10 @@
+inherits:
+  - ../_base_selector_tuning_round16.yaml
+  - ../_u_c4.yaml
+  - ../_data_congressional.yaml
+
+meta:
+  experiment_id: r16_full_c4_congressional
+
+paths:
+  output_root: paper-new/outputs/r16_full_c4_congressional

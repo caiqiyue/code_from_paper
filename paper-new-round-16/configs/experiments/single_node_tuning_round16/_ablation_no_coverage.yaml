@@ -1,0 +1,4 @@
+selector:
+  seed_budget_rule:
+    utility:
+      coverage_weight: 0.0
