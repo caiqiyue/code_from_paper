@@ -35,11 +35,14 @@ def greedy_select_candidates(
 
     count = len(candidate_vectors)
     if count != len(private_support) or count != len(genericity_penalty):
-        raise ValueError("candidate_vectors, private_support, and genericity_penalty must align.")
+        raise ValueError(
+            "candidate_vectors, private_support, and genericity_penalty must align."
+        )
     texts = candidate_texts or [f"candidate_{index}" for index in range(count)]
 
     base_scores = [
-        float(private_support[index]) - float(lambda_generic) * float(genericity_penalty[index])
+        float(private_support[index])
+        * (1.0 - float(lambda_generic) * float(genericity_penalty[index]))
         for index in range(count)
     ]
     accept_scores = [0.0 for _ in range(count)]
@@ -79,13 +82,20 @@ def greedy_select_candidates(
 
     rejected_indices = sorted(
         remaining,
-        key=lambda index: accept_scores[index] if selected_vectors else base_scores[index],
+        key=lambda index: (
+            accept_scores[index] if selected_vectors else base_scores[index]
+        ),
         reverse=True,
     )
 
     for index in rejected_indices:
         reason = "low_accept_score_rejected"
-        if base_scores[index] >= min(base_scores[selected] for selected in selected_indices) if selected_indices else False:
+        if (
+            base_scores[index]
+            >= min(base_scores[selected] for selected in selected_indices)
+            if selected_indices
+            else False
+        ):
             reason = "near_boundary_rejected"
         elif redundancy_penalties[index] > 0.8:
             reason = "near_boundary_rejected"

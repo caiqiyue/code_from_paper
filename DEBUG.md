@@ -288,3 +288,103 @@
 - 新增回归测试，覆盖 fresh interpreter 下：
   - 直接导入 `DownstreamEvalManager` 必须成功
   - `from thesis_platform.core import SingleNodeRunner` 仍然必须成功
+
+---
+
+# Debug: Round 6 Override Mechanism Failure
+
+## Observations
+
+### Fact 1: All 40 experiments produced identical results
+- c01-c10 (λ_generic=0.35/0.30/0.25/0.20/0.15/0.10/0.05/0.01, λ_redundancy=0.20/0.15) all yielded **exactly the same scores** across all 4 datasets
+- This is statistically impossible if the override actually changed λ values
+
+### Fact 2: Override logic exists in stage1_runner.py (lines 195-206)
+```python
+_dataset_name = str(config.get("data", {}).get("dataset_name", ""))
+if _dataset_name == "forums":
+    _overrides = [
+        ("_forums_lambda_generic", "lambda_generic"),
+        ("_forums_lambda_redundancy", "lambda_redundancy"),
+        ("_forums_seed_top_k", "seed_top_k"),
+        ("_forums_gate_low", "genericity_gate_low"),
+        ("_forums_mid_scale", "genericity_gate_mid_scale"),
+    ]
+    for _src_key, _tgt_key in _overrides:
+        if _src_key in selector_cfg:
+            selector_cfg[_tgt_key] = float(selector_cfg[_src_key])
+decision = greedy_select_candidates(
+    lambda_generic=float(selector_cfg["lambda_generic"]),  # line 212
+    ...
+)
+```
+
+### Fact 3: Python simulation confirms override works at config level
+- Loading c05_forums config: `_forums_lambda_generic=0.15` present, `lambda_generic=0.35`
+- After override simulation: `lambda_generic` becomes `0.15`
+- No Python errors in simulation
+
+### Fact 4: Config inheritance is correct (verified by subagent audit)
+- c01.yaml inherits `_base_selector_tuning_round6.yaml`
+- leaf config `ns_tune6_c05_forums.yaml` inherits `c05.yaml`
+- All 40 leaf configs load correctly with `generator` key present
+
+### Fact 5: Dataset-specific code path exists
+- `stage1_runner.py` checks `if _dataset_name == "forums"`
+- All 40 leaf configs have `dataset_name` set correctly
+
+### Fact 6: Round 6 results differ from Round 5fin g1 results
+| Dataset | Round 6 (all configs) | Round 5fin g1 |
+|---------|----------------------|---------------|
+| jobs | 0.2761 | 0.2770 |
+| forums | 0.2471 | 0.2500 |
+| microblog | 0.2749 | 0.2737 |
+| congressional | 0.2970 | 0.2970 |
+
+### Fact 7: CRITICAL - All 40 results are IDENTICAL even though they should differ
+- c01 (λ=0.35) = c05 (λ=0.15) = c08 (λ=0.01) = c10 (λ_red=0.15)
+- This means the override is either not executed OR the λ value doesn't affect the outcome
+
+### Fact 8: seed_top_k differs between Round 4 base and Round 5 configs
+- Round 4 base: `seed_top_k=6, hard_negative_top_k=6`
+- Round 5fin g1: `seed_top_k=6, hard_negative_top_k=6`
+- Round 6 base: `seed_top_k=6, hard_negative_top_k=6`
+- All same, so not the cause of difference
+
+### Fact 9: Round 6 results ARE NOT the same as Round 5fin g1
+- Round 6 jobs=0.2761 vs Round 5fin g1 jobs=0.2770 (diff=0.0009)
+- Round 6 forums=0.2471 vs Round 5fin g1 forums=0.2500 (diff=0.0029)
+- Congressional matches exactly (0.2970)
+- So Round 6 IS a different run, but the parameter variation within Round 6 doesn't matter
+
+## Hypotheses
+
+### H1: selector_cfg is a copy, not a reference — override modifies a dict that is discarded (ROOT HYPOTHESIS)
+- **Supports**: In `stage1_runner.py`, `selector_cfg = config["selector"]` — if the YAML config loader returns a **deepcopy** of the selector section rather than a live reference, then modifying `selector_cfg[_tgt_key]` would modify the copy, not the original config dict that `greedy_select_candidates` reads from.
+- **Supports**: The Python simulation I ran manually applied the override to the SAME dict object that was returned by `load_yaml_config`. But if `load_yaml_config` returns a copy, the override would be lost by the time `greedy_select_candidates` reads `selector_cfg["lambda_generic"]`.
+- **Supports**: All 40 results being IDENTICAL strongly suggests the override never reaches the actual computation.
+- **Conflicts**: None yet.
+- **Test**: Add a print statement INSIDE `stage1_runner.py` AFTER the override block: `print(f"[DEBUG] lambda_generic = {selector_cfg['lambda_generic']}")`. Run one experiment (c05 forums) and check if the printed value is 0.15 or 0.35.
+
+### H2: The override runs but greedy_select_candidates reads from a different config object
+- **Supports**: `pipeline.py` calls `run_stage1_with_runtime(config_path)`, which reloads the config via `load_yaml_config(config_path)`. If the override happens but the `selector_cfg` dict is somehow fresh-loaded inside `greedy_select_candidates`, the override would be lost.
+- **Conflicts**: `selector_cfg = config["selector"]` happens AFTER config is loaded, and the override modifies `selector_cfg` before passing it to `greedy_select_candidates`.
+- **Test**: Same debug print as H1.
+
+### H3: lambda_generic has no effect on the final score — the selection algorithm is dominated by private_support and redundancy
+- **Supports**: Even λ=0.01 (essentially disabling genericity penalty) produces the same score as λ=0.35. This could mean private_support dominates the selection.
+- **Supports**: The scoring formula: `base_score = private_support - λ_generic × genericity_penalty`. If `private_support` ranges 0.5-0.9 and `genericity_penalty` ranges 0.0-0.3, even λ×penalty = 0.01×0.3 = 0.003, which is noise compared to private_support differences.
+- **Conflicts**: If this were true, why did Round 5 experiments with different α values produce different results? The α modulation changes selection indirectly through length_modulation affecting genericity.
+- **Test**: Add debug logging in `greedy_select_candidates` to print actual private_support, genericity_penalty, and base_score values for each candidate.
+
+### H4: Candidate generation (not selection) determines the score — all variation happens at generation time
+- **Supports**: The generated candidate texts are fixed per experiment run. If the LLM generates the same candidates regardless of λ, the selection algorithm just picks from the same pool.
+- **Supports**: λ only affects the SELECTION of seeds from candidates, not the generation of candidates themselves. But the final metric (macro_f1) is measured after Stage 2 training on the selected seeds.
+- **Conflicts**: This would mean λ changes selection but the macro_f1 outcome is insensitive to which seeds were selected. Possible but unlikely given the formula.
+- **Test**: Check if different λ values actually change which candidates are selected (compare selected_indices between c01 and c05 runs).
+
+### H5: The override IS applied but the stage1_runner.py on the SERVER is different from the LOCAL version I modified
+- **Supports**: I modified the LOCAL `stage1_runner.py`, but the experiments ran on the SERVER which may have an OLDER version of the file without the override code.
+- **Supports**: The server's `stage1_runner.py` might still be the original version without the override block.
+- **Conflicts**: The subagent audit confirmed the override code exists on the server at lines 196-206.
+- **Test**: Compare the server's `stage1_runner.py` hash or content with the local version to confirm they match.
