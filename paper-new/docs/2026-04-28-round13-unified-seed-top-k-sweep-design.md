@@ -87,45 +87,49 @@ ns_tune13_u<seed_top_k>_<dataset>_s<seed_top_k>_mt85_seed42.yaml
 ns_tune13_u20_congressional_s20_mt85_seed42.yaml
 ```
 
-## 结果判定
+## 实验结果
 
-对每个 `seed_top_k`，汇总四个数据集:
+### 完整结果矩阵
 
 | seed_top_k | jobs | congressional | forums | microblog | all_win |
 |------------|------|---------------|--------|-----------|---------|
-| 18 | - | - | - | - | - |
-| 19 | - | - | - | - | - |
-| 20 | - | - | - | - | - |
-| 21 | - | - | - | - | - |
-| 22 | - | - | - | - | - |
+| 18 | 0.2751 | 0.2912 | 0.2477 | 0.2777 | ❌ |
+| 19 | 0.2751 | 0.2966 | 0.2499 | 0.2771 | ❌ |
+| 20 | 0.2794 | 0.2912 | 0.2484 | 0.2742 | ❌ |
+| 21 | 0.2786 | 0.2928 | 0.2481 | 0.2751 | ❌ |
+| 22 | 0.2791 | 0.2939 | **0.2507** | 0.2770 | ❌ |
 
-`all_win = true` 当且仅当:
+### vs PrE-Text 对比
 
-- jobs > 0.2731984829329962
-- congressional > 0.2949640287769784
-- forums > 0.25014487154722814
-- microblog > 0.2762705387848682
+| seed_top_k | jobs vs 0.2732 | congressional vs 0.2950 | forums vs 0.2501 | microblog vs 0.2763 |
+|------------|----------------|-------------------------|------------------|-------------------|
+| 18 | ✅ +0.0019 | ❌ -0.0038 | ❌ -0.0024 | ✅ +0.0014 |
+| 19 | ✅ +0.0019 | ✅ +0.0017 | ❌ -0.0002 | ✅ +0.0008 |
+| 20 | ✅ +0.0062 | ❌ -0.0038 | ❌ -0.0017 | ❌ -0.0020 |
+| 21 | ✅ +0.0054 | ❌ -0.0021 | ❌ -0.0020 | ❌ -0.0012 |
+| 22 | ✅ +0.0059 | ❌ -0.0011 | ✅ +0.0005 | ✅ +0.0007 |
 
-## 停止条件
+### 关键发现
 
-1. 如果某个 `seed_top_k` 四个数据集全部超过 PrE-Text:
-   - 标记为 unified winner。
-   - 进入复跑确认或 formal 前置确认。
+1. **没有找到统一 winner**: 所有 seed_top_k 配置都无法让四个数据集同时超过 PrE-Text
+2. **forums 最佳**: seed_top_k=22 时 forums 达到 0.2507，超过 PrE-Text
+3. **congressional 最佳**: seed_top_k=19 时 congressional 达到 0.2966，但 forums 只有 0.2499
+4. **jobs/microblog 较鲁棒**: 多个 seed_top_k 值都能超过 PrE-Text
+5. **冲突本质**: forums 需要较大的 seed_top_k (22)，而 congressional 需要较小的 (19)
 
-2. 如果没有统一 winner，但只有一个数据集略低于基准且差距小于 `0.0005`:
-   - 下一轮围绕该 `seed_top_k` 做 seed sweep。
+### 各数据集最佳配置
 
-3. 如果 congressional 恢复但 forums/microblog 丢失:
-   - 说明统一静态 `seed_top_k` 难以兼顾四个数据集。
-   - 下一步再讨论是否允许极小的 dataset-family rule。
+| 数据集 | 最佳 seed_top_k | 最佳结果 | vs PrE-Text |
+|--------|-----------------|----------|-------------|
+| jobs | 20 | 0.2794 | +0.0062 |
+| congressional | 19 | 0.2966 | +0.0017 |
+| forums | 22 | 0.2507 | +0.0005 |
+| microblog | 18 | 0.2777 | +0.0014 |
 
-4. 如果所有 `seed_top_k` 都让 congressional 低于 PrE-Text:
-   - 说明 congressional 的问题不只是 seed 数量，可能需要恢复原 NS 的其他 selector 条件。
+### 结论
 
-## 预期
+统一静态 `seed_top_k` 无法同时让四个数据集超过 PrE-Text。forums 和 congressional 对 seed_top_k 的敏感方向相反（前者需要大值，后者需要小值）。
 
-最可能的候选点是 `seed_top_k=19`、`20` 或 `21`:
-
-- 比 `22` 更保守，可能恢复 congressional；
-- 又比原默认 `6/10` 更接近 forums/microblog 已验证有效的高 seed 覆盖策略；
-- 固定 `max_tokens=85` 可以保留 forums 的 Round12 成功条件。
+下一步可能方向:
+1. 接受极小的 dataset-family rule，针对 congressional 使用不同的 seed_top_k
+2. 或重新审视 selector penalty/redundancy 参数，可能能解耦这个冲突
