@@ -1,0 +1,4 @@
+selector:
+  seed_budget_rule:
+    near_boundary_recheck:
+      trigger_gap: 0.12

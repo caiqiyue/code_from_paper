@@ -831,3 +831,98 @@ Round16 成功至少需要满足：
 8. 对优胜配置补 seed robustness 和 ablation。
 
 如果这一路跑通，Round16 就可以作为“从 empirical rule 走向自然 adaptive algorithm”的关键版本。
+
+
+## 实验结果汇总
+
+### 实验组 B: 关键数据集 Probe（c1 权重）
+
+| 实验 | 任务 | resolved_seed_top_k | utility_gap | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|------|---------------------|-------------|-----------|----------|----------|------------|
+| r16_probe_forums_c1 | forums | 18 | 0.302 | 0.2501 | 0.3879 | 0.4528 | 0.5369 |
+| r16_probe_microblog_c1 | microblog | 18 | 0.243 | 0.2767 | 0.4168 | 0.4796 | 0.5603 |
+
+### 实验组 C: 权重 Sweep（forums + congressional）
+
+| 实验 | 任务 | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|------|-----------|----------|----------|------------|
+| r16_c1_forums | forums | 0.2487 | 0.3844 | 0.4512 | 0.5360 |
+| r16_c2_forums | forums | 0.2479 | 0.3888 | 0.4537 | 0.5381 |
+| r16_c3_forums | forums | 0.2479 | 0.3888 | 0.4537 | 0.5381 |
+| r16_c4_forums | forums | 0.2464 | 0.3839 | 0.4490 | 0.5351 |
+| r16_c5_forums | forums | 0.2500 | 0.3862 | 0.4507 | 0.5359 |
+| r16_c1_congressional | congressional | 0.2937 | 0.4586 | 0.5323 | 0.6199 |
+| r16_c2_congressional | congressional | 0.2932 | 0.4586 | 0.5352 | 0.6221 |
+| r16_c3_congressional | congressional | 0.2928 | 0.4566 | 0.5308 | 0.6204 |
+| r16_c4_congressional | congressional | 0.2932 | 0.4586 | 0.5352 | 0.6221 |
+| r16_c5_congressional | congressional | 0.2928 | 0.4566 | 0.5308 | 0.6204 |
+
+### 实验组 D: 四数据集完整验证（r16_full_* 系列）
+
+| 实验 | 任务 | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|------|-----------|----------|----------|------------|
+| r16_full_c1_congressional | congressional | 0.2958 | 0.4598 | 0.5355 | 0.6202 |
+| r16_full_c1_jobs | jobs | 0.2784 | 0.4274 | 0.4946 | 0.5764 |
+| r16_full_c1_microblog | microblog | 0.2772 | 0.4222 | 0.4838 | 0.5648 |
+| r16_full_c2_congressional | congressional | 0.2952 | 0.4609 | 0.5363 | 0.6243 |
+| r16_full_c2_forums | forums | 0.2500 | 0.3862 | 0.4507 | 0.5359 |
+| r16_full_c2_jobs | jobs | 0.2808 | 0.4284 | 0.4946 | 0.5753 |
+| r16_full_c2_microblog | microblog | 0.2761 | 0.4199 | 0.4822 | 0.5616 |
+| r16_full_c3_congressional | congressional | 0.2952 | 0.4609 | 0.5363 | 0.6243 |
+| r16_full_c3_forums | forums | 0.2460 | 0.3816 | 0.4488 | 0.5345 |
+| r16_full_c3_jobs | jobs | 0.2784 | 0.4273 | 0.4930 | 0.5766 |
+| r16_full_c3_microblog | microblog | 0.2752 | 0.4174 | 0.4808 | 0.5609 |
+| r16_full_c4_congressional | congressional | 0.2928 | 0.4566 | 0.5308 | 0.6204 |
+| r16_full_c4_forums | forums | 0.2464 | 0.3839 | 0.4490 | 0.5351 |
+| r16_full_c4_jobs | jobs | 0.2781 | 0.4262 | 0.4923 | 0.5753 |
+| r16_full_c4_microblog | microblog | 0.2754 | 0.4165 | 0.4808 | 0.5608 |
+| r16_full_c5_congressional | congressional | 0.2932 | 0.4586 | 0.5352 | 0.6221 |
+| r16_full_c5_forums | forums | 0.2500 | 0.3862 | 0.4507 | 0.5359 |
+| r16_full_c5_jobs | jobs | 0.2782 | 0.4261 | 0.4915 | 0.5760 |
+| r16_full_c5_microblog | microblog | 0.2728 | 0.4185 | 0.4806 | 0.5609 |
+
+### 实验组 E: seed Robustness
+
+| 实验 | 任务 | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|------|-----------|----------|----------|------------|
+| r16_c1_forums | forums | 0.2487 | 0.3844 | 0.4512 | 0.5360 |
+| r16_c1_forums_seed123 | forums | 0.2487 | 0.3847 | 0.4501 | 0.5361 |
+| r16_c1_forums_seed456 | forums | 0.2469 | 0.3835 | 0.4498 | 0.5362 |
+| r16_c1_congressional | congressional | 0.2937 | 0.4586 | 0.5323 | 0.6199 |
+| r16_c1_congressional_seed123 | congressional | 0.2946 | 0.4610 | 0.5335 | 0.6183 |
+| r16_c1_congressional_seed456 | congressional | 0.2909 | 0.4554 | 0.5285 | 0.6149 |
+| r16_c1_jobs_seed123 | jobs | 0.2738 | 0.4267 | 0.4941 | 0.5732 |
+| r16_c1_microblog_seed123 | microblog | 0.2735 | 0.4168 | 0.4803 | 0.5608 |
+
+### 实验组 G: Ablation
+
+| 实验 | 任务 | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|------|-----------|----------|----------|------------|
+| r16_no_budget_cost_forums | forums | 0.2464 | 0.3839 | 0.4490 | 0.5351 |
+| r16_no_budget_cost_congressional | congressional | 0.2955 | 0.4600 | 0.5341 | 0.6217 |
+| r16_no_coverage_forums | forums | 0.2464 | 0.3839 | 0.4490 | 0.5351 |
+| r16_no_coverage_congressional | congressional | 0.2964 | 0.4599 | 0.5378 | 0.6208 |
+| r16_no_redundancy_forums | forums | 0.2500 | 0.3862 | 0.4507 | 0.5359 |
+| r16_no_redundancy_congressional | congressional | 0.2958 | 0.4598 | 0.5355 | 0.6202 |
+| r16_no_tiebreak_forums | forums | 0.2500 | 0.3862 | 0.4507 | 0.5359 |
+| r16_no_tiebreak_congressional | congressional | 0.2955 | 0.4600 | 0.5341 | 0.6217 |
+
+### 附加实验（sparse / wide）
+
+| 实验 | 任务 | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|------|-----------|----------|----------|------------|
+| r16_sparse_forums_c1 | forums | 0.2500 | 0.3862 | 0.4507 | 0.5359 |
+| r16_sparse_congressional_c1 | congressional | 0.2955 | 0.4600 | 0.5341 | 0.6217 |
+| r16_wide_forums_c1 | forums | 0.2460 | 0.3816 | 0.4488 | 0.5345 |
+| r16_wide_congressional_c1 | congressional | 0.2928 | 0.4566 | 0.5308 | 0.6204 |
+
+### 汇总结论
+
+- **50 个实验全部成功完成**，无 missing_eval
+- **forums**: c1-c5 在 0.246-0.250 之间，c5 最高（0.2500）
+- **congressional**: c1-c5 在 0.293-0.296 之间，r16_full_c1 最高（0.2958）
+- **jobs**（seed=123）: r16_full_c2 最高（0.2808）
+- **microblog**（seed=123）: r16_full_c1 最高（0.2772）
+- **Probe 结果**：forums 和 microblog 的 resolved_seed_top_k 均为 18（configured=20），utility_gap 分别为 0.302 和 0.243，说明 c1 权重对两者均偏保守
+- **seed robustness**：forums 在 seed 42/123/456 下 best_top1 稳定在 0.247-0.249；congressional 在三个 seed 下为 0.291-0.295
+- **Ablation 关键发现**：no_budget_cost 对 forums 无显著影响（utility_gap 已足够大），但 no_coverage/no_redundancy/no_tiebreak 均未导致 forums 掉回更大 budget，说明自校准结论稳健

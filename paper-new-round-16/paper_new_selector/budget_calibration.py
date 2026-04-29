@@ -189,6 +189,7 @@ def _select_budget_with_tiebreak(
     tiebreak_reason = "argmax_utility"
 
     if len(ranked) > 1:
+        original_best_budget, original_best_metrics = best_budget, best_metrics
         runner_up_budget, runner_up_metrics = ranked[1]
         utility_gap = float(best_metrics["utility"] - runner_up_metrics["utility"])
         if utility_gap <= epsilon and prefer_smaller:
@@ -201,13 +202,20 @@ def _select_budget_with_tiebreak(
             if larger_coverage_gain < coverage_gain_min:
                 best_budget = smaller_budget
                 best_metrics = metrics_by_budget[best_budget]
+                runner_up_budget = larger_budget
+                runner_up_metrics = metrics_by_budget[runner_up_budget]
                 tiebreak_applied = True
                 tiebreak_reason = "prefer_smaller_budget_within_epsilon"
             else:
                 best_budget = larger_budget
                 best_metrics = metrics_by_budget[best_budget]
+                runner_up_budget = smaller_budget
+                runner_up_metrics = metrics_by_budget[runner_up_budget]
                 tiebreak_applied = True
                 tiebreak_reason = "prefer_larger_budget_for_coverage_gain"
+        else:
+            best_budget = original_best_budget
+            best_metrics = original_best_metrics
 
     return {
         "resolved_seed_top_k": int(best_budget),
@@ -218,6 +226,144 @@ def _select_budget_with_tiebreak(
         "tiebreak_applied": bool(tiebreak_applied),
         "tiebreak_reason": tiebreak_reason,
     }
+
+
+def _build_default_near_boundary_recheck_summary(*, enabled: bool) -> dict[str, Any]:
+    return {
+        "enabled": bool(enabled),
+        "triggered": False,
+        "utility_gap": 0.0,
+        "smaller_budget": None,
+        "larger_budget": None,
+        "coverage_mean_gain": 0.0,
+        "coverage_p25_gain": 0.0,
+        "support_drop": 0.0,
+        "pass_recheck": False,
+        "final_budget": None,
+        "reason": "disabled" if not enabled else "not_triggered",
+    }
+
+
+def should_trigger_near_boundary_recheck(
+    *,
+    selected_budget: int,
+    runner_up_budget: int,
+    utility_gap: float,
+    calibration_cfg: dict[str, Any],
+) -> bool:
+    recheck_cfg = dict(calibration_cfg.get("near_boundary_recheck", {}))
+    if not bool(recheck_cfg.get("enabled", False)):
+        return False
+    trigger_gap = float(recheck_cfg.get("trigger_gap", 0.12))
+    return (
+        int(runner_up_budget) > int(selected_budget)
+        and float(utility_gap) <= trigger_gap
+    )
+
+
+def evaluate_near_boundary_recheck(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    smaller_budget: int,
+    larger_budget: int,
+    utility_gap: float,
+    calibration_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    recheck_cfg = dict(calibration_cfg.get("near_boundary_recheck", {}))
+    coverage_mean_gain_min = float(recheck_cfg.get("coverage_mean_gain_min", 0.004))
+    coverage_p25_gain_min = float(recheck_cfg.get("coverage_p25_gain_min", 0.008))
+    support_drop_max = float(recheck_cfg.get("support_drop_max", 0.015))
+
+    smaller_metrics = metrics_by_budget[int(smaller_budget)]
+    larger_metrics = metrics_by_budget[int(larger_budget)]
+
+    coverage_mean_gain = float(larger_metrics["coverage_mean"] - smaller_metrics["coverage_mean"])
+    coverage_p25_gain = float(larger_metrics["coverage_p25"] - smaller_metrics["coverage_p25"])
+    support_drop = float(smaller_metrics["support_mean"] - larger_metrics["support_mean"])
+    pass_recheck = (
+        coverage_mean_gain >= coverage_mean_gain_min
+        and coverage_p25_gain >= coverage_p25_gain_min
+        and support_drop <= support_drop_max
+    )
+
+    return {
+        "enabled": True,
+        "triggered": True,
+        "utility_gap": float(utility_gap),
+        "smaller_budget": int(smaller_budget),
+        "larger_budget": int(larger_budget),
+        "coverage_mean_gain": coverage_mean_gain,
+        "coverage_p25_gain": coverage_p25_gain,
+        "support_drop": support_drop,
+        "pass_recheck": bool(pass_recheck),
+        "final_budget": int(larger_budget if pass_recheck else smaller_budget),
+        "reason": (
+            "coverage_guard_passed"
+            if pass_recheck
+            else "coverage_guard_failed"
+        ),
+    }
+
+
+def select_budget_with_recheck(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    calibration_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    selected = _select_budget_with_tiebreak(
+        metrics_by_budget=metrics_by_budget,
+        calibration_cfg=calibration_cfg,
+    )
+    recheck_cfg = dict(calibration_cfg.get("near_boundary_recheck", {}))
+    recheck_summary = _build_default_near_boundary_recheck_summary(
+        enabled=bool(recheck_cfg.get("enabled", False))
+    )
+
+    selected_budget = int(selected["resolved_seed_top_k"])
+    runner_up_budget = int(selected["runner_up_seed_top_k"])
+    utility_gap = float(selected["utility_gap"])
+
+    if not should_trigger_near_boundary_recheck(
+        selected_budget=selected_budget,
+        runner_up_budget=runner_up_budget,
+        utility_gap=utility_gap,
+        calibration_cfg=calibration_cfg,
+    ):
+        if recheck_summary["enabled"]:
+            recheck_summary.update(
+                {
+                    "utility_gap": utility_gap,
+                    "final_budget": selected_budget,
+                    "reason": (
+                        "runner_up_not_larger"
+                        if runner_up_budget <= selected_budget
+                        else "utility_gap_above_trigger"
+                    ),
+                }
+            )
+        selected["near_boundary_recheck"] = recheck_summary
+        return selected
+
+    recheck_summary = evaluate_near_boundary_recheck(
+        metrics_by_budget=metrics_by_budget,
+        smaller_budget=selected_budget,
+        larger_budget=runner_up_budget,
+        utility_gap=utility_gap,
+        calibration_cfg=calibration_cfg,
+    )
+    final_budget = int(recheck_summary["final_budget"])
+    if final_budget != selected_budget:
+        previous_selected_budget = selected_budget
+        selected["resolved_seed_top_k"] = final_budget
+        selected["selected_utility"] = float(metrics_by_budget[final_budget]["utility"])
+        selected["runner_up_seed_top_k"] = previous_selected_budget
+        selected["runner_up_utility"] = float(
+            metrics_by_budget[previous_selected_budget]["utility"]
+        )
+        selected["tiebreak_applied"] = True
+        selected["tiebreak_reason"] = "near_boundary_recheck_promoted_larger_budget"
+    selected["near_boundary_recheck"] = recheck_summary
+    return selected
 
 
 def resolve_seed_top_k_by_self_calibration(
@@ -262,6 +408,10 @@ def resolve_seed_top_k_by_self_calibration(
                 selected_indices=selected_indices,
                 private_support=private_support,
             ),
+            "support_mean": compute_selected_support_score(
+                selected_indices=selected_indices,
+                private_support=private_support,
+            ),
             "genericity_score": compute_selected_genericity_score(
                 selected_indices=selected_indices,
                 genericity_penalty=genericity_penalty,
@@ -282,7 +432,7 @@ def resolve_seed_top_k_by_self_calibration(
         metrics_by_budget=metrics_by_budget,
         calibration_cfg=calibration_cfg,
     )
-    selected = _select_budget_with_tiebreak(
+    selected = select_budget_with_recheck(
         metrics_by_budget=enriched_metrics,
         calibration_cfg=calibration_cfg,
     )
@@ -307,5 +457,6 @@ def resolve_seed_top_k_by_self_calibration(
             "utility_gap": float(selected["utility_gap"]),
             "tiebreak_applied": bool(selected["tiebreak_applied"]),
             "tiebreak_reason": str(selected["tiebreak_reason"]),
+            "near_boundary_recheck": dict(selected["near_boundary_recheck"]),
         },
     }

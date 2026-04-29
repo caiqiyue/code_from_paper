@@ -103,3 +103,110 @@ bootstrap settings, producing byte-identical synthetic corpora.
   their stage2 corpora cannot silently collapse when selector seeds are unchanged.
 - Add unit coverage that forums overrides are applied before genericity and greedy
   selection.
+
+## Round16 Metrics-Missing Investigation
+
+### Observations
+
+- The Round16 batch summary TSV reported `best_top1=NA` for all experiments even
+  when the process exit status was `0`.
+- Remote experiment logs for completed runs such as `r16_c1_forums` and
+  `r16_no_budget_cost_forums` contain a full `eval` payload with:
+  - `best_top1`
+  - `best_top3`
+  - `best_top5`
+  - `best_top10`
+  - `summary_path = .../eval/downstream_eval_summary.json`
+- Remote filesystem checks confirm that both
+  `.../eval/downstream_eval_summary.json` and
+  `.../eval/pretext_small_eval_summary.json` do exist for completed Round16 runs.
+- The downstream summary schema stores metrics under the nested
+  `metrics` object, not at the top level. `DownstreamEvalManager.run()` writes:
+  `summary["metrics"] = primary_stage.get("metrics", {})`.
+- The batch script `logs/run_round16_all50.sh` extracts `best_top1` using:
+  `print(obj.get('best_top1', 'NA'))`, which reads the wrong JSON level.
+- The same script never extracts `best_top3`, `best_top5`, or `best_top10` at all,
+  so those fields can never appear in the TSV even when evaluation succeeds.
+
+### Hypotheses
+
+#### H1: The experiments never ran downstream eval, so there were no top-k metrics
+
+- Supports: early manual checks looked like some eval summaries were missing.
+- Conflicts: remote logs show completed `small_eval` sections with concrete top-k
+  metrics and explicit `summary_path` values.
+- Test: inspect a completed experiment log and locate the final `eval` payload.
+
+#### H2: The output path used by the batch summary script is wrong
+
+- Supports: Round16 outputs live in sibling `paper-new/outputs`, which is easy to
+  mismatch with `paper-new-round-16`.
+- Conflicts: remote `find` shows the expected summary files exactly under
+  `/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/<exp>/eval/`.
+- Test: locate `downstream_eval_summary.json` for a known completed experiment.
+
+#### H3: The batch summary script reads the wrong JSON shape (ROOT HYPOTHESIS)
+
+- Supports: `downstream_eval_summary.json` stores metrics under
+  `summary["metrics"]`, while the script reads `obj.get("best_top1")`.
+- Supports: this exactly explains why runs complete successfully, logs show metrics,
+  files exist, yet the TSV still records `NA`.
+- Conflicts: none after confirming the on-disk summary schema and the script body.
+- Test: compare a real `downstream_eval_summary.json` payload with the extraction
+  code in `run_round16_all50.sh`.
+
+#### H4: The top-k metrics exist, but only in `pretext_small_eval_summary.json`
+
+- Supports: the stage-level small-eval file definitely contains the metrics.
+- Conflicts: the final `downstream_eval_summary.json` also contains them nested
+  under `metrics`, so the final summary is not missing data.
+- Test: inspect both summary files for the same experiment.
+
+### Experiments
+
+#### E1: Inspect a completed experiment log
+
+- Change: no code change; read the tail of `r16_c1_forums.log`.
+- Result: confirmed. The printed final JSON includes:
+  - `metrics.best_top1 = 0.2487283497521087`
+  - `metrics.best_top3 = 0.38439250531195673`
+  - `metrics.best_top5 = 0.4511621917455412`
+  - `metrics.best_top10 = 0.5360247247440603`
+  - `summary_path = .../eval/downstream_eval_summary.json`
+- Conclusion: evaluation did run, and the top-k metrics do exist.
+
+#### E2: Locate summary files on disk for completed runs
+
+- Change: no code change; used remote `find` for `r16_c1_forums`,
+  `r16_no_budget_cost_congressional`, and `r16_no_budget_cost_forums`.
+- Result: confirmed. Both `downstream_eval_summary.json` and
+  `pretext_small_eval_summary.json` exist under the expected output directories.
+- Conclusion: the issue is not a missing output file.
+
+#### E3: Inspect the batch summary extraction script
+
+- Change: no code change; read `logs/run_round16_all50.sh`.
+- Result: confirmed. The script checks for
+  `$out_root/eval/downstream_eval_summary.json`, then loads it and executes:
+  `print(obj.get('best_top1', 'NA'))`.
+- Conclusion: `best_top1` is being read from the wrong JSON level; it should be
+  read from `obj["metrics"]["best_top1"]`. The script also omits extraction of
+  `best_top3`, `best_top5`, and `best_top10` entirely.
+
+### Root Cause
+
+Round16 top-k metrics were not actually missing from the experiment outputs; they
+were missing only from the batch summary because the aggregation script read
+`downstream_eval_summary.json` using the wrong JSON shape, looking for `best_top1`
+at the top level instead of under `metrics`, and it never extracted `best_top3`,
+`best_top5`, or `best_top10` at all.
+
+### Fix
+
+- Update the batch-summary extraction logic to read:
+  - `obj["metrics"]["best_top1"]`
+  - `obj["metrics"]["best_top3"]`
+  - `obj["metrics"]["best_top5"]`
+  - `obj["metrics"]["best_top10"]`
+- Extend the TSV/header to include all four top-k metrics instead of only
+  `best_top1`.

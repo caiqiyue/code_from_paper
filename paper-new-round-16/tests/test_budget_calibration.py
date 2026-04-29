@@ -6,7 +6,10 @@ from paper_new_selector.budget_calibration import (
     compute_budget_cost,
     compute_selected_coverage_score,
     compute_selected_redundancy_score,
+    evaluate_near_boundary_recheck,
     resolve_seed_top_k_by_self_calibration,
+    select_budget_with_recheck,
+    should_trigger_near_boundary_recheck,
 )
 
 
@@ -97,6 +100,7 @@ class BudgetCalibrationTests(unittest.TestCase):
         )
         self.assertEqual(result["seed_budget_summary"]["resolved_seed_top_k"], 18)
         self.assertTrue(result["seed_budget_summary"]["tiebreak_applied"])
+        self.assertIn("near_boundary_recheck", result["seed_budget_summary"])
 
     def test_tiebreak_uses_pairwise_coverage_gain_for_sparse_budget_sets(self):
         selected = _select_budget_with_tiebreak(
@@ -114,7 +118,159 @@ class BudgetCalibrationTests(unittest.TestCase):
             },
         )
         self.assertEqual(selected["resolved_seed_top_k"], 22)
+        self.assertEqual(selected["runner_up_seed_top_k"], 18)
         self.assertTrue(selected["tiebreak_applied"])
+
+    def test_tiebreak_reorders_runner_up_when_preferring_smaller_budget(self):
+        selected = _select_budget_with_tiebreak(
+            metrics_by_budget={
+                18: {"utility": 0.91, "coverage_mean": 0.20},
+                20: {"utility": 0.905, "coverage_mean": 0.204},
+            },
+            calibration_cfg={
+                "tiebreak": {
+                    "epsilon": 0.01,
+                    "coverage_gain_min": 0.05,
+                    "prefer_smaller_budget": True,
+                }
+            },
+        )
+        self.assertEqual(selected["resolved_seed_top_k"], 18)
+        self.assertEqual(selected["runner_up_seed_top_k"], 20)
+        self.assertTrue(selected["tiebreak_applied"])
+
+    def test_should_trigger_near_boundary_recheck_requires_larger_runner_up_within_gap(self):
+        self.assertTrue(
+            should_trigger_near_boundary_recheck(
+                selected_budget=18,
+                runner_up_budget=20,
+                utility_gap=0.08,
+                calibration_cfg={
+                    "near_boundary_recheck": {
+                        "enabled": True,
+                        "trigger_gap": 0.12,
+                    }
+                },
+            )
+        )
+        self.assertFalse(
+            should_trigger_near_boundary_recheck(
+                selected_budget=20,
+                runner_up_budget=18,
+                utility_gap=0.08,
+                calibration_cfg={
+                    "near_boundary_recheck": {
+                        "enabled": True,
+                        "trigger_gap": 0.12,
+                    }
+                },
+            )
+        )
+
+    def test_evaluate_near_boundary_recheck_requires_tail_coverage_gain_and_support_guard(self):
+        result = evaluate_near_boundary_recheck(
+            metrics_by_budget={
+                18: {
+                    "coverage_mean": 0.71,
+                    "coverage_p25": 0.55,
+                    "support_mean": 0.82,
+                },
+                20: {
+                    "coverage_mean": 0.716,
+                    "coverage_p25": 0.564,
+                    "support_mean": 0.81,
+                },
+            },
+            smaller_budget=18,
+            larger_budget=20,
+            utility_gap=0.07,
+            calibration_cfg={
+                "near_boundary_recheck": {
+                    "enabled": True,
+                    "trigger_gap": 0.12,
+                    "coverage_mean_gain_min": 0.004,
+                    "coverage_p25_gain_min": 0.008,
+                    "support_drop_max": 0.015,
+                }
+            },
+        )
+        self.assertTrue(result["pass_recheck"])
+        self.assertEqual(result["final_budget"], 20)
+
+    def test_select_budget_with_recheck_promotes_larger_budget_when_guard_passes(self):
+        selected = select_budget_with_recheck(
+            metrics_by_budget={
+                18: {
+                    "utility": 0.91,
+                    "coverage_mean": 0.71,
+                    "coverage_p25": 0.55,
+                    "support_mean": 0.82,
+                },
+                20: {
+                    "utility": 0.85,
+                    "coverage_mean": 0.716,
+                    "coverage_p25": 0.564,
+                    "support_mean": 0.81,
+                },
+            },
+            calibration_cfg={
+                "tiebreak": {
+                    "epsilon": 0.01,
+                    "coverage_gain_min": 0.05,
+                    "prefer_smaller_budget": True,
+                },
+                "near_boundary_recheck": {
+                    "enabled": True,
+                    "trigger_gap": 0.12,
+                    "coverage_mean_gain_min": 0.004,
+                    "coverage_p25_gain_min": 0.008,
+                    "support_drop_max": 0.015,
+                },
+            },
+        )
+        self.assertEqual(selected["resolved_seed_top_k"], 20)
+        self.assertEqual(selected["runner_up_seed_top_k"], 18)
+        self.assertTrue(selected["near_boundary_recheck"]["triggered"])
+        self.assertTrue(selected["near_boundary_recheck"]["pass_recheck"])
+        self.assertEqual(
+            selected["tiebreak_reason"],
+            "near_boundary_recheck_promoted_larger_budget",
+        )
+
+    def test_select_budget_with_recheck_keeps_smaller_budget_when_guard_fails(self):
+        selected = select_budget_with_recheck(
+            metrics_by_budget={
+                18: {
+                    "utility": 0.91,
+                    "coverage_mean": 0.71,
+                    "coverage_p25": 0.55,
+                    "support_mean": 0.82,
+                },
+                20: {
+                    "utility": 0.85,
+                    "coverage_mean": 0.712,
+                    "coverage_p25": 0.553,
+                    "support_mean": 0.79,
+                },
+            },
+            calibration_cfg={
+                "tiebreak": {
+                    "epsilon": 0.01,
+                    "coverage_gain_min": 0.05,
+                    "prefer_smaller_budget": True,
+                },
+                "near_boundary_recheck": {
+                    "enabled": True,
+                    "trigger_gap": 0.12,
+                    "coverage_mean_gain_min": 0.004,
+                    "coverage_p25_gain_min": 0.008,
+                    "support_drop_max": 0.015,
+                },
+            },
+        )
+        self.assertEqual(selected["resolved_seed_top_k"], 18)
+        self.assertTrue(selected["near_boundary_recheck"]["triggered"])
+        self.assertFalse(selected["near_boundary_recheck"]["pass_recheck"])
 
 
 if __name__ == "__main__":

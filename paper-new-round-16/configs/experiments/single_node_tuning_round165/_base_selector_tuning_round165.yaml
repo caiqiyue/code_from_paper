@@ -1,0 +1,15 @@
+inherits:
+  - ../single_node_tuning_round16/_base_selector_tuning_round16.yaml
+
+meta:
+  stage: single_node_tuning_round165
+  seed: 42
+
+selector:
+  seed_budget_rule:
+    near_boundary_recheck:
+      enabled: true
+      trigger_gap: 0.12
+      coverage_mean_gain_min: 0.004
+      coverage_p25_gain_min: 0.008
+      support_drop_max: 0.015
