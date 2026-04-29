@@ -1,0 +1,10 @@
+inherits:
+  - ../_base_selector_tuning_round17.yaml
+  - ../_ratio_r097.yaml
+  - ../../single_node_tuning_round16/_data_microblog.yaml
+
+meta:
+  experiment_id: r17_microblog_r097
+
+paths:
+  output_root: paper-new/outputs/r17_microblog_r097
