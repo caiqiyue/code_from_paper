@@ -97,6 +97,67 @@ bootstrap settings, producing byte-identical synthetic corpora.
 
 ## Fix
 
+## Debug: Round17 extended batch summary crash
+
+### Observations
+
+- The failing batch was the ad hoc Round17 extended batch that should run:
+  - `r17_microblog_r099`
+  - `r17_microblog_r098`
+  - `r17_microblog_r097`
+  - `r17_jobs_r098`
+  - `r17_congressional_r098`
+- On the server, `r17_microblog_r099` completed and wrote both:
+  - `stage1_budget_calibration.json`
+  - `eval/downstream_eval_summary.json`
+- The batch stopped immediately after the first run, before `r17_microblog_r098` started.
+- The remote `round17_extended_batch_nohup.out` showed:
+  - `SyntaxError: invalid syntax`
+  - offending line rendered as `feasible = ,.join(...)`
+- The same log also showed `date: extra operand '%T'`, which indicates the date command string was being passed through quoting incorrectly.
+- The local repo did not contain a checked-in copy of this batch script; it had only been created ad hoc on the server.
+
+### Hypotheses
+
+#### H1: Inline Python in the shell script was mangled by nested shell quoting (ROOT HYPOTHESIS)
+- Supports: the logged Python line lost the quotes around `","`, which is classic nested-quote damage; the crash happened in the inline Python summary block after the first experiment finished.
+- Conflicts: none.
+- Test: replace the inline Python block with a checked-in standalone helper script and re-run syntax checks locally.
+
+#### H2: The failure was caused by malformed experiment output JSON
+- Supports: the crash happened while summarizing experiment output.
+- Conflicts: the error is a Python parse-time `SyntaxError`, not a runtime JSON parsing error.
+- Test: inspect the failing code path and confirm the exception occurs before any JSON is loaded.
+
+#### H3: The `date` failure killed the batch
+- Supports: `date` emitted an error in the same nohup log.
+- Conflicts: the batch had already started and completed the first experiment; the fatal error happened later in the Python summary step.
+- Test: isolate the date call and confirm it only affects logging text, not control flow.
+
+### Experiments
+
+- Reviewed the remote nohup log and confirmed the first fatal error was the inline Python `SyntaxError`.
+- Compared the failure site against the generated shell and observed that both the Python snippet and the `date` call were vulnerable to nested quote expansion.
+- Replaced the inline Python summary logic with a dedicated checked-in helper script:
+  - `scripts/append_round17_summary.py`
+- Added a checked-in batch launcher:
+  - `scripts/run_round17_extended_batch.sh`
+- Kept the shell layer simple:
+  - shell only launches experiments and passes plain arguments
+  - Python helper owns JSON parsing and TSV row construction
+
+### Root Cause
+
+The Round17 extended batch failed because its ad hoc shell script embedded a Python summary snippet inside nested SSH/shell quoting, which stripped required quotes from `','.join(...)` and turned the post-run summary step into a `SyntaxError`; the same quoting pattern also corrupted the `date` logging command.
+
+### Fix
+
+- Added [scripts/append_round17_summary.py](/Users/apple/Desktop/code_from_paper/paper-new-round-16/scripts/append_round17_summary.py) to generate summary rows without inline Python quoting.
+- Added [scripts/run_round17_extended_batch.sh](/Users/apple/Desktop/code_from_paper/paper-new-round-16/scripts/run_round17_extended_batch.sh) as the checked-in launcher for the 5-experiment Round17 extended batch.
+- Standardized logging calls to:
+  - `date '+%F %T'`
+- Removed nested inline Python from the shell path entirely so `feasible_budgets` formatting and metric extraction happen in normal Python code.
+
 - Make local relative config loading check existing paths before requiring a full
   resource root.
 - Make round11 forums variants vary bootstrap max tokens as well as penalties, so
