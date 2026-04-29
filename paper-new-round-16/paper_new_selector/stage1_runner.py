@@ -259,7 +259,10 @@ def run_stage1_with_runtime(
         )
         rule_cfg = dict(selector_cfg.get("seed_budget_rule", {}))
         rule_mode = str(rule_cfg.get("mode", "length_family"))
-        if bool(rule_cfg.get("enabled", False)) and rule_mode == "self_calibrated":
+        if bool(rule_cfg.get("enabled", False)) and rule_mode in {
+            "self_calibrated",
+            "self_calibrated_constrained",
+        }:
             calibration_result = resolve_seed_top_k_by_self_calibration(
                 selector_cfg=selector_cfg,
                 candidate_vectors=candidate_vectors,

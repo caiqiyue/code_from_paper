@@ -1,0 +1,23 @@
+inherits:
+  - ../single_node_tuning_round16/_base_selector_tuning_round16.yaml
+
+meta:
+  stage: single_node_tuning_round17
+  seed: 42
+
+selector:
+  seed_budget_rule:
+    enabled: true
+    mode: self_calibrated_constrained
+    candidate_seed_top_k: [18, 19, 20, 21, 22]
+    coverage_constraint:
+      metric: coverage_p25
+      relative_ratio: 0.99
+    utility:
+      support_weight: 1.0
+      genericity_weight: 0.5
+      redundancy_weight: 0.3
+      budget_weight: 0.1
+    tiebreak:
+      epsilon: 0.01
+      prefer_smaller_budget: true

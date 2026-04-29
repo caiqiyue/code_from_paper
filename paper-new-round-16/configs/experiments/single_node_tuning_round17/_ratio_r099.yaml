@@ -1,0 +1,4 @@
+selector:
+  seed_budget_rule:
+    coverage_constraint:
+      relative_ratio: 0.99

@@ -166,6 +166,187 @@ def combine_budget_metrics(
     return enriched
 
 
+def compute_relative_coverage_threshold(
+    *, best_coverage_p25: float, relative_ratio: float
+) -> float:
+    return float(best_coverage_p25) * float(relative_ratio)
+
+
+def select_feasible_budgets_by_coverage_p25(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    calibration_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    coverage_cfg = dict(calibration_cfg.get("coverage_constraint", {}))
+    relative_ratio = float(coverage_cfg.get("relative_ratio", 0.99))
+    best_coverage_p25 = max(
+        float(metrics["coverage_p25"]) for metrics in metrics_by_budget.values()
+    )
+    threshold = compute_relative_coverage_threshold(
+        best_coverage_p25=best_coverage_p25,
+        relative_ratio=relative_ratio,
+    )
+    feasible_budgets = [
+        int(budget)
+        for budget, metrics in sorted(metrics_by_budget.items())
+        if float(metrics["coverage_p25"]) >= threshold
+    ]
+    return {
+        "metric": str(coverage_cfg.get("metric", "coverage_p25")),
+        "relative_ratio": relative_ratio,
+        "best_coverage_p25": float(best_coverage_p25),
+        "threshold": float(threshold),
+        "feasible_budgets": feasible_budgets,
+    }
+
+
+def combine_feasible_budget_metrics(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    feasible_budgets: list[int],
+    calibration_cfg: dict[str, Any],
+) -> dict[int, dict[str, Any]]:
+    utility_cfg = dict(calibration_cfg.get("utility", {}))
+    support_weight = float(utility_cfg.get("support_weight", 1.0))
+    genericity_weight = float(utility_cfg.get("genericity_weight", 0.5))
+    redundancy_weight = float(utility_cfg.get("redundancy_weight", 0.3))
+    budget_weight = float(utility_cfg.get("budget_weight", 0.1))
+
+    subset = {
+        int(budget): dict(metrics_by_budget[int(budget)])
+        for budget in feasible_budgets
+    }
+    normalized_support = _normalize_metric_series(
+        {budget: float(metrics["support_score"]) for budget, metrics in subset.items()}
+    )
+    normalized_genericity = _normalize_metric_series(
+        {budget: float(metrics["genericity_score"]) for budget, metrics in subset.items()}
+    )
+    normalized_redundancy = _normalize_metric_series(
+        {budget: float(metrics["redundancy_score"]) for budget, metrics in subset.items()}
+    )
+    normalized_budget_cost = _normalize_metric_series(
+        {budget: float(metrics["budget_cost"]) for budget, metrics in subset.items()}
+    )
+
+    for budget, raw_metrics in subset.items():
+        feasible_normalized_metrics = {
+            "support_score": normalized_support[budget],
+            "genericity_score": normalized_genericity[budget],
+            "redundancy_score": normalized_redundancy[budget],
+            "budget_cost": normalized_budget_cost[budget],
+        }
+        feasible_utility = (
+            support_weight * feasible_normalized_metrics["support_score"]
+            - genericity_weight * feasible_normalized_metrics["genericity_score"]
+            - redundancy_weight * feasible_normalized_metrics["redundancy_score"]
+            - budget_weight * feasible_normalized_metrics["budget_cost"]
+        )
+        raw_metrics["feasible_normalized_metrics"] = feasible_normalized_metrics
+        raw_metrics["feasible_utility"] = float(feasible_utility)
+        raw_metrics["utility"] = float(feasible_utility)
+    return subset
+
+
+def _select_budget_from_feasible_metrics(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    calibration_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    tiebreak_cfg = dict(calibration_cfg.get("tiebreak", {}))
+    epsilon = float(tiebreak_cfg.get("epsilon", 0.01))
+    prefer_smaller = bool(tiebreak_cfg.get("prefer_smaller_budget", True))
+
+    ranked = sorted(
+        metrics_by_budget.items(),
+        key=lambda item: (float(item[1]["utility"]), -int(item[0])),
+        reverse=True,
+    )
+    best_budget, best_metrics = ranked[0]
+    runner_up_budget = best_budget
+    runner_up_metrics = best_metrics
+    utility_gap = 0.0
+    tiebreak_applied = False
+    tiebreak_reason = "argmax_feasible_utility"
+
+    if len(ranked) > 1:
+        runner_up_budget, runner_up_metrics = ranked[1]
+        utility_gap = float(best_metrics["utility"] - runner_up_metrics["utility"])
+        if utility_gap <= epsilon and prefer_smaller:
+            smaller_budget = min(int(best_budget), int(runner_up_budget))
+            larger_budget = max(int(best_budget), int(runner_up_budget))
+            best_budget = smaller_budget
+            best_metrics = metrics_by_budget[best_budget]
+            runner_up_budget = larger_budget
+            runner_up_metrics = metrics_by_budget[runner_up_budget]
+            tiebreak_applied = True
+            tiebreak_reason = "prefer_smaller_feasible_budget_within_epsilon"
+
+    return {
+        "resolved_seed_top_k": int(best_budget),
+        "selected_utility": float(best_metrics["utility"]),
+        "runner_up_seed_top_k": int(runner_up_budget),
+        "runner_up_utility": float(runner_up_metrics["utility"]),
+        "utility_gap": float(utility_gap),
+        "tiebreak_applied": bool(tiebreak_applied),
+        "tiebreak_reason": tiebreak_reason,
+    }
+
+
+def select_budget_by_constrained_utility(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    calibration_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    coverage_constraint = select_feasible_budgets_by_coverage_p25(
+        metrics_by_budget=metrics_by_budget,
+        calibration_cfg=calibration_cfg,
+    )
+    feasible_budgets = list(coverage_constraint["feasible_budgets"])
+    for budget, metrics in metrics_by_budget.items():
+        metrics["coverage_feasible"] = int(budget) in feasible_budgets
+
+    if not feasible_budgets:
+        fallback = _select_budget_with_tiebreak(
+            metrics_by_budget=metrics_by_budget,
+            calibration_cfg=calibration_cfg,
+        )
+        fallback["coverage_constraint"] = coverage_constraint
+        fallback["selection_stage"] = "fallback_argmax_utility"
+        fallback["fallback_used"] = True
+        return fallback
+
+    feasible_metrics = combine_feasible_budget_metrics(
+        metrics_by_budget=metrics_by_budget,
+        feasible_budgets=feasible_budgets,
+        calibration_cfg=calibration_cfg,
+    )
+    for budget in feasible_budgets:
+        metrics_by_budget[int(budget)]["base_utility"] = float(
+            metrics_by_budget[int(budget)].get(
+                "utility",
+                feasible_metrics[int(budget)]["feasible_utility"],
+            )
+        )
+        metrics_by_budget[int(budget)]["feasible_normalized_metrics"] = dict(
+            feasible_metrics[int(budget)]["feasible_normalized_metrics"]
+        )
+        metrics_by_budget[int(budget)]["feasible_utility"] = float(
+            feasible_metrics[int(budget)]["feasible_utility"]
+        )
+        metrics_by_budget[int(budget)]["utility"] = float(
+            feasible_metrics[int(budget)]["utility"]
+        )
+    selected = _select_budget_from_feasible_metrics(
+        metrics_by_budget=feasible_metrics,
+        calibration_cfg=calibration_cfg,
+    )
+    selected["coverage_constraint"] = coverage_constraint
+    selected["selection_stage"] = "feasible_set_utility"
+    selected["fallback_used"] = False
+    return selected
+
+
 def _select_budget_with_tiebreak(
     *,
     metrics_by_budget: dict[int, dict[str, Any]],
@@ -432,31 +613,49 @@ def resolve_seed_top_k_by_self_calibration(
         metrics_by_budget=metrics_by_budget,
         calibration_cfg=calibration_cfg,
     )
-    selected = select_budget_with_recheck(
-        metrics_by_budget=enriched_metrics,
-        calibration_cfg=calibration_cfg,
-    )
+    mode = str(calibration_cfg.get("mode", "self_calibrated"))
+    if mode == "self_calibrated":
+        selected = select_budget_with_recheck(
+            metrics_by_budget=enriched_metrics,
+            calibration_cfg=calibration_cfg,
+        )
+    elif mode == "self_calibrated_constrained":
+        selected = select_budget_by_constrained_utility(
+            metrics_by_budget=enriched_metrics,
+            calibration_cfg=calibration_cfg,
+        )
+    else:
+        raise ValueError(f"Unsupported seed_budget_rule.mode: {mode}")
     resolved_seed_top_k = int(selected["resolved_seed_top_k"])
     decision = decisions_by_budget[resolved_seed_top_k]
 
+    seed_budget_summary = {
+        "configured_seed_top_k": int(selector_cfg["seed_top_k"]),
+        "resolved_seed_top_k": resolved_seed_top_k,
+        "rule": calibration_cfg,
+        "mode": mode,
+        "candidate_seed_top_k": candidate_seed_top_k,
+        "per_budget_metrics": {
+            str(budget): enriched_metrics[budget]
+            for budget in candidate_seed_top_k
+        },
+        "selected_utility": float(selected["selected_utility"]),
+        "runner_up_seed_top_k": int(selected["runner_up_seed_top_k"]),
+        "runner_up_utility": float(selected["runner_up_utility"]),
+        "utility_gap": float(selected["utility_gap"]),
+        "tiebreak_applied": bool(selected["tiebreak_applied"]),
+        "tiebreak_reason": str(selected["tiebreak_reason"]),
+    }
+    if "near_boundary_recheck" in selected:
+        seed_budget_summary["near_boundary_recheck"] = dict(selected["near_boundary_recheck"])
+    if "coverage_constraint" in selected:
+        seed_budget_summary["coverage_constraint"] = dict(selected["coverage_constraint"])
+    if "selection_stage" in selected:
+        seed_budget_summary["selection_stage"] = str(selected["selection_stage"])
+    if "fallback_used" in selected:
+        seed_budget_summary["fallback_used"] = bool(selected["fallback_used"])
+
     return {
         "decision": decision,
-        "seed_budget_summary": {
-            "configured_seed_top_k": int(selector_cfg["seed_top_k"]),
-            "resolved_seed_top_k": resolved_seed_top_k,
-            "rule": calibration_cfg,
-            "mode": str(calibration_cfg.get("mode", "self_calibrated")),
-            "candidate_seed_top_k": candidate_seed_top_k,
-            "per_budget_metrics": {
-                str(budget): enriched_metrics[budget]
-                for budget in candidate_seed_top_k
-            },
-            "selected_utility": float(selected["selected_utility"]),
-            "runner_up_seed_top_k": int(selected["runner_up_seed_top_k"]),
-            "runner_up_utility": float(selected["runner_up_utility"]),
-            "utility_gap": float(selected["utility_gap"]),
-            "tiebreak_applied": bool(selected["tiebreak_applied"]),
-            "tiebreak_reason": str(selected["tiebreak_reason"]),
-            "near_boundary_recheck": dict(selected["near_boundary_recheck"]),
-        },
+        "seed_budget_summary": seed_budget_summary,
     }

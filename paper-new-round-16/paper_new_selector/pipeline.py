@@ -36,7 +36,10 @@ def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dic
 
     output_root = resolve_output_root(config_path)
     write_json(output_root / "stage1_summary.json", stage1_summary)
-    if stage1_summary.get("seed_budget", {}).get("mode") == "self_calibrated":
+    if stage1_summary.get("seed_budget", {}).get("mode") in {
+        "self_calibrated",
+        "self_calibrated_constrained",
+    }:
         write_json(output_root / "stage1_budget_calibration.json", stage1_summary["seed_budget"])
 
     try:

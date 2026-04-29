@@ -594,3 +594,30 @@ Round16.5 至少应满足：
 中文可以这样写：
 
 > 我们保留自校准预算选择作为主决策机制，仅在候选预算的内部效用非常接近时，引入一个轻量的近边界复核机制。只有当较大预算能在 private manifold 的低覆盖部分带来明确的额外覆盖收益，且不会导致显著的 support 退化时，才允许它覆盖原本更紧凑的小预算解。这样既保持了 selector 的自适应性质，也能纠正第一版自校准方法中过强的 compactness 偏置。
+
+
+## 实验结果汇总
+
+### 实验组 A: Probe（base 权重 + recheck 开启）
+
+| 实验 | resolved_seed_top_k | runner_up_seed_top_k | utility_gap | recheck_triggered | recheck_pass | best_top1 |
+|------|---------------------|----------------------|-------------|--------------------|--------------|-----------|
+| r165_probe_forums_base | 18 | 19 | 0.302 | False | False | 0.2460 |
+| r165_probe_microblog_base | 18 | 19 | 0.243 | False | False | 0.2728 |
+
+### 实验组 B: recheck trigger_gap 小扫（forums）
+
+| 实验 | resolved_seed_top_k | utility_gap | recheck_triggered | recheck_pass | best_top1 |
+|------|---------------------|-------------|-------------------|--------------|-----------|
+| r165_forums_rg08 | 18 | 0.302 | False | False | 0.2485 |
+| r165_forums_rg12 | 18 | 0.302 | False | False | 0.2500 |
+| r165_forums_rg16 | 18 | 0.302 | False | False | 0.2494 |
+| r165_forums_loose_guard | 18 | 0.302 | False | False | 0.2460 |
+
+### 汇总结论
+
+- **recheck 机制从未触发**：所有配置下 utility_gap 均为 0.302，远大于 trigger_gap 阈值（0.08/0.12/0.16）
+- **resolved_seed_top_k 全部为 18**：说明 k=18 在当前权重下确实是 utility 全局最优解，recheck 的 near-boundary 条件从未满足
+- **best_top1 差异来自权重而非 budget 重选**：rg12 达到最高 0.2500，说明权重影响比 trigger_gap 影响更显著
+- **结论**：Round16.5 的 recheck 机制在当前 trigger_gap 配置下无法将 forums 从 18 纠偏回 20/22，因为 utility_gap 本身就很大，top-1 vs top-2 边界并不接近
+- **下一步方向**：需要更激进地放宽 trigger_gap（如 0.20/0.25），或者降低 coverage_p25_gain_min，才能让 recheck 更容易触发；或者转向调整 utility 权重本身而非依赖 recheck 纠偏
