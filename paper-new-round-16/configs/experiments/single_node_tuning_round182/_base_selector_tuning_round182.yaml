@@ -1,0 +1,14 @@
+inherits:
+  - ../single_node_tuning_round181/_base_selector_tuning_round181.yaml
+
+meta:
+  stage: single_node_tuning_round182
+  seed: 42
+
+bootstrap:
+  max_tokens: 85
+
+selector:
+  seed_top_k: 21
+  seed_budget_rule:
+    enabled: false

@@ -382,3 +382,70 @@ Round18.1 不应一开始就跑全量四数据集，而应分三步。
 
 > Round18 当前失败。它没有达到“超过 PrE-Text”这一核心标准。具体表现为：没有修复 congressional，同时也未能稳定保持 forums 的优势。因此，当前 Round18 不能进入统一四数据集主线。下一步应收缩为 Round18.1，优先修复 constrained recheck 的量纲问题，并将预算提升判断从单纯的全局相对 coverage 阈值，升级为相邻 budget 增益驱动的保守提升机制。
 
+
+
+---
+
+## 11. Round18.1 实验结果（2026-04-30 第二阶段）
+
+### 11.1 实验组 A: Congressional 诊断
+
+| 实验 | resolved | candidate_budget | promoted_budget | recheck_passed | support_drop | support_drop_normalized | coverage_mean_gain | coverage_p25_gain | coverage_min_gain | best_top1 | vs PrE-Text |
+|------|----------|-----------------|----------------|---------------|-------------|----------------------|-------------------|-------------------|-------------------|-----------|------------|
+| r181_congressional_g1 | 18 | 19 | None | False | 0.9641 | 0.0503 | 6.1e-05 | 0.0 | 0.0 | **0.2971** | +0.0021 ✅ |
+| r181_congressional_g2 | 18 | 19 | None | False | 0.9641 | 0.0503 | 6.1e-05 | 0.0 | 0.0 | 0.2952 | +0.0002 ✅ |
+| r181_congressional_g3 | 18 | 19 | None | False | 0.9641 | 0.0503 | 6.1e-05 | 0.0 | 0.0636 | 0.2895 | -0.0055 ❌ |
+
+### 11.2 实验组 B: Forums 保护回归
+
+| 实验 | resolved | candidate_budget | promoted_budget | recheck_passed | support_drop | support_drop_normalized | coverage_mean_gain | coverage_p25_gain | coverage_min_gain | best_top1 | vs PrE-Text |
+|------|----------|-----------------|----------------|---------------|-------------|----------------------|-------------------|-------------------|-------------------|-----------|------------|
+| r181_forums_g1 | 21 | 22 | None | False | 0.6600 | 0.0449 | 0.0449 | 0.0 | 0.0 | 0.2480 | -0.0021 ❌ |
+| r181_forums_g2 | 21 | 22 | None | False | 0.6600 | 0.0449 | 0.0449 | 0.0 | 0.0 | 0.2469 | -0.0032 ❌ |
+
+### 11.3 关键发现
+
+#### 发现 1：congressional g1/g2 超过 PrE-Text，但通过的是 feasible-set utility 而非 recheck promotion
+
+- g1 = **0.2971**（超过 0.2950）
+- g2 = **0.2952**（超过 0.2950）
+- 但 resolved 仍然是 18，recheck_passed = False
+- 说明 g1/g2 的成功是 feasible-set utility 阶段自然选出的，不是 recheck 推上去的
+
+#### 发现 2：recheck 仍未真正触发
+
+- 所有 5 个实验的 recheck_passed = False
+- coverage_p25_gain = 0.0（全部为 0）
+- coverage_min_gain = 0.0（全部为 0 或接近 0）
+- g3 的 coverage_min_gain = 0.0636，但 support_drop_normalized = 0.0503 仍然过大
+
+#### 发现 3：forums 全部低于 PrE-Text
+
+- g1 = 0.2480，低于 0.2501
+- g2 = 0.2469，低于 0.2501
+- 这与 Round17/18 的 forums 表现（0.2505）相比有倒退
+
+### 11.4 结果判断
+
+#### congressional：部分成功
+
+- g1 = 0.2971，g2 = 0.2952，均超过 PrE-Text 0.2950
+- 但注意：这两次成功是 feasible-set utility 自然选出的 18，不是 recheck 推上去的
+- 说明 Round18.1 的改动虽然增加了 normalized support_drop 的对比，但 recheck 仍然没有真正通过
+
+#### forums：失败
+
+- g1 = 0.2480，g2 = 0.2469，均低于 PrE-Text 0.2501
+- forums 没有保住，这是个问题
+
+### 11.5 下一步判断
+
+Round18.1 目前的结果是：
+
+- congressional: **2/3 超过 PrE-Text**（g1=0.2971, g2=0.2952）
+- forums: **0/2 超过 PrE-Text**（g1=0.2480, g2=0.2469）
+
+这个结果说明：
+1. congressional 看到了改善的希望，但 forums 在这一批配置下反而更差了
+2. 需要确认 forums 变差是配置问题（guard 强度不对）还是随机波动
+3. 在 forums 未超过 PrE-Text 之前，不能进入 full regression
