@@ -8,9 +8,11 @@ from paper_new_selector.budget_calibration import (
     compute_budget_cost,
     compute_selected_coverage_score,
     compute_selected_redundancy_score,
+    evaluate_constrained_recheck,
     evaluate_near_boundary_recheck,
     resolve_seed_top_k_by_self_calibration,
     select_budget_by_constrained_utility,
+    select_feasible_budgets_by_coverage_constraint,
     select_feasible_budgets_by_coverage_p25,
     select_budget_with_recheck,
     should_trigger_near_boundary_recheck,
@@ -169,6 +171,46 @@ class BudgetCalibrationTests(unittest.TestCase):
         )
         self.assertEqual(summary["feasible_budgets"], [20, 22])
 
+    def test_select_feasible_budgets_by_coverage_constraint_supports_tail_family(self):
+        summary = select_feasible_budgets_by_coverage_constraint(
+            metrics_by_budget={
+                18: {"coverage_p25": 0.80, "coverage_mean": 0.90},
+                19: {"coverage_p25": 0.90, "coverage_mean": 0.94},
+                20: {"coverage_p25": 0.911, "coverage_mean": 0.95},
+                22: {"coverage_p25": 0.92, "coverage_mean": 0.951},
+            },
+            calibration_cfg={
+                "coverage_constraint": {
+                    "mode": "tail_family_relative",
+                    "metrics": [
+                        {"name": "coverage_p25", "relative_ratio": 0.99, "required": True, "weight": 0.7},
+                        {"name": "coverage_mean", "relative_ratio": 0.998, "required": True, "weight": 0.3},
+                    ],
+                }
+            },
+        )
+        self.assertEqual(summary["feasible_budgets"], [20, 22])
+        self.assertEqual(summary["mode"], "tail_family_relative")
+        self.assertEqual(len(summary["metrics"]), 2)
+        self.assertIn("22", summary["family_score_by_budget"])
+
+    def test_select_feasible_budgets_by_coverage_constraint_rejects_unknown_metric(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported coverage constraint metric"):
+            select_feasible_budgets_by_coverage_constraint(
+                metrics_by_budget={
+                    18: {"coverage_p25": 0.80, "coverage_mean": 0.90},
+                    22: {"coverage_p25": 0.92, "coverage_mean": 0.95},
+                },
+                calibration_cfg={
+                    "coverage_constraint": {
+                        "mode": "tail_family_relative",
+                        "metrics": [
+                            {"name": "coverage_meann", "relative_ratio": 0.99, "required": True},
+                        ],
+                    }
+                },
+            )
+
     def test_combine_feasible_budget_metrics_computes_compactness_utility(self):
         enriched = combine_feasible_budget_metrics(
             metrics_by_budget={
@@ -251,6 +293,7 @@ class BudgetCalibrationTests(unittest.TestCase):
         self.assertEqual(result["coverage_constraint"]["feasible_budgets"], [20, 22])
         self.assertEqual(result["selection_stage"], "feasible_set_utility")
         self.assertFalse(result["fallback_used"])
+        self.assertIn("constrained_recheck", result)
 
     def test_constrained_summary_uses_feasible_utility_for_feasible_budgets(self):
         result = resolve_seed_top_k_by_self_calibration(
@@ -292,6 +335,7 @@ class BudgetCalibrationTests(unittest.TestCase):
             summary["per_budget_metrics"][resolved]["utility"],
         )
         self.assertIn("base_utility", summary["per_budget_metrics"][resolved])
+        self.assertIn("constrained_recheck", summary)
 
     def test_select_budget_by_constrained_utility_falls_back_when_no_budget_is_feasible(self):
         result = select_budget_by_constrained_utility(
@@ -337,6 +381,116 @@ class BudgetCalibrationTests(unittest.TestCase):
         self.assertTrue(result["fallback_used"])
         self.assertEqual(result["selection_stage"], "fallback_argmax_utility")
         self.assertEqual(result["resolved_seed_top_k"], 18)
+        self.assertIn("constrained_recheck", result)
+        self.assertFalse(result["constrained_recheck"]["triggered"])
+
+    def test_evaluate_constrained_recheck_can_promote_larger_feasible_budget(self):
+        result = evaluate_constrained_recheck(
+            metrics_by_budget={
+                18: {
+                    "support_mean": 0.820,
+                    "coverage_mean": 0.208010,
+                    "coverage_p25": 0.169911,
+                    "coverage_min": 0.085525,
+                },
+                19: {
+                    "support_mean": 0.806,
+                    "coverage_mean": 0.208071,
+                    "coverage_p25": 0.169911,
+                    "coverage_min": 0.085525,
+                },
+                20: {
+                    "support_mean": 0.790,
+                    "coverage_mean": 0.208208,
+                    "coverage_p25": 0.169911,
+                    "coverage_min": 0.085525,
+                },
+            },
+            feasible_budgets=[18, 19, 20],
+            selected_budget=18,
+            calibration_cfg={
+                "constrained_recheck": {
+                    "enabled": True,
+                    "support_drop_max": 0.02,
+                    "coverage_mean_gain_min": 0.00005,
+                    "coverage_p25_gain_min": 0.0,
+                    "coverage_min_gain_min": 0.0,
+                }
+            },
+        )
+        self.assertTrue(result["enabled"])
+        self.assertTrue(result["triggered"])
+        self.assertTrue(result["pass_recheck"])
+        self.assertEqual(result["promoted_budget"], 19)
+
+    def test_select_budget_by_constrained_utility_can_apply_constrained_recheck(self):
+        result = select_budget_by_constrained_utility(
+            metrics_by_budget={
+                18: {
+                    "coverage_p25": 0.169911,
+                    "coverage_mean": 0.208010,
+                    "coverage_min": 0.085525,
+                    "support_score": 0.90,
+                    "support_mean": 0.820,
+                    "genericity_score": 0.20,
+                    "redundancy_score": 0.20,
+                    "budget_cost": 0.0,
+                    "utility": 0.50,
+                },
+                19: {
+                    "coverage_p25": 0.169911,
+                    "coverage_mean": 0.208071,
+                    "coverage_min": 0.085525,
+                    "support_score": 0.89,
+                    "support_mean": 0.806,
+                    "genericity_score": 0.19,
+                    "redundancy_score": 0.19,
+                    "budget_cost": 0.25,
+                    "utility": 0.26,
+                },
+                20: {
+                    "coverage_p25": 0.169911,
+                    "coverage_mean": 0.208208,
+                    "coverage_min": 0.085525,
+                    "support_score": 0.88,
+                    "support_mean": 0.790,
+                    "genericity_score": 0.18,
+                    "redundancy_score": 0.18,
+                    "budget_cost": 0.5,
+                    "utility": -0.26,
+                },
+            },
+            calibration_cfg={
+                "coverage_constraint": {
+                    "mode": "tail_family_relative",
+                    "metrics": [
+                        {"name": "coverage_p25", "relative_ratio": 0.98, "required": True, "weight": 0.7},
+                        {"name": "coverage_mean", "relative_ratio": 0.998, "required": True, "weight": 0.3},
+                    ],
+                },
+                "utility": {
+                    "support_weight": 1.0,
+                    "genericity_weight": 0.5,
+                    "redundancy_weight": 0.3,
+                    "budget_weight": 0.1,
+                },
+                "tiebreak": {
+                    "epsilon": 0.01,
+                    "prefer_smaller_budget": True,
+                },
+                "constrained_recheck": {
+                    "enabled": True,
+                    "support_drop_max": 0.02,
+                    "coverage_mean_gain_min": 0.00005,
+                    "coverage_p25_gain_min": 0.0,
+                    "coverage_min_gain_min": 0.0,
+                },
+            },
+        )
+        self.assertEqual(result["resolved_seed_top_k"], 19)
+        self.assertEqual(result["tiebreak_reason"], "constrained_recheck_promoted_larger_budget")
+        self.assertTrue(result["constrained_recheck"]["pass_recheck"])
+        self.assertLess(result["utility_gap"], 0.0)
 
     def test_should_trigger_near_boundary_recheck_requires_larger_runner_up_within_gap(self):
         self.assertTrue(

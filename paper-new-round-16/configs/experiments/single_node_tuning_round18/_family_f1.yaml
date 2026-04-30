@@ -1,0 +1,18 @@
+selector:
+  seed_budget_rule:
+    coverage_constraint:
+      metrics:
+        - name: coverage_p25
+          relative_ratio: 0.98
+          required: true
+          weight: 0.7
+        - name: coverage_mean
+          relative_ratio: 0.998
+          required: true
+          weight: 0.3
+        - name: coverage_min
+          relative_ratio: 0.995
+          required: false
+          weight: 0.0
+    constrained_recheck:
+      enabled: false

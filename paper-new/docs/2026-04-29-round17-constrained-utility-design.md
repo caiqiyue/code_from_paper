@@ -517,6 +517,163 @@ Round17 的实验目标非常明确：
 
 - 验证 constrained selection 不是只在 seed 42 上偶然有效
 
+## 实验结果记录（2026-04-30）
+
+本轮结果已在服务器端核对，实验输出目录位于：
+
+```text
+/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/r17_*
+```
+
+本节所有结论均来自各实验目录中的：
+
+- `stage1_budget_calibration.json`
+- `eval/downstream_eval_summary.json`
+
+### 实验组 A 结果：最小功能探针
+
+| 实验 | ratio | feasible_budgets | resolved_seed_top_k | utility_gap | best_top1 |
+|------|-------|------------------|---------------------|-------------|-----------|
+| `r17_probe_forums_base` | `0.99` | `21,22` | `21` | `0.3000` | `0.2480` |
+| `r17_probe_microblog_base` | `0.99` | `22` | `22` | `0.0000` | `0.2777` |
+
+分析：
+
+- `forums` 上，`18/19/20` 被 coverage feasibility 直接排除，说明 Round17 的约束层确实改变了预算选择结构，不再让过小 budget 直接参与最终竞争。
+- `microblog` 上，`0.99` 条件下只有 `22` 可行，说明该数据集在尾部覆盖上对更大 budget 更敏感。
+- 因此，实验组 A 的核心目标已经达到：Round17 的 feasibility stage 确实在工作，而不是一个空壳约束。
+
+### 实验组 B 结果：ratio sweep
+
+#### forums
+
+| 实验 | ratio | feasible_budgets | resolved_seed_top_k | best_top1 | 结论 |
+|------|-------|------------------|---------------------|-----------|------|
+| `r17_forums_r099` | `0.99` | `21,22` | `21` | `0.2462` | 未达标 |
+| `r17_forums_r098` | `0.98` | `21,22` | `21` | `0.2505` | 达到目标 |
+| `r17_forums_r097` | `0.97` | `21,22` | `21` | `0.2492` | 仍低于 `0.2505` |
+
+结论：
+
+- `forums` 的最佳点是 `ratio = 0.98`。
+- 三组 sweep 的 `feasible_budgets` 都稳定在 `21,22`，说明 `coverage_p25` 约束已经足够稳地把 `18/19/20` 排除出去。
+- `0.99` 过严，虽然结构正确，但性能不足；`0.97` 虽然更松，但没有带来额外收益；`0.98` 是当前最合适的折中点。
+
+#### microblog 续跑
+
+| 实验 | ratio | feasible_budgets | resolved_seed_top_k | best_top1 | 结论 |
+|------|-------|------------------|---------------------|-----------|------|
+| `r17_microblog_r099` | `0.99` | `22` | `22` | `0.2770` | 达标 |
+| `r17_microblog_r098` | `0.98` | `22` | `22` | `0.2770` | 达标 |
+| `r17_microblog_r097` | `0.97` | `20,21,22` | `21` | `0.2751` | 回落 |
+
+结论：
+
+- `microblog` 上，`0.99/0.98` 均将可行集压到单点 `22`，因此结果稳定且优于 PrE-Text。
+- 一旦放松到 `0.97`，可行集扩大为 `20,21,22`，第二阶段 utility 转而选择 `21`，性能回落。
+- 这说明 `microblog` 对约束松弛较敏感，过松会重新引入“预算压缩”问题。
+
+### 实验组 C 结果：四数据集快速回归（采用 `ratio = 0.98`）
+
+| 数据集 | 实验 | feasible_budgets | resolved_seed_top_k | best_top1 | PrE-Text | 差值 |
+|--------|------|------------------|---------------------|-----------|----------|------|
+| forums | `r17_forums_r098` | `21,22` | `21` | `0.2505` | `0.2501` | `+0.0004` |
+| microblog | `r17_microblog_r098` | `22` | `22` | `0.2770` | `0.2763` | `+0.0007` |
+| jobs | `r17_jobs_r098` | `18,19,20,21,22` | `18` | `0.2782` | `0.2732` | `+0.0050` |
+| congressional | `r17_congressional_r098` | `18,19,20,21,22` | `18` | `0.2928` | `0.2950` | `-0.0022` |
+
+结论：
+
+- `ratio = 0.98` 并没有实现 `4/4` 超过 PrE-Text，实际结果是 `3/4`。
+- 成功数据集为 `forums / microblog / jobs`。
+- 失败数据集为 `congressional`，其 `best_top1 = 0.2928`，低于 PrE-Text 的 `0.2950`。
+
+### 关键机制证据
+
+#### forums：Round17 确实修复了 Round16 的核心问题
+
+`r17_forums_r098` 的 per-budget calibration 显示：
+
+- `18`: `coverage_p25 = 0.130894`，`feasible = false`
+- `19`: `coverage_p25 = 0.130894`，`feasible = false`
+- `20`: `coverage_p25 = 0.131690`，`feasible = false`
+- `21`: `coverage_p25 = 0.135860`，`feasible = true`
+- `22`: `coverage_p25 = 0.135860`，`feasible = true`
+
+这说明：
+
+- Round17 的价值首先不在于“直接偏向大 budget”，而在于把 coverage 不足的小 budget 从候选集中剔除。
+- `forums` 上的成功不是偶然波动，而是 feasibility stage 真正改变了预算选择结构。
+- 在 `21` 和 `22` 都可行后，第二阶段 utility 选择了更紧凑的 `21`，从而在 coverage 够用的前提下保留了 compactness 优势。
+
+#### microblog：约束层也在起作用，但需要保持足够严格
+
+`r17_microblog_r098` 的关键现象是：
+
+- 只有 `22` 满足 coverage constraint，因此不会再被压缩到 `18/19/20`。
+- 当 ratio 降到 `0.97` 时，`20/21/22` 同时进入可行集，utility 改选 `21`，`best_top1` 从 `0.2770` 降到 `0.2751`。
+
+这说明：
+
+- `microblog` 的性能稳定依赖于较严格的 coverage sufficiency 约束。
+- 该数据集不是“不需要约束”，而是“约束一旦过松，旧问题会重新出现”。
+
+#### jobs：Round17 没有修复问题，但误打误撞拿到了更强结果
+
+`r17_jobs_r098` 的 per-budget calibration 显示：
+
+- 五个 budget `18-22` 全部可行。
+- `18` 的 utility 显著最高，且 `utility_gap = 0.5081`，说明 `18` 不是近边界偶然胜出，而是强最优。
+
+这说明：
+
+- 对 `jobs` 而言，coverage constraint 基本没有发挥筛选作用。
+- 最终表现提升主要来自第二阶段 utility 本身恰好偏向了最优的更小 budget。
+- 从算法解释上说，Round17 在 `jobs` 上不是“constraint 救回来了”，而是“constraint 不妨碍 utility 选到更强的小 budget”。
+
+#### congressional：Round17 当前失败的根因
+
+`r17_congressional_r098` 的 per-budget calibration 显示：
+
+- `18-22` 五个 budget 全部可行。
+- 五个 budget 的 `coverage_p25` 实际上完全相同，均为 `0.169911`。
+- 因此 coverage feasibility 无法淘汰任何较小 budget。
+- 第二阶段 utility 最终回到对 compactness 更友好的 `18`，导致 `best_top1 = 0.2928`，低于 PrE-Text。
+
+这说明：
+
+- Round17 的核心假设是“尾部覆盖不足会在 `coverage_p25` 上显式暴露出来”；但在 `congressional` 上，这个信号没有足够分辨力。
+- 一旦 `coverage_p25` 不能拉开不同 budget 的差异，Round17 就会退化为“在几乎全可行的预算集上做 utility 选择”，从而重新偏向小 budget。
+- 因此，Round17 当前不是普适解决方案，它更像是对 `forums` 类 coverage-tail 问题非常有效，但对 `congressional` 这种 coverage 指标平坦的数据集不够强。
+
+## Round17 总结判断
+
+Round17 是一个**部分成功**的回合，而不是最终收敛回合。
+
+它的主要收获有三点：
+
+1. `coverage_p25` feasibility stage 确实是有效机制，不是伪改动。
+2. 它成功修复了 `forums` 在 Round16 中被系统性压向小预算的问题。
+3. 在统一 `ratio = 0.98` 下，它拿到了 `forums / microblog / jobs` 三个数据集超过 PrE-Text 的结果。
+
+但它也有清晰边界：
+
+1. 它没有实现目标中的 `4/4` 全面超过 PrE-Text。
+2. `congressional` 上 `coverage_p25` 对不同 budget 缺乏区分力，导致约束层失效。
+3. 因此 Round17 不能直接替代 Round15 作为最终统一方案。
+
+更准确的定位应当是：
+
+> Round17 证明了“先做相对尾部覆盖可行性筛选，再在可行集中优化 utility”这一结构在 `forums` 类问题上是正确方向，但 `coverage_p25` 作为唯一约束指标还不够普适，尚不足以支撑 4 个数据集的统一最优预算选择。
+
+## 对后续迭代的启示
+
+从本轮结果看，后续若继续沿 Round17 主线推进，重点不应再是简单调 `0.99/0.98/0.97`，而应放在：
+
+1. 为什么 `congressional` 的 `coverage_p25` 在不同 budget 上几乎不变。
+2. 是否需要把约束信号从单一 `coverage_p25` 扩展为更能区分 budget 的 tail-coverage family。
+3. 是否需要把 feasibility stage 与 utility stage 之间的职责边界进一步拉开，避免在“全预算均可行”时又完全退化成 compactness 偏好。
+
 ## 推荐执行顺序
 
 1. 实现 Round17 constrained selection

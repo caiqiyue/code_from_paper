@@ -1,0 +1,11 @@
+inherits:
+  - ../_base_selector_tuning_round18.yaml
+  - ../_family_f2_loose_recheck.yaml
+  - ../../single_node_tuning_round16/_data_forums.yaml
+
+meta:
+  experiment_id: r18_forums_seed123
+  seed: 123
+
+paths:
+  output_root: paper-new/outputs/r18_forums_seed123

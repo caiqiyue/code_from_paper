@@ -64,89 +64,558 @@
 
 ## 4. PrE-Text 的算法流程
 
-结合 [`PrE-Text` 论文](https://openreview.net/pdf?id=3WCvnkHnxV) 与本地实验记录，可将其高层流程概括为两阶段：
+这一节的目标是把 `PrE-Text` 本身先讲清楚，因为后续所有创新都是围绕它的 Stage 1 selector 展开的。
 
-1. **Stage 1: synthetic seed collection**
-   - 从 initialization pool 中采样 exemplar；
-   - 用固定生成器生成候选；
-   - 根据 private data 与候选的相似关系挑选 seeds。
-2. **Stage 2: synthetic seed expansion**
-   - 基于 Stage 1 seeds 构造 bootstrap prompts；
-   - 生成更大的 synthetic corpus；
-   - 送入统一的下游评测。
+结合 [`PrE-Text` 论文](https://openreview.net/pdf?id=3WCvnkHnxV) 与本地实验链路，我把它概括成“两阶段生成、其中 Stage 1 负责找 seed，Stage 2 负责扩 seed”的框架。
 
-`PrE-Text` 论文在高层图中明确写到：算法由两个主阶段组成，即“iterative DP synthetic seed collection”和“single-shot synthetic seed expansion”。
+### 4.1 PrE-Text 的整体框架
 
-### 4.1 我在本地实验中抽象出的 PrE-Text Stage 1 机制
+#### Stage 1: synthetic seed collection
 
-1. 对每条 private sample 找到最近候选；
-2. 主要按 `Top-1` 命中进行支持统计；
-3. 根据支持强度和基础过滤规则选 seeds；
-4. 未选中候选直接淘汰，不保留边界状态。
+这一阶段的目标是：
 
-### 4.2 它的局限性
+> 从一批候选 synthetic texts 里，找出最值得保留下来的少量 seed。
 
-对我的任务而言，`PrE-Text` 的问题不在 Stage 2，而在 Stage 1：
+它不是直接生成最终训练集，而是先做“种子筛选”。
 
-1. `Top-1` 反馈太硬，信息利用率不够。
-2. 不区分 private sample 的重要性。
-3. 没有显式 genericity 惩罚。
-4. 没有动态 redundancy 控制。
-5. 没有对 budget 的数据集自适应。
+#### Stage 2: synthetic seed expansion
+
+这一阶段的目标是：
+
+> 以 Stage 1 选出来的 seeds 为基础，构造 bootstrap prompts，再批量生成更大的 synthetic corpus。
+
+也就是说：
+
+- Stage 1 决定“选谁进入种子集”；
+- Stage 2 决定“基于这些种子扩出多少合成数据”。
+
+### 4.2 PrE-Text 的详细流程
+
+#### Step 1：准备三类输入
+
+`PrE-Text` 至少依赖三类输入：
+
+1. `D_priv`
+   - private training data；
+   - 也就是目标任务真正想拟合的数据分布。
+2. `D_init`
+   - initialization pool；
+   - 通常来自公开语料，用来给生成器提供 exemplar 或 few-shot 参考。
+3. 固定文本生成器
+   - 用于生成候选 synthetic texts。
+
+#### Step 2：从 initialization pool 构造 prompts 并生成候选
+
+系统从 `D_init` 中采样一批初始化文本，再通过固定 prompt 模板与固定生成器得到候选集合。
+
+这里可以把候选集合记为：
+
+- `C = {c_1, c_2, ..., c_n}`
+
+这些候选并不是最终输出，而是等待筛选的 Stage 1 candidates。
+
+#### Step 3：计算 private data 与 candidates 的相似关系
+
+对每条 private sample `x`，系统会看它与所有候选 `c` 的相似程度。  
+在 `PrE-Text` 的原始思路中，这个相似关系主要用于回答：
+
+> “哪一个 candidate 最像这条 private sample？”
+
+#### Step 4：用 Top-1 命中做支持统计
+
+这是 `PrE-Text` Stage 1 的关键特征。
+
+对于每条 private sample：
+
+1. 找到与它最相近的 candidate；
+2. 给这个 candidate 记一票；
+3. 遍历所有 private samples 后，统计每个 candidate 被命中了多少次。
+
+所以 `PrE-Text` 的核心反馈是：
+
+> `Top-1` nearest-neighbor vote
+
+也就是“每个 private sample 只给一个 candidate 投票”。
+
+#### Step 5：根据支持度挑选 seeds
+
+当所有 private samples 投完票后：
+
+1. 得票高的 candidate 更可能进入 seed set；
+2. 得票低的 candidate 更可能被丢弃；
+3. 再配合一些基础过滤规则形成最终 seeds。
+
+可以把这一步理解为：
+
+> 用 private distribution 对 candidate pool 做一次最近邻投票筛选。
+
+#### Step 6：用 Stage 1 seeds 构造 bootstrap prompts
+
+进入 Stage 2 之后，系统不再重新做复杂筛选，而是：
+
+1. 直接把 Stage 1 选出的 seeds 当作核心素材；
+2. 组合成 bootstrap prompts；
+3. 准备批量扩展生成。
+
+#### Step 7：扩展成 synthetic corpus 并做下游评测
+
+最后：
+
+1. Stage 2 批量生成 synthetic texts；
+2. 形成最终 synthetic corpus；
+3. 再送入统一下游评测，得到 `best_top1/top3/top5/top10` 等结果。
+
+### 4.3 用一句话概括 PrE-Text Stage 1
+
+如果要用最简洁的方式讲，`PrE-Text` Stage 1 的本质是：
+
+> “先生成一批候选，再让每条 private sample 只给最近的一个 candidate 投票，最后按得票情况选 seeds。”
+
+### 4.4 PrE-Text 里的关键概念
+
+为了后面和我的创新算法对照，这里先把几个最重要的概念解释清楚。
+
+| 概念 | 含义 | 在 PrE-Text 中的作用 |
+|---|---|---|
+| `D_priv` | 私有训练语料 | 定义目标分布，决定什么样的 synthetic text 才算“像目标数据” |
+| `D_init` | 公共初始化池 | 提供生成时的公开参考，不直接等于目标分布 |
+| candidate | Stage 1 生成的候选合成文本 | 等待被筛选的中间结果 |
+| seed | Stage 1 最终保留下来的高质量候选 | Stage 2 的 bootstrap 输入 |
+| `Top-1` support | 每条 private sample 只支持一个最近 candidate | Stage 1 的核心打分来源 |
+| bootstrap | 基于 seeds 扩展生成更多文本 | Stage 2 的核心机制 |
+
+### 4.5 PrE-Text 的优势与局限
+
+优势：
+
+1. 两阶段结构很清晰。
+2. Stage 2 bootstrap 机制成熟。
+3. 在结构化数据集上本身就已经有效。
+
+局限：
+
+1. `Top-1` 反馈过硬，信息利用率低。
+
+2. 所有 private samples 默认等权，无法体现哪些样本更重要。
+
+3. 没有显式 genericity 控制。
+
+4. 没有显式 redundancy 控制。
+
+   ```
+   genericity 控制：抑制过于公共、模板化、缺乏任务特异性的候选。
+   redundancy 控制：抑制与已选 seed 高度相似的候选，提升 seed set 的覆盖面与多样性。
+   ```
+
+   
+
+5. 没有预算自适应机制。
+
+对我的任务来说，真正需要改的核心位置不是 Stage 2，而是：
+
+> Stage 1 selector 过于简单，无法稳定处理四个异构数据集。
 
 ---
 
 ## 5. 初始创新算法：我首先改了什么
 
-我的第一版创新算法仍然保留 `PrE-Text` 的两阶段结构，但把 Stage 1 selector 改写为：
+我的第一版创新算法没有动 `PrE-Text` 的整体框架，而是只重构了 Stage 1 selector。  
+它的核心评分思想可以写成：
 
-> `private_support - genericity_penalty - redundancy_penalty`
+`accept_score(c) = private_support(c) - lambda_generic * genericity_penalty(c) - lambda_redundancy * redundancy_penalty(c)`
 
-其完整流程如下。
+这条公式非常重要，因为后面的很多实验，本质上都围绕它的三个部分展开：
 
-### 5.1 Stage 1 的新流程
+1. `private_support`
+2. `genericity_penalty`
+3. `redundancy_penalty`
 
-#### Step 1：候选生成
+### 5.1 创新算法的整体思路
 
-1. 从 `D_init` 采样；
-2. 用固定 prompt 和固定生成器生成候选池 `C_t`；
-3. 清洗空文本、异常短文本和损坏文本。
+我希望 Stage 1 不再只是“谁被 Top-1 命中最多就选谁”，而是同时回答三个问题：
 
-#### Step 2：构建 private importance prior
+1. 这个候选是否真正得到 private data 的支持。
+2. 这个候选是否只是一个过于 generic 的公共表达。
+3. 这个候选即使分数高，是否和已选 seeds 太重复。
 
-对每条 private sample `x` 计算 `w(x)`，由三部分组成：
+因此，我把 Stage 1 从单一投票，改成了“支持度 - 通用性惩罚 - 冗余惩罚”的联合决策。
 
-1. 局部代表性；
-2. 新颖性/稀缺性；
-3. 长度稳定性。
+### 5.2 创新算法的详细流程
 
-#### Step 3：把 Top-1 支持升级为 Top-Q 加权支持
+#### Step 1：生成候选池
 
-对每条 private sample：
+与 `PrE-Text` 一样，先从 `D_init` 采样，再用固定 prompt 和固定 generator 生成 Stage 1 candidates。  
+这一点刻意保持不变，是为了保证创新集中在 selector，而不是生成器本身。
 
-1. 不再只找最近的 `Top-1` 候选；
-2. 而是找 `Top-Q` 候选；
-3. 用 rank 权重 `alpha_r` 做衰减；
-4. 再乘以 `w(x)`，得到每个候选的 `private_support`。
+#### Step 2：为 private samples 计算 importance prior
 
-#### Step 4：加入 genericity penalty
+这里是和 `PrE-Text` 的第一处显著区别。  
+我不再默认所有 private samples 作用相同，而是给每条样本一个权重 `w(x)`。
 
-如果某个候选与公共 initialization 分布过近、表达过于模板化、过于“安全宽泛”，则给予惩罚。
+这个 `w(x)` 由三类信号组成：
 
-#### Step 5：加入动态 redundancy penalty
+1. **局部代表性**
+   - 某条 private sample 是否位于 private distribution 的高密度区域；
+   - 越有代表性的样本，对 selector 越重要。
+2. **新颖性/稀缺性**
+   - 某条 sample 是否代表不常见但又有价值的模式；
+   - 这样能防止 selector 只盯着最中心的模式。
+3. **长度稳定性**
+   - 过短或异常长度的样本可能不稳定；
+   - 因此需要对长度做适度校正。
 
-在贪心选种过程中，每当某个候选被选入 seed set，就动态更新剩余候选相对当前 seed set 的冗余度，防止 seeds 彼此过近。
+#### Step 3：把 Top-1 support 改成 Top-Q weighted support
 
-#### Step 6：显式保留 boundary negatives
+这是第二处核心创新。
 
-我没有把未选中候选直接丢掉，而是保留：
+对每条 private sample `x`，我不只找一个最近候选，而是找 `Top-Q` 个候选。  
+然后：
 
-- `R_t`: near-boundary negatives；
-- `boundary_state`: 由拒绝分数区间、embedding 中心和负模式统计组成的边界状态。
+1. 第 1 名给最高权重；
+2. 第 2、3、4 名依次衰减；
+3. 再乘上 private sample 的重要性权重 `w(x)`。
 
-这一步的意义是：Stage 1 不仅知道“该选谁”，还知道“哪些候选接近边界但不应该被选”。
+这样得到的 `private_support(c)` 就不再是“单一硬投票”，而是：
 
-### 5.2 初始创新相对 PrE-Text 的结构性差异
+> “private data 对 candidate 的软支持总和”
+
+它比 `Top-1` 更稳定，也更能保留次优但有价值的候选。
+
+#### Step 4：计算 genericity penalty
+
+这一步的目的是回答：
+
+> “这个 candidate 虽然看起来像目标数据，但会不会其实只是一个非常公共、非常模板化的表达？”
+
+具体做法是：
+
+1. 看 candidate 与 public initialization pool 的相似程度；
+2. 如果它过于接近 public distribution；
+3. 或者它的表达方式过于“宽泛、安全、模板化”；
+4. 就给它更高的 `genericity_penalty`。
+
+这一步是为了防止 Stage 1 选出“谁都像一点，但其实不够任务特异”的候选。
+
+#### Step 5：动态计算 redundancy penalty
+
+这一步的目的是回答：
+
+> “这个 candidate 本身也许不错，但它是否和已经选中的 seed 太像了？”
+
+因此，我不是一次性静态算完冗余度，而是在贪心选种过程中动态更新：
+
+1. 当某个 candidate 被选入 seed set；
+2. 剩余 candidates 会重新计算与当前 seed set 的相似关系；
+3. 越接近当前 seed set，`redundancy_penalty` 越高。
+
+它的作用是保证最终 seed set 不是“很多高分但彼此很像的句子”，而是“既高质量又有覆盖面的一组句子”。
+
+#### Step 6：显式保留边界负样本
+
+我没有像 `PrE-Text` 那样，把未选中的候选直接丢掉。  
+相反，我会保留：
+
+1. `R_t`
+   - 被拒绝但接近边界的 negatives；
+2. `boundary_state`
+   - 包括拒绝分数区间、负样本中心和负模式统计。
+
+它的意义在于：
+
+> selector 不仅知道什么样的 candidate 应该被选，也知道什么样的 candidate 接近边界但不该被选。
+
+### 5.3 创新算法的形式化算法与参数说明
+
+这一节建议作为导师汇报时的“算法解释主段”。  
+因为前面讲的是直观流程，这里要把“它到底怎么算”和“这些参数分别控制什么”说清楚。
+
+#### 5.3.1 创新算法的主公式
+
+对任意 candidate `c`，Stage 1 最终接受分数写成：
+
+`accept_score(c) = private_support(c) - lambda_generic * genericity_penalty(c) - lambda_redundancy * redundancy_penalty(c)`
+
+这条公式里有三部分：
+
+1. `private_support(c)`
+   - candidate 到底有没有得到 private data 的支持。
+2. `genericity_penalty(c)`
+   - candidate 会不会太通用、太像公共语料。
+3. `redundancy_penalty(c)`
+   - candidate 会不会和已经选中的 seeds 太重复。
+
+可以把它理解为：
+
+> 先看 candidate 是否“像目标数据”，再扣掉“太公共”和“太重复”这两类风险。
+
+#### 5.3.2 第一步：计算 private sample 的重要性权重 `w(x)`
+
+对每条 private sample `x`，先计算它的重要性权重：
+
+`w(x) = density_lambda * density_score(x) + novelty_lambda * novelty_score(x) + length_lambda * length_score(x)`
+
+三项分别表示：
+
+1. `density_score(x)`
+   - `x` 是否位于 private distribution 的高密度区域；
+   - 越能代表主流模式，值越高。
+2. `novelty_score(x)`
+   - `x` 是否代表相对稀缺但有价值的模式；
+   - 越偏离全局平均模式，值越高。
+3. `length_score(x)`
+   - `x` 的长度是否稳定；
+   - 太短或太长都会被降权。
+
+这一步的意义是：
+
+> 并不是所有 private samples 都应该在支持度聚合中完全等权。
+
+#### 5.3.3 第二步：计算 `Top-Q` private support
+
+对每条 private sample `x`：
+
+1. 找到它最接近的 `Top-Q` 个 candidates；
+2. 如果某个 candidate `c` 是第 `r` 名近邻，就给它分配权重 `alpha_r`；
+3. 再乘上这条 private sample 的重要性权重 `w(x)`。
+
+于是 candidate `c` 的支持度为：
+
+`private_support(c) = Σ_{x∈D_priv} w(x) * Σ_{r=1}^{Q} alpha_r * I[c 是 x 的第 r 个最近候选]`
+
+这里的核心思想是：
+
+> 不再像 `PrE-Text` 那样只保留唯一最近邻，而是允许一条 private sample 对多个近邻提供软支持。
+
+#### 5.3.4 第三步：扣掉 `genericity_penalty`
+
+`genericity_penalty(c)` 衡量的是：
+
+> 这个 candidate 虽然可能和 private data 有点像，但它会不会其实只是一个太公共、太模板化、太安全宽泛的表达。
+
+具体上：
+
+1. 看 `c` 与 public initialization pool 的相似程度；
+2. 越接近公共语料分布，说明它越 generic；
+3. 越 generic，惩罚越高。
+
+这一步解决的是“看起来不错，但不够任务特异”的问题。
+
+#### 5.3.5 第四步：动态扣掉 `redundancy_penalty`
+
+`redundancy_penalty(c)` 衡量的是：
+
+> 这个 candidate 即使本身不错，它会不会和当前已选 seeds 太像。
+
+注意这一步是**动态**的：
+
+1. 每选入一个新 seed；
+2. 剩余 candidates 的冗余度都要重新计算；
+3. 越接近当前 seed set，惩罚越高。
+
+因此它不是一个静态属性，而是一个与“当前已选集合”相关的惩罚。
+
+#### 5.3.6 第五步：按 budget 贪心选种，并保留边界负样本
+
+最后：
+
+1. 按 `accept_score` 贪心选择高分 candidates；
+2. 最多保留 `seed_top_k` 个 seeds；
+3. 再额外保留 `hard_negative_top_k` 个近边界拒绝候选；
+4. 用这些近边界拒绝候选构造 `boundary_state`。
+
+这样输出的就不只是 seed set，还有一个明确的拒绝边界。
+
+### 5.3.7 参数词典：这些参数分别是什么意思
+
+#### A. `Top-Q`
+
+- 含义：
+  - 每条 private sample 允许支持前 `Q` 个最近 candidates。
+- 它在算法里控制什么：
+  - 控制一条 private sample 能向多少个候选分配支持。
+- 作用：
+  - 把 `Top-1` 硬匹配改成更平滑的多邻居支持。
+- 太小会怎样：
+  - 信息过硬，容易丢掉次优候选。
+- 太大会怎样：
+  - 支持过于分散，区分度下降。
+
+#### B. `alpha_r` 或 rank weights
+
+- 含义：
+  - `Top-Q` 中第 `r` 名 candidate 的支持权重。
+- 它在算法里控制什么：
+  - 控制第 1 名、第 2 名、第 3 名各自有多大贡献。
+- 作用：
+  - 第 1 名贡献最大，第 2、3 名逐步衰减。
+- 为什么需要：
+  - 否则 `Top-Q` 里所有候选等权，就会把真正最近的候选“稀释掉”。
+
+#### C. `importance prior w(x)`
+
+- 含义：
+  - private sample `x` 的重要性权重。
+- 它在算法里控制什么：
+  - 控制某条 private sample 在支持度聚合时的话语权大小。
+- 作用：
+  - 让更有代表性、更有信息量的 private sample 贡献更大。
+- 解决的问题：
+  - 避免所有 private samples 被机械地等权对待。
+
+#### D. `genericity_penalty`
+
+- 含义：
+  - 衡量某个 candidate 有多“通用”、多“公共”、多“模板化”。
+- 它在算法里控制什么：
+  - 控制 candidate 是否因为“太像公共语料”而被降分。
+- 作用：
+  - 抑制那些看起来很流畅，但不够任务特异的候选。
+- 如果没有它：
+  - selector 容易偏向公共分布中常见的安全表达。
+
+#### E. `lambda_generic`
+
+- 含义：
+  - `genericity_penalty` 的强度系数。
+- 它在算法里控制什么：
+  - 控制“去 generic”在总分里占多大比重。
+- 作用：
+  - 决定 selector 有多强烈地排斥通用型 candidate。
+- 太大：
+  - 会误杀很多正常但口语化的候选。
+- 太小：
+  - 又压不住模板化候选。
+
+#### F. `redundancy_penalty`
+
+- 含义：
+  - candidate 与当前已选 seed set 的相似度惩罚。
+- 它在算法里控制什么：
+  - 控制 candidate 是否因为“和已有 seeds 太像”而被降分。
+- 作用：
+  - 防止 seed set 内部过于重复。
+- 如果没有它：
+  - seed set 可能堆很多相似表达，导致 coverage 变差。
+
+#### G. `lambda_redundancy`
+
+- 含义：
+  - `redundancy_penalty` 的强度系数。
+- 它在算法里控制什么：
+  - 控制 selector 更偏向“单条质量”还是更偏向“集合多样性”。
+- 作用：
+  - 决定去重力度。
+
+#### H. `seed_top_k`
+
+- 含义：
+  - 最终保留多少个 seeds。
+- 它在算法里控制什么：
+  - 控制 Stage 1 seed set 的预算上限。
+- 作用：
+  - 决定 Stage 1 seed set 的规模。
+- 太小：
+  - coverage 不足。
+- 太大：
+  - 容易引入弱 seed 和噪声。
+
+#### I. `hard_negative_top_k`
+
+- 含义：
+  - 保留多少个近边界拒绝候选。
+- 它在算法里控制什么：
+  - 控制保留多少个“差一点就被选中”的负例。
+- 作用：
+  - 让 `boundary_state` 能显式描述拒绝边界。
+
+### 5.3.8 参数简表（快速回看，可跳过）
+
+这一节建议在汇报时重点讲，因为导师往往会追问“这些参数到底是什么意思”。
+
+#### A. `Top-Q`
+
+- 含义：
+  - 每条 private sample 允许支持前 `Q` 个最近 candidates。
+- 作用：
+  - 把 `Top-1` 硬匹配改成更平滑的多邻居支持。
+- 太小会怎样：
+  - 信息过硬，容易丢掉次优候选。
+- 太大会怎样：
+  - 支持过于分散，区分度下降。
+
+#### B. `alpha_r` 或 rank weights
+
+- 含义：
+  - `Top-Q` 内不同 rank 的权重。
+- 作用：
+  - 第 1 名贡献最大，第 2、3 名逐步衰减。
+- 为什么需要：
+  - 否则 `Top-Q` 里所有候选等权，会把真正最近的候选“稀释掉”。
+
+#### C. `importance prior w(x)`
+
+- 含义：
+  - private sample `x` 的重要性权重。
+- 作用：
+  - 让更有代表性、更有信息量的 private sample 在支持度聚合中贡献更大。
+- 解决的问题：
+  - 避免所有 private samples 被机械地等权对待。
+
+#### D. `genericity_penalty`
+
+- 含义：
+  - 衡量某个 candidate 有多“通用”、多“公共”、多“模板化”。
+- 作用：
+  - 抑制那些看起来很流畅，但不够任务特异的候选。
+- 如果没有它：
+  - selector 容易偏向公共分布中常见的安全表达。
+
+#### E. `lambda_generic`
+
+- 含义：
+  - `genericity_penalty` 的强度系数。
+- 作用：
+  - 决定“去 generic”这件事在总分里占多大比重。
+- 太大：
+  - 会误杀很多正常但口语化的候选。
+- 太小：
+  - 又压不住模板化候选。
+
+#### F. `redundancy_penalty`
+
+- 含义：
+  - candidate 与当前已选 seed set 的相似度惩罚。
+- 作用：
+  - 防止 seed set 内部过于重复。
+- 如果没有它：
+  - seed set 可能堆很多相似表达，导致 coverage 变差。
+
+#### G. `lambda_redundancy`
+
+- 含义：
+  - `redundancy_penalty` 的强度系数。
+- 作用：
+  - 控制 selector 更偏向“质量”还是更偏向“多样性”。
+
+#### H. `seed_top_k`
+
+- 含义：
+  - 最终保留多少个 seeds。
+- 作用：
+  - 决定 Stage 1 seed set 的预算大小。
+- 太小：
+  - coverage 不足。
+- 太大：
+  - 容易引入弱 seed 和噪声。
+
+#### I. `hard_negative_top_k`
+
+- 含义：
+  - 保留多少个近边界拒绝候选。
+- 作用：
+  - 让 `boundary_state` 能显式描述拒绝边界。
+
+### 5.4 这一版创新相对 PrE-Text 的结构性差异
 
 | 维度 | PrE-Text | 初始创新算法 |
 |---|---|---|

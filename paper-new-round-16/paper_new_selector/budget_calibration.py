@@ -5,6 +5,12 @@ from typing import Any
 from .redundancy import cosine_similarity
 from .selector import greedy_select_candidates
 
+VALID_COVERAGE_METRICS = {
+    "coverage_mean",
+    "coverage_p25",
+    "coverage_min",
+}
+
 
 def _mean(values: list[float]) -> float:
     if not values:
@@ -172,32 +178,166 @@ def compute_relative_coverage_threshold(
     return float(best_coverage_p25) * float(relative_ratio)
 
 
-def select_feasible_budgets_by_coverage_p25(
+def _normalize_metric_name(metric_name: str) -> str:
+    return str(metric_name).strip()
+
+
+def _extract_metric_value(metrics: dict[str, Any], metric_name: str) -> float:
+    normalized_name = _normalize_metric_name(metric_name)
+    if normalized_name not in VALID_COVERAGE_METRICS:
+        raise ValueError(f"Unsupported coverage constraint metric: {normalized_name}")
+    if normalized_name not in metrics:
+        raise ValueError(f"Missing metric in calibration summary: {normalized_name}")
+    return float(metrics[normalized_name])
+
+
+def _build_coverage_metric_specs(coverage_cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    specs = coverage_cfg.get("metrics")
+    if isinstance(specs, list) and specs:
+        normalized_specs: list[dict[str, Any]] = []
+        for raw_spec in specs:
+            if not isinstance(raw_spec, dict):
+                continue
+            name = _normalize_metric_name(raw_spec.get("name", "coverage_p25"))
+            if name not in VALID_COVERAGE_METRICS:
+                raise ValueError(f"Unsupported coverage constraint metric: {name}")
+            normalized_specs.append(
+                {
+                    "name": name,
+                    "relative_ratio": float(
+                        raw_spec.get(
+                            "relative_ratio",
+                            coverage_cfg.get("relative_ratio", 0.99),
+                        )
+                    ),
+                    "required": bool(raw_spec.get("required", True)),
+                    "weight": float(raw_spec.get("weight", 1.0)),
+                }
+            )
+        if normalized_specs:
+            return normalized_specs
+    default_name = _normalize_metric_name(coverage_cfg.get("metric", "coverage_p25"))
+    if default_name not in VALID_COVERAGE_METRICS:
+        raise ValueError(f"Unsupported coverage constraint metric: {default_name}")
+    return [
+        {
+            "name": default_name,
+            "relative_ratio": float(coverage_cfg.get("relative_ratio", 0.99)),
+            "required": True,
+            "weight": 1.0,
+        }
+    ]
+
+
+def _compute_family_score_by_budget(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    metric_specs: list[dict[str, Any]],
+) -> dict[int, float]:
+    if not metric_specs:
+        return {int(budget): 0.0 for budget in metrics_by_budget}
+
+    normalized_by_metric: dict[str, dict[int, float]] = {}
+    for metric_spec in metric_specs:
+        metric_name = str(metric_spec["name"])
+        normalized_by_metric[metric_name] = _normalize_metric_series(
+            {
+                int(budget): _extract_metric_value(metrics, metric_name)
+                for budget, metrics in metrics_by_budget.items()
+            }
+        )
+
+    family_scores: dict[int, float] = {}
+    total_weight = sum(float(metric_spec.get("weight", 1.0)) for metric_spec in metric_specs)
+    normalizer = total_weight if total_weight > 0.0 else float(len(metric_specs))
+    if normalizer <= 0.0:
+        normalizer = 1.0
+
+    for budget in metrics_by_budget:
+        weighted_sum = 0.0
+        for metric_spec in metric_specs:
+            metric_name = str(metric_spec["name"])
+            metric_weight = float(metric_spec.get("weight", 1.0))
+            weighted_sum += metric_weight * normalized_by_metric[metric_name][int(budget)]
+        family_scores[int(budget)] = float(weighted_sum / normalizer)
+    return family_scores
+
+
+def select_feasible_budgets_by_coverage_constraint(
     *,
     metrics_by_budget: dict[int, dict[str, Any]],
     calibration_cfg: dict[str, Any],
 ) -> dict[str, Any]:
     coverage_cfg = dict(calibration_cfg.get("coverage_constraint", {}))
-    relative_ratio = float(coverage_cfg.get("relative_ratio", 0.99))
-    best_coverage_p25 = max(
-        float(metrics["coverage_p25"]) for metrics in metrics_by_budget.values()
-    )
-    threshold = compute_relative_coverage_threshold(
-        best_coverage_p25=best_coverage_p25,
-        relative_ratio=relative_ratio,
-    )
-    feasible_budgets = [
-        int(budget)
-        for budget, metrics in sorted(metrics_by_budget.items())
-        if float(metrics["coverage_p25"]) >= threshold
-    ]
-    return {
-        "metric": str(coverage_cfg.get("metric", "coverage_p25")),
-        "relative_ratio": relative_ratio,
-        "best_coverage_p25": float(best_coverage_p25),
-        "threshold": float(threshold),
-        "feasible_budgets": feasible_budgets,
+    metric_specs = _build_coverage_metric_specs(coverage_cfg)
+    per_metric: list[dict[str, Any]] = []
+
+    feasible_budgets = sorted(int(budget) for budget in metrics_by_budget)
+    for metric_spec in metric_specs:
+        metric_name = str(metric_spec["name"])
+        metric_values = {
+            int(budget): _extract_metric_value(metrics, metric_name)
+            for budget, metrics in metrics_by_budget.items()
+        }
+        best_value = max(metric_values.values()) if metric_values else 0.0
+        threshold = compute_relative_coverage_threshold(
+            best_coverage_p25=best_value,
+            relative_ratio=float(metric_spec["relative_ratio"]),
+        )
+        metric_feasible = [
+            int(budget)
+            for budget, value in sorted(metric_values.items())
+            if float(value) >= float(threshold)
+        ]
+        if bool(metric_spec.get("required", True)):
+            feasible_budgets = [
+                int(budget) for budget in feasible_budgets if int(budget) in set(metric_feasible)
+            ]
+        per_metric.append(
+            {
+                "name": metric_name,
+                "relative_ratio": float(metric_spec["relative_ratio"]),
+                "required": bool(metric_spec.get("required", True)),
+                "weight": float(metric_spec.get("weight", 1.0)),
+                "best_value": float(best_value),
+                "threshold": float(threshold),
+                "feasible_budgets": metric_feasible,
+            }
+        )
+
+    primary_metric = per_metric[0] if per_metric else {
+        "name": str(coverage_cfg.get("metric", "coverage_p25")),
+        "relative_ratio": float(coverage_cfg.get("relative_ratio", 0.99)),
+        "best_value": 0.0,
+        "threshold": 0.0,
     }
+    family_scores = _compute_family_score_by_budget(
+        metrics_by_budget=metrics_by_budget,
+        metric_specs=metric_specs,
+    )
+    return {
+        "mode": str(coverage_cfg.get("mode", "single_metric_relative")),
+        "metric": str(primary_metric["name"]),
+        "relative_ratio": float(primary_metric["relative_ratio"]),
+        "best_coverage_p25": float(primary_metric["best_value"]),
+        "threshold": float(primary_metric["threshold"]),
+        "feasible_budgets": [int(budget) for budget in feasible_budgets],
+        "metrics": per_metric,
+        "family_score_by_budget": {
+            str(budget): float(score) for budget, score in sorted(family_scores.items())
+        },
+    }
+
+
+def select_feasible_budgets_by_coverage_p25(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    calibration_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    return select_feasible_budgets_by_coverage_constraint(
+        metrics_by_budget=metrics_by_budget,
+        calibration_cfg=calibration_cfg,
+    )
 
 
 def combine_feasible_budget_metrics(
@@ -293,12 +433,105 @@ def _select_budget_from_feasible_metrics(
     }
 
 
+def _build_default_constrained_recheck_summary(*, enabled: bool) -> dict[str, Any]:
+    return {
+        "enabled": bool(enabled),
+        "triggered": False,
+        "selected_budget": None,
+        "promoted_budget": None,
+        "support_drop": 0.0,
+        "coverage_mean_gain": 0.0,
+        "coverage_p25_gain": 0.0,
+        "coverage_min_gain": 0.0,
+        "pass_recheck": False,
+        "reason": "disabled" if not enabled else "not_triggered",
+    }
+
+
+def evaluate_constrained_recheck(
+    *,
+    metrics_by_budget: dict[int, dict[str, Any]],
+    feasible_budgets: list[int],
+    selected_budget: int,
+    calibration_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    recheck_cfg = dict(calibration_cfg.get("constrained_recheck", {}))
+    summary = _build_default_constrained_recheck_summary(
+        enabled=bool(recheck_cfg.get("enabled", False))
+    )
+    if not summary["enabled"]:
+        return summary
+
+    larger_candidates = [
+        int(budget) for budget in sorted(feasible_budgets) if int(budget) > int(selected_budget)
+    ]
+    if not larger_candidates:
+        summary.update(
+            {
+                "selected_budget": int(selected_budget),
+                "reason": "no_larger_feasible_budget",
+            }
+        )
+        return summary
+
+    support_drop_max = float(recheck_cfg.get("support_drop_max", 0.02))
+    coverage_mean_gain_min = float(recheck_cfg.get("coverage_mean_gain_min", 0.0))
+    coverage_p25_gain_min = float(recheck_cfg.get("coverage_p25_gain_min", 0.0))
+    coverage_min_gain_min = float(recheck_cfg.get("coverage_min_gain_min", 0.0))
+
+    smaller_metrics = metrics_by_budget[int(selected_budget)]
+    for larger_budget in larger_candidates:
+        larger_metrics = metrics_by_budget[int(larger_budget)]
+        support_drop = float(smaller_metrics["support_mean"] - larger_metrics["support_mean"])
+        coverage_mean_gain = float(larger_metrics["coverage_mean"] - smaller_metrics["coverage_mean"])
+        coverage_p25_gain = float(larger_metrics["coverage_p25"] - smaller_metrics["coverage_p25"])
+        coverage_min_gain = float(larger_metrics["coverage_min"] - smaller_metrics["coverage_min"])
+        pass_recheck = (
+            support_drop <= support_drop_max
+            and coverage_mean_gain >= coverage_mean_gain_min
+            and coverage_p25_gain >= coverage_p25_gain_min
+            and coverage_min_gain >= coverage_min_gain_min
+        )
+        if pass_recheck:
+            summary.update(
+                {
+                    "triggered": True,
+                    "selected_budget": int(selected_budget),
+                    "promoted_budget": int(larger_budget),
+                    "support_drop": float(support_drop),
+                    "coverage_mean_gain": float(coverage_mean_gain),
+                    "coverage_p25_gain": float(coverage_p25_gain),
+                    "coverage_min_gain": float(coverage_min_gain),
+                    "pass_recheck": True,
+                    "reason": "promoted_larger_feasible_budget",
+                }
+            )
+            return summary
+
+    last_budget = int(larger_candidates[-1])
+    last_metrics = metrics_by_budget[last_budget]
+    summary.update(
+        {
+            "triggered": True,
+            "selected_budget": int(selected_budget),
+            "promoted_budget": int(last_budget),
+            "support_drop": float(smaller_metrics["support_mean"] - last_metrics["support_mean"]),
+            "coverage_mean_gain": float(last_metrics["coverage_mean"] - smaller_metrics["coverage_mean"]),
+            "coverage_p25_gain": float(last_metrics["coverage_p25"] - smaller_metrics["coverage_p25"]),
+            "coverage_min_gain": float(last_metrics["coverage_min"] - smaller_metrics["coverage_min"]),
+            "pass_recheck": False,
+            "reason": "no_larger_budget_passed_guards",
+        }
+    )
+    return summary
+
+
 def select_budget_by_constrained_utility(
     *,
     metrics_by_budget: dict[int, dict[str, Any]],
     calibration_cfg: dict[str, Any],
 ) -> dict[str, Any]:
-    coverage_constraint = select_feasible_budgets_by_coverage_p25(
+    coverage_constraint = select_feasible_budgets_by_coverage_constraint(
         metrics_by_budget=metrics_by_budget,
         calibration_cfg=calibration_cfg,
     )
@@ -310,6 +543,9 @@ def select_budget_by_constrained_utility(
         fallback = _select_budget_with_tiebreak(
             metrics_by_budget=metrics_by_budget,
             calibration_cfg=calibration_cfg,
+        )
+        fallback["constrained_recheck"] = _build_default_constrained_recheck_summary(
+            enabled=bool(dict(calibration_cfg.get("constrained_recheck", {})).get("enabled", False))
         )
         fallback["coverage_constraint"] = coverage_constraint
         fallback["selection_stage"] = "fallback_argmax_utility"
@@ -341,7 +577,26 @@ def select_budget_by_constrained_utility(
         metrics_by_budget=feasible_metrics,
         calibration_cfg=calibration_cfg,
     )
+    constrained_recheck = evaluate_constrained_recheck(
+        metrics_by_budget=metrics_by_budget,
+        feasible_budgets=feasible_budgets,
+        selected_budget=int(selected["resolved_seed_top_k"]),
+        calibration_cfg=calibration_cfg,
+    )
+    if constrained_recheck["enabled"] and constrained_recheck["pass_recheck"]:
+        previous_selected_budget = int(selected["resolved_seed_top_k"])
+        promoted_budget = int(constrained_recheck["promoted_budget"])
+        selected["resolved_seed_top_k"] = promoted_budget
+        selected["selected_utility"] = float(metrics_by_budget[promoted_budget]["utility"])
+        selected["runner_up_seed_top_k"] = previous_selected_budget
+        selected["runner_up_utility"] = float(metrics_by_budget[previous_selected_budget]["utility"])
+        selected["utility_gap"] = float(
+            selected["selected_utility"] - selected["runner_up_utility"]
+        )
+        selected["tiebreak_applied"] = True
+        selected["tiebreak_reason"] = "constrained_recheck_promoted_larger_budget"
     selected["coverage_constraint"] = coverage_constraint
+    selected["constrained_recheck"] = constrained_recheck
     selected["selection_stage"] = "feasible_set_utility"
     selected["fallback_used"] = False
     return selected
@@ -650,6 +905,8 @@ def resolve_seed_top_k_by_self_calibration(
         seed_budget_summary["near_boundary_recheck"] = dict(selected["near_boundary_recheck"])
     if "coverage_constraint" in selected:
         seed_budget_summary["coverage_constraint"] = dict(selected["coverage_constraint"])
+    if "constrained_recheck" in selected:
+        seed_budget_summary["constrained_recheck"] = dict(selected["constrained_recheck"])
     if "selection_stage" in selected:
         seed_budget_summary["selection_stage"] = str(selected["selection_stage"])
     if "fallback_used" in selected:
