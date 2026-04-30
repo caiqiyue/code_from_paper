@@ -825,6 +825,238 @@ class Stage1RunnerReleaseTests(unittest.TestCase):
         self.assertEqual(summary["seed_budget"]["selection_stage"], "feasible_set_utility")
         self.assertFalse(summary["seed_budget"]["fallback_used"])
 
+    def test_stage1_runner_uses_hybrid_length_lock_for_forums_like_lengths(self):
+        fake_backend = _FakeTextBackend()
+        fake_embedder = _FakeEmbedder()
+        config = {
+            "pipeline": {"stage1_mode": "selector_seed_search"},
+            "generator": {
+                "initial_prompt": "prompt",
+                "candidate_count": 2,
+                "max_rounds": 1,
+                "exemplars_per_prompt": 1,
+            },
+            "meta": {"seed": 42},
+            "selector": {
+                "private_knn_k": 1,
+                "density_lambda": 0.0,
+                "novelty_lambda": 0.0,
+                "length_lambda": 0.0,
+                "length_floor": 1,
+                "length_ceiling": 100,
+                "rank_weights": [1.0],
+                "top_q": 1,
+                "reference_top_k": 1,
+                "lambda_generic": 0.2,
+                "lambda_redundancy": 0.3,
+                "seed_top_k": 20,
+                "hard_negative_top_k": 1,
+                "seed_budget_rule": {
+                    "enabled": True,
+                    "mode": "hybrid_length_family_constrained",
+                    "length_family_lock_budgets": [22],
+                    "fallback_mode": "self_calibrated_constrained",
+                    "candidate_seed_top_k": [18, 19, 20, 21, 22],
+                },
+            },
+            "privacy": {"enabled": False, "delta": 1e-5},
+            "stage1": {"sigma": 0.0, "delta": 1e-5},
+        }
+        sample_bundle = {
+            "train_samples": [
+                _FakeSample(" ".join(["forum"] * 150)),
+                _FakeSample(" ".join(["forum"] * 205)),
+                _FakeSample(" ".join(["forum"] * 396)),
+            ],
+            "eval_samples": [_FakeSample("eval alpha")],
+            "init_samples": [_FakeSample("seed alpha"), _FakeSample("seed beta")],
+        }
+        decision = SimpleNamespace(
+            selected_indices=[0],
+            hard_negative_indices=[1],
+            hard_negative_reason={1: "boundary_negative"},
+            accept_scores=[0.9, 0.2],
+            to_dict=lambda: {"selected_indices": [0], "hard_negative_indices": [1]},
+        )
+
+        with _round_context_patch(), patch(
+            "paper_new_selector.stage1_runner.load_yaml_config",
+            return_value=config,
+        ), patch(
+            "paper_new_selector.stage1_runner.load_text_samples",
+            return_value=sample_bundle,
+        ), patch(
+            "paper_new_selector.stage1_runner.build_candidate_generator",
+            return_value=SimpleNamespace(
+                generator=_FakeGenerator(),
+                text_backend=fake_backend,
+                contract={"llm_backend": "vllm"},
+            ),
+        ), patch(
+            "paper_new_selector.stage1_runner.build_embedder_from_config",
+            return_value=fake_embedder,
+        ), patch(
+            "paper_new_selector.stage1_runner.build_private_importance_weights",
+            return_value=[1.0, 1.0, 1.0],
+        ), patch(
+            "paper_new_selector.stage1_runner.compute_private_support",
+            return_value=[0.9, 0.2],
+        ), patch(
+            "paper_new_selector.stage1_runner.apply_gaussian_privacy_noise",
+            side_effect=lambda scores, **_: scores,
+        ), patch(
+            "paper_new_selector.stage1_runner.compute_genericity_penalties",
+            return_value=[0.1, 0.3],
+        ), patch(
+            "paper_new_selector.stage1_runner.greedy_select_candidates",
+            return_value=decision,
+        ) as greedy_mock, patch(
+            "paper_new_selector.stage1_runner.resolve_seed_top_k_by_self_calibration",
+        ) as calibration_mock, patch(
+            "paper_new_selector.stage1_runner.build_boundary_state",
+            return_value={"negative_pattern_stats": {"count": 1}},
+        ):
+            summary = run_stage1("dummy.yaml", validate_only=False)
+
+        calibration_mock.assert_not_called()
+        greedy_kwargs = greedy_mock.call_args.kwargs
+        self.assertEqual(greedy_kwargs["seed_top_k"], 22)
+        self.assertEqual(
+            summary["seed_budget"]["mode"], "hybrid_length_family_constrained"
+        )
+        self.assertEqual(summary["seed_budget"]["selection_source"], "length_family_lock")
+        self.assertEqual(summary["seed_budget"]["resolved_seed_top_k"], 22)
+        self.assertEqual(summary["seed_budget"]["length_family_resolved_seed_top_k"], 22)
+
+    def test_stage1_runner_uses_hybrid_constrained_fallback_for_non_forums_lengths(self):
+        fake_backend = _FakeTextBackend()
+        fake_embedder = _FakeEmbedder()
+        config = {
+            "pipeline": {"stage1_mode": "selector_seed_search"},
+            "generator": {
+                "initial_prompt": "prompt",
+                "candidate_count": 2,
+                "max_rounds": 1,
+                "exemplars_per_prompt": 1,
+            },
+            "meta": {"seed": 42},
+            "selector": {
+                "private_knn_k": 1,
+                "density_lambda": 0.0,
+                "novelty_lambda": 0.0,
+                "length_lambda": 0.0,
+                "length_floor": 1,
+                "length_ceiling": 100,
+                "rank_weights": [1.0],
+                "top_q": 1,
+                "reference_top_k": 1,
+                "lambda_generic": 0.2,
+                "lambda_redundancy": 0.3,
+                "seed_top_k": 20,
+                "hard_negative_top_k": 1,
+                "seed_budget_rule": {
+                    "enabled": True,
+                    "mode": "hybrid_length_family_constrained",
+                    "length_family_lock_budgets": [22],
+                    "fallback_mode": "self_calibrated_constrained",
+                    "candidate_seed_top_k": [18, 19, 20, 21, 22],
+                },
+            },
+            "privacy": {"enabled": False, "delta": 1e-5},
+            "stage1": {"sigma": 0.0, "delta": 1e-5},
+        }
+        sample_bundle = {
+            "train_samples": [
+                _FakeSample(" ".join(["short"] * 80)),
+                _FakeSample(" ".join(["short"] * 99)),
+                _FakeSample(" ".join(["short"] * 173)),
+            ],
+            "eval_samples": [_FakeSample("eval alpha")],
+            "init_samples": [_FakeSample("seed alpha"), _FakeSample("seed beta")],
+        }
+        decision = SimpleNamespace(
+            selected_indices=[0],
+            hard_negative_indices=[1],
+            hard_negative_reason={1: "boundary_negative"},
+            accept_scores=[0.9, 0.2],
+            to_dict=lambda: {"selected_indices": [0], "hard_negative_indices": [1]},
+        )
+
+        with _round_context_patch(), patch(
+            "paper_new_selector.stage1_runner.load_yaml_config",
+            return_value=config,
+        ), patch(
+            "paper_new_selector.stage1_runner.load_text_samples",
+            return_value=sample_bundle,
+        ), patch(
+            "paper_new_selector.stage1_runner.build_candidate_generator",
+            return_value=SimpleNamespace(
+                generator=_FakeGenerator(),
+                text_backend=fake_backend,
+                contract={"llm_backend": "vllm"},
+            ),
+        ), patch(
+            "paper_new_selector.stage1_runner.build_embedder_from_config",
+            return_value=fake_embedder,
+        ), patch(
+            "paper_new_selector.stage1_runner.build_private_importance_weights",
+            return_value=[1.0, 1.0, 1.0],
+        ), patch(
+            "paper_new_selector.stage1_runner.compute_private_support",
+            return_value=[0.9, 0.2],
+        ), patch(
+            "paper_new_selector.stage1_runner.apply_gaussian_privacy_noise",
+            side_effect=lambda scores, **_: scores,
+        ), patch(
+            "paper_new_selector.stage1_runner.compute_genericity_penalties",
+            return_value=[0.1, 0.3],
+        ), patch(
+            "paper_new_selector.stage1_runner.resolve_seed_top_k_by_self_calibration",
+            return_value={
+                "decision": decision,
+                "seed_budget_summary": {
+                    "configured_seed_top_k": 20,
+                    "resolved_seed_top_k": 18,
+                    "mode": "self_calibrated_constrained",
+                    "candidate_seed_top_k": [18, 19, 20, 21, 22],
+                    "coverage_constraint": {"feasible_budgets": [18, 19, 20, 21, 22]},
+                    "selection_stage": "feasible_set_utility",
+                    "fallback_used": False,
+                    "per_budget_metrics": {},
+                    "selected_utility": 0.8,
+                    "runner_up_seed_top_k": 19,
+                    "runner_up_utility": 0.79,
+                    "utility_gap": 0.01,
+                    "tiebreak_applied": False,
+                    "tiebreak_reason": "argmax_feasible_utility",
+                    "rule": {"enabled": True, "mode": "self_calibrated_constrained"},
+                },
+            },
+        ) as calibration_mock, patch(
+            "paper_new_selector.stage1_runner.greedy_select_candidates",
+        ) as greedy_mock, patch(
+            "paper_new_selector.stage1_runner.build_boundary_state",
+            return_value={"negative_pattern_stats": {"count": 1}},
+        ):
+            summary = run_stage1("dummy.yaml", validate_only=False)
+
+        calibration_mock.assert_called_once()
+        greedy_mock.assert_not_called()
+        calibration_selector_cfg = calibration_mock.call_args.kwargs["selector_cfg"]
+        self.assertEqual(
+            calibration_selector_cfg["seed_budget_rule"]["mode"],
+            "self_calibrated_constrained",
+        )
+        self.assertEqual(
+            summary["seed_budget"]["mode"], "hybrid_length_family_constrained"
+        )
+        self.assertEqual(
+            summary["seed_budget"]["selection_source"],
+            "self_calibrated_constrained",
+        )
+        self.assertEqual(summary["seed_budget"]["resolved_seed_top_k"], 18)
+        self.assertEqual(summary["seed_budget"]["length_family_resolved_seed_top_k"], 19)
+
     def test_stage1_runner_passes_length_modulation_config_to_genericity(self):
         fake_backend = _FakeTextBackend()
         fake_embedder = _FakeEmbedder()

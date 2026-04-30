@@ -1,0 +1,14 @@
+algorithm:
+  runner_mode: single_node
+  local_update: fedavg
+  sampling:
+    sample_rate: 1.0
+    expected_clients: 1
+  dp:
+    enabled: true
+    clip_mode: flat
+    clip_norm: 1.0
+    noise_multiplier: 0.8
+    delta: 1.0e-5
+  aggregation:
+    estimator: fixed_denom

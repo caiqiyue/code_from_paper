@@ -1,0 +1,11 @@
+evaluation:
+  enabled: true
+  small_eval_mode: gpt2
+  distilgpt2_path: thesis_platform/open_model/distilgpt2
+  small_epochs: 1
+  small_batch_size: 1
+  small_eval_batch_size: 1
+  small_grad_accum_steps: 1
+  small_cutoff_len: 64
+  small_learning_rate: 0.0002
+  small_num_proc: 1

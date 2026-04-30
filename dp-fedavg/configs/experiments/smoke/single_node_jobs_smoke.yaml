@@ -1,0 +1,22 @@
+inherits:
+  - ../../base/runtime.yaml
+  - ../../base/generation_vllm.yaml
+  - ../../base/evaluation.yaml
+  - ../../datasets/jobs.yaml
+  - ../../algorithms/single_node_dp_base.yaml
+
+meta:
+  experiment_id: single_node_jobs_smoke
+
+data:
+  max_samples_per_client: 8
+  train_limit: 24
+  eval_limit: 16
+
+generation:
+  generated_per_round: 1
+  exemplars_per_prompt: 1
+  max_new_tokens: 32
+
+paths:
+  output_root: dp-fedavg/outputs/single_node_jobs_smoke

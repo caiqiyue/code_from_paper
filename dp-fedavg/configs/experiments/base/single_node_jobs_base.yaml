@@ -1,0 +1,12 @@
+inherits:
+  - ../../base/runtime.yaml
+  - ../../base/generation_vllm.yaml
+  - ../../base/evaluation.yaml
+  - ../../datasets/jobs.yaml
+  - ../../algorithms/single_node_dp_base.yaml
+
+meta:
+  experiment_id: single_node_jobs_base
+
+paths:
+  output_root: dp-fedavg/outputs/single_node_jobs_base

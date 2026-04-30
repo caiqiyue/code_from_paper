@@ -1,0 +1,12 @@
+inherits:
+  - ../../base/runtime.yaml
+  - ../../base/generation_vllm.yaml
+  - ../../base/evaluation.yaml
+  - ../../datasets/microblog.yaml
+  - ../../algorithms/fedavg_dp_base.yaml
+
+meta:
+  experiment_id: federated_microblog_base
+
+paths:
+  output_root: dp-fedavg/outputs/federated_microblog_base

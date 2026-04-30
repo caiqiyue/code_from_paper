@@ -1,0 +1,6 @@
+runtime:
+  seed: 42
+  device: cuda
+
+paths:
+  output_root: dp-fedavg/outputs/default

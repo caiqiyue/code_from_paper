@@ -1,0 +1,19 @@
+llm:
+  engine: vllm
+  model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
+  max_new_tokens: 64
+  max_model_len: 2048
+  gpu_memory_utilization: 0.55
+  startup_required_free_gb: 20
+  tensor_parallel_size: 1
+  top_p: 0.95
+  temperature: 0.8
+  enforce_eager: true
+
+generation:
+  enabled: true
+  initial_prompt: "Generate privacy-preserving synthetic text that reflects the shared writing style of the sampled private users."
+  generated_per_round: 2
+  exemplars_per_prompt: 1
+  max_new_tokens: 64
+  temperature: 0.8

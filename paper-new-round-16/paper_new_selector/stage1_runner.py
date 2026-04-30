@@ -101,6 +101,93 @@ def resolve_seed_top_k(selector_cfg: dict[str, Any], private_lengths: list[int])
     return 20
 
 
+def resolve_hybrid_seed_budget_decision(
+    *,
+    selector_cfg: dict[str, Any],
+    candidate_vectors: list[list[float]],
+    candidate_texts: list[str],
+    private_vectors: list[list[float]],
+    private_support: list[float],
+    genericity_penalty: list[float],
+    private_lengths: list[int],
+    private_length_stats: dict[str, float],
+) -> tuple[Any, dict[str, Any]]:
+    rule_cfg = dict(selector_cfg.get("seed_budget_rule", {}))
+    lock_budgets = [
+        int(value) for value in rule_cfg.get("length_family_lock_budgets", [22])
+    ]
+    fallback_mode = str(
+        rule_cfg.get("fallback_mode", "self_calibrated_constrained")
+    )
+    if fallback_mode not in {"self_calibrated", "self_calibrated_constrained"}:
+        raise ValueError(
+            "Unsupported hybrid seed_budget_rule.fallback_mode: "
+            f"{fallback_mode}"
+        )
+
+    length_family_selector_cfg = dict(selector_cfg)
+    length_family_selector_cfg["seed_budget_rule"] = {
+        "enabled": True,
+        "mode": "length_family",
+    }
+    length_family_resolved_seed_top_k = resolve_seed_top_k(
+        length_family_selector_cfg,
+        private_lengths,
+    )
+    common_summary = {
+        "configured_seed_top_k": int(selector_cfg["seed_top_k"]),
+        "mode": "hybrid_length_family_constrained",
+        "hybrid_rule": rule_cfg,
+        "length_family_resolved_seed_top_k": int(length_family_resolved_seed_top_k),
+        "length_family_lock_budgets": list(lock_budgets),
+        "fallback_mode": fallback_mode,
+        "private_length_mean": private_length_stats["mean"],
+        "private_length_median": private_length_stats["median"],
+        "private_length_p75": private_length_stats["p75"],
+    }
+
+    if int(length_family_resolved_seed_top_k) in lock_budgets:
+        decision = greedy_select_candidates(
+            candidate_vectors=candidate_vectors,
+            candidate_texts=candidate_texts,
+            private_support=private_support,
+            genericity_penalty=genericity_penalty,
+            lambda_generic=float(selector_cfg["lambda_generic"]),
+            lambda_redundancy=float(selector_cfg["lambda_redundancy"]),
+            seed_top_k=int(length_family_resolved_seed_top_k),
+            hard_negative_top_k=int(selector_cfg["hard_negative_top_k"]),
+        )
+        return decision, {
+            **common_summary,
+            "resolved_seed_top_k": int(length_family_resolved_seed_top_k),
+            "selection_source": "length_family_lock",
+            "locked_seed_top_k": int(length_family_resolved_seed_top_k),
+            "rule": {
+                "enabled": True,
+                "mode": "length_family",
+            },
+        }
+
+    calibration_selector_cfg = dict(selector_cfg)
+    calibration_rule_cfg = dict(rule_cfg)
+    calibration_rule_cfg["mode"] = fallback_mode
+    calibration_selector_cfg["seed_budget_rule"] = calibration_rule_cfg
+    calibration_result = resolve_seed_top_k_by_self_calibration(
+        selector_cfg=calibration_selector_cfg,
+        candidate_vectors=candidate_vectors,
+        candidate_texts=candidate_texts,
+        private_vectors=private_vectors,
+        private_support=private_support,
+        genericity_penalty=genericity_penalty,
+    )
+    seed_budget_summary = dict(calibration_result["seed_budget_summary"])
+    seed_budget_summary.update(common_summary)
+    seed_budget_summary["selection_source"] = fallback_mode
+    seed_budget_summary["calibration_mode"] = fallback_mode
+    seed_budget_summary["calibration_rule"] = calibration_rule_cfg
+    return calibration_result["decision"], seed_budget_summary
+
+
 def run_stage1_with_runtime(
     config_path: str | Path,
     *,
@@ -259,7 +346,18 @@ def run_stage1_with_runtime(
         )
         rule_cfg = dict(selector_cfg.get("seed_budget_rule", {}))
         rule_mode = str(rule_cfg.get("mode", "length_family"))
-        if bool(rule_cfg.get("enabled", False)) and rule_mode in {
+        if bool(rule_cfg.get("enabled", False)) and rule_mode == "hybrid_length_family_constrained":
+            decision, seed_budget_summary = resolve_hybrid_seed_budget_decision(
+                selector_cfg=selector_cfg,
+                candidate_vectors=candidate_vectors,
+                candidate_texts=candidate_texts,
+                private_vectors=private_vectors,
+                private_support=private_support,
+                genericity_penalty=genericity_penalty,
+                private_lengths=private_lengths,
+                private_length_stats=private_length_stats,
+            )
+        elif bool(rule_cfg.get("enabled", False)) and rule_mode in {
             "self_calibrated",
             "self_calibrated_constrained",
         }:

@@ -1,0 +1,14 @@
+inherits:
+  - ../single_node_tuning_round181/_base_selector_tuning_round181.yaml
+  - ../single_node_tuning_round181/_g1_loose.yaml
+
+meta:
+  stage: single_node_tuning_round183
+  seed: 42
+
+selector:
+  seed_budget_rule:
+    enabled: true
+    mode: hybrid_length_family_constrained
+    length_family_lock_budgets: [22]
+    fallback_mode: self_calibrated_constrained
