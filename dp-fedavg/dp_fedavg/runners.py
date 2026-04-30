@@ -111,7 +111,23 @@ def _aggregate_updates(runtime: ExperimentRuntime, partitions: list[ClientPartit
     return noised, client_stats
 
 
-def _generate_or_fallback(runtime: ExperimentRuntime, partitions: list[ClientPartition]) -> list[str]:
+def _apply_server_update(
+    server_state: dict[str, list[float]],
+    update: dict[str, list[float]],
+) -> dict[str, list[float]]:
+    merged = {key: list(values) for key, values in server_state.items()}
+    for key, values in update.items():
+        previous = merged.get(key, [0.0] * len(values))
+        merged[key] = [float(previous[index]) + float(value) for index, value in enumerate(values)]
+    return merged
+
+
+def _generate_or_fallback(
+    runtime: ExperimentRuntime,
+    partitions: list[ClientPartition],
+    *,
+    server_state: dict[str, list[float]],
+) -> list[str]:
     generation_cfg = dict(runtime.config.get("generation", {}))
     if not bool(generation_cfg.get("enabled", True)):
         return [
@@ -126,6 +142,7 @@ def _generate_or_fallback(runtime: ExperimentRuntime, partitions: list[ClientPar
         generated_per_round=int(generation_cfg.get("generated_per_round", 1)),
         exemplars_per_prompt=int(generation_cfg.get("exemplars_per_prompt", 1)),
         system_prompt=str(generation_cfg.get("initial_prompt", "Generate privacy-preserving synthetic text.")),
+        server_state=server_state,
     )
     return generate_synthetic_texts(
         backend,
@@ -139,26 +156,36 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _build_stage_summary(runtime: ExperimentRuntime, selected: list[ClientPartition], aggregated_update: dict[str, list[float]], client_stats: list[dict[str, Any]]) -> dict[str, Any]:
+def _build_stage_summary(
+    runtime: ExperimentRuntime,
+    *,
+    selected: list[ClientPartition],
+    final_server_state: dict[str, list[float]],
+    round_summaries: list[dict[str, Any]],
+    last_client_stats: list[dict[str, Any]],
+) -> dict[str, Any]:
     dp_cfg = dict(runtime.config["algorithm"]["dp"])
     sampling_cfg = dict(runtime.config["algorithm"]["sampling"])
+    rounds = int(runtime.config["algorithm"].get("rounds", 1))
     return {
         "dataset_name": runtime.dataset_name,
         "runner_mode": runtime.runner_mode,
         "selected_clients": [partition.client_id for partition in selected],
         "selected_client_count": len(selected),
-        "client_stats": client_stats,
-        "aggregated_update": aggregated_update,
+        "client_stats": last_client_stats,
+        "server_state": final_server_state,
         "clip_norm": float(dp_cfg.get("clip_norm", 1.0)),
         "noise_multiplier": float(dp_cfg.get("noise_multiplier", 0.0)),
         "noise_scale": compute_noise_scale(
             clip_norm=float(dp_cfg.get("clip_norm", 1.0)),
             noise_multiplier=float(dp_cfg.get("noise_multiplier", 0.0)),
         ),
+        "rounds": rounds,
+        "round_summaries": round_summaries,
         "privacy": {
             "delta": float(dp_cfg.get("delta", 1.0e-5)),
             "epsilon_estimate": estimate_privacy_epsilon(
-                rounds=1,
+                rounds=rounds,
                 sample_rate=float(sampling_cfg.get("sample_rate", 1.0)),
                 noise_multiplier=float(dp_cfg.get("noise_multiplier", 0.0)),
                 delta=float(dp_cfg.get("delta", 1.0e-5)),
@@ -170,10 +197,66 @@ def _build_stage_summary(runtime: ExperimentRuntime, selected: list[ClientPartit
 def _run(runtime: ExperimentRuntime, *, single_node: bool) -> RunArtifacts:
     output_root, eval_dir = _ensure_output_dirs(runtime.output_root)
     partitions = _build_partitions(runtime, single_node=single_node)
-    selected = _collect_selected_partitions(runtime, partitions)
-    aggregated_update, client_stats = _aggregate_updates(runtime, selected)
-    synthetic_texts = _generate_or_fallback(runtime, selected)
-    stage_summary = _build_stage_summary(runtime, selected, aggregated_update, client_stats)
+    rounds = int(runtime.config["algorithm"].get("rounds", 1))
+    server_state: dict[str, list[float]] = {"client_signal": [0.0, 0.0, 0.0]}
+    selected: list[ClientPartition] = []
+    last_client_stats: list[dict[str, Any]] = []
+    round_summaries: list[dict[str, Any]] = []
+
+    for round_index in range(rounds):
+        selected = _collect_selected_partitions(
+            ExperimentRuntime(
+                config_path=runtime.config_path,
+                config=runtime.config,
+                output_root=runtime.output_root,
+                dataset_name=runtime.dataset_name,
+                runner_mode=runtime.runner_mode,
+                seed=runtime.seed + round_index,
+            ),
+            partitions,
+        )
+        dp_cfg = dict(runtime.config["algorithm"]["dp"])
+        expected_clients = int(runtime.config["algorithm"]["sampling"].get("expected_clients", len(selected) or 1))
+        noise_scale = compute_noise_scale(
+            clip_norm=float(dp_cfg.get("clip_norm", 1.0)),
+            noise_multiplier=float(dp_cfg.get("noise_multiplier", 0.0)),
+        )
+        clipped_updates: list[dict[str, list[float]]] = []
+        client_stats: list[dict[str, Any]] = []
+        for index, partition in enumerate(selected):
+            raw_update = compute_local_update(partition, server_state=server_state)
+            clipped = clip_update(raw_update, clip_norm=float(dp_cfg.get("clip_norm", 1.0)))
+            clipped_updates.append(clipped)
+            client_stats.append(
+                {
+                    "client_id": partition.client_id,
+                    "sample_count": len(partition.samples),
+                    "raw_update": raw_update,
+                    "clipped_update": clipped,
+                    "round_seed": runtime.seed + round_index + index,
+                }
+            )
+        averaged = fixed_denominator_average(clipped_updates, expected_clients=expected_clients)
+        noised = add_gaussian_noise(averaged, noise_scale=noise_scale, seed=runtime.seed + round_index)
+        server_state = _apply_server_update(server_state, noised)
+        round_summaries.append(
+            {
+                "round_id": round_index,
+                "selected_clients": [partition.client_id for partition in selected],
+                "aggregated_update": noised,
+                "server_state": server_state,
+            }
+        )
+        last_client_stats = client_stats
+
+    synthetic_texts = _generate_or_fallback(runtime, selected, server_state=server_state)
+    stage_summary = _build_stage_summary(
+        runtime,
+        selected=selected,
+        final_server_state=server_state,
+        round_summaries=round_summaries,
+        last_client_stats=last_client_stats,
+    )
     _write_json(output_root / "stage1_summary.json", stage_summary)
     eval_summary = None
     if bool(runtime.config.get("evaluation", {}).get("enabled", True)) and synthetic_texts:

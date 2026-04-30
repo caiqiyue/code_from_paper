@@ -9,15 +9,19 @@ MASTER="$LOGDIR/round183_guard_batch_master.log"
 source /home/k8smaster/anaconda3/etc/profile.d/conda.sh
 conda activate pretext
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
-if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then
-  export CUDA_VISIBLE_DEVICES
-fi
+GPU_SLOT="${CUDA_VISIBLE_DEVICES:-1}"
+export CUDA_VISIBLE_DEVICES="$GPU_SLOT"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 cd "$ROOT"
 mkdir -p "$LOGDIR"
 
 echo -e "experiment\tstatus\tselection_source\tconfigured_seed_top_k\tresolved_seed_top_k\tlength_family_resolved_seed_top_k\trunner_up_seed_top_k\tselection_stage\tfallback_used\tfeasible_budgets\tbest_top1\tbest_top3\tbest_top5\tbest_top10" > "$SUMMARY"
 : > "$MASTER"
+
+echo "$(date '+%F %T') ENV conda_env=pretext CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES PYTORCH_CUDA_ALLOC_CONF=$PYTORCH_CUDA_ALLOC_CONF" | tee -a "$MASTER"
+nvidia-smi --query-gpu=index,name,memory.total,memory.used,memory.free --format=csv,noheader | tee -a "$MASTER"
+echo "---" | tee -a "$MASTER"
 
 had_failure=0
 
@@ -44,6 +48,10 @@ PY
   log="$LOGDIR/${exp}.log"
 
   echo "$(date '+%F %T') START $exp cfg=$cfg" | tee -a "$MASTER"
+  python - <<'PY' | tee -a "$MASTER"
+import os
+print(f"runtime_cuda_visible_devices={os.environ.get('CUDA_VISIBLE_DEVICES', 'unset')}")
+PY
   rm -rf "$outdir"
 
   set +e

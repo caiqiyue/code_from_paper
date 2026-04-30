@@ -1,6 +1,7 @@
 algorithm:
   runner_mode: single_node
   local_update: fedavg
+  rounds: 3
   sampling:
     sample_rate: 1.0
     expected_clients: 1

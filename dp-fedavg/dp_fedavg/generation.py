@@ -19,8 +19,13 @@ def build_generation_prompts(
     generated_per_round: int,
     exemplars_per_prompt: int,
     system_prompt: str,
+    server_state: dict[str, list[float]] | None = None,
 ) -> list[str]:
     prompts: list[str] = []
+    state_line = ""
+    if server_state and server_state.get("client_signal"):
+        rounded = ", ".join(f"{value:.4f}" for value in server_state["client_signal"])
+        state_line = f"\nServer aggregate state: [{rounded}]"
     for partition in partitions:
         exemplar_texts = [
             sample.render_text().strip()
@@ -32,6 +37,7 @@ def build_generation_prompts(
         prompt = (
             f"{system_prompt}\n\n"
             f"Client: {partition.client_id}\n"
+            f"{state_line}\n"
             f"Exemplars:\n- " + "\n- ".join(exemplar_texts)
         ).strip()
         for _ in range(max(1, generated_per_round)):

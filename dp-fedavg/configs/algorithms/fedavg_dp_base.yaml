@@ -1,6 +1,7 @@
 algorithm:
   runner_mode: federated
   local_update: fedavg
+  rounds: 3
   sampling:
     sample_rate: 0.5
     expected_clients: 4
