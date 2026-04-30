@@ -438,11 +438,14 @@ def _build_default_constrained_recheck_summary(*, enabled: bool) -> dict[str, An
         "enabled": bool(enabled),
         "triggered": False,
         "selected_budget": None,
+        "candidate_budget": None,
         "promoted_budget": None,
         "support_drop": 0.0,
+        "support_drop_normalized": 0.0,
         "coverage_mean_gain": 0.0,
         "coverage_p25_gain": 0.0,
         "coverage_min_gain": 0.0,
+        "family_score_gain": 0.0,
         "pass_recheck": False,
         "reason": "disabled" if not enabled else "not_triggered",
     }
@@ -454,6 +457,7 @@ def evaluate_constrained_recheck(
     feasible_budgets: list[int],
     selected_budget: int,
     calibration_cfg: dict[str, Any],
+    coverage_constraint: dict[str, Any],
 ) -> dict[str, Any]:
     recheck_cfg = dict(calibration_cfg.get("constrained_recheck", {}))
     summary = _build_default_constrained_recheck_summary(
@@ -474,55 +478,95 @@ def evaluate_constrained_recheck(
         )
         return summary
 
-    support_drop_max = float(recheck_cfg.get("support_drop_max", 0.02))
+    candidate_mode = str(recheck_cfg.get("candidate_mode", "all_larger"))
+    candidates_to_check = (
+        [larger_candidates[0]] if candidate_mode == "adjacent_only" else list(larger_candidates)
+    )
+
+    support_drop_ratio_max = float(
+        recheck_cfg.get(
+            "support_drop_ratio_max",
+            recheck_cfg.get("support_drop_max", 0.02),
+        )
+    )
     coverage_mean_gain_min = float(recheck_cfg.get("coverage_mean_gain_min", 0.0))
     coverage_p25_gain_min = float(recheck_cfg.get("coverage_p25_gain_min", 0.0))
     coverage_min_gain_min = float(recheck_cfg.get("coverage_min_gain_min", 0.0))
+    family_score_gain_min = float(recheck_cfg.get("family_score_gain_min", 0.0))
 
     smaller_metrics = metrics_by_budget[int(selected_budget)]
-    for larger_budget in larger_candidates:
-        larger_metrics = metrics_by_budget[int(larger_budget)]
+    family_scores = dict(coverage_constraint.get("family_score_by_budget", {}))
+    smaller_family_score = float(family_scores.get(str(int(selected_budget)), 0.0))
+    last_candidate_budget = int(candidates_to_check[-1])
+    last_trace: dict[str, Any] | None = None
+    for candidate_budget in candidates_to_check:
+        larger_metrics = metrics_by_budget[int(candidate_budget)]
+        larger_family_score = float(family_scores.get(str(int(candidate_budget)), 0.0))
+
         support_drop = float(smaller_metrics["support_mean"] - larger_metrics["support_mean"])
+        support_drop_normalized = float(
+            support_drop / max(abs(float(smaller_metrics["support_mean"])), 1e-8)
+        )
         coverage_mean_gain = float(larger_metrics["coverage_mean"] - smaller_metrics["coverage_mean"])
         coverage_p25_gain = float(larger_metrics["coverage_p25"] - smaller_metrics["coverage_p25"])
         coverage_min_gain = float(larger_metrics["coverage_min"] - smaller_metrics["coverage_min"])
+        family_score_gain = float(larger_family_score - smaller_family_score)
         pass_recheck = (
-            support_drop <= support_drop_max
+            support_drop_normalized <= support_drop_ratio_max
             and coverage_mean_gain >= coverage_mean_gain_min
             and coverage_p25_gain >= coverage_p25_gain_min
             and coverage_min_gain >= coverage_min_gain_min
+            and family_score_gain >= family_score_gain_min
         )
+        last_trace = {
+            "triggered": True,
+            "selected_budget": int(selected_budget),
+            "candidate_budget": int(candidate_budget),
+            "support_drop": float(support_drop),
+            "support_drop_normalized": float(support_drop_normalized),
+            "coverage_mean_gain": float(coverage_mean_gain),
+            "coverage_p25_gain": float(coverage_p25_gain),
+            "coverage_min_gain": float(coverage_min_gain),
+            "family_score_gain": float(family_score_gain),
+        }
         if pass_recheck:
             summary.update(
                 {
-                    "triggered": True,
-                    "selected_budget": int(selected_budget),
-                    "promoted_budget": int(larger_budget),
-                    "support_drop": float(support_drop),
-                    "coverage_mean_gain": float(coverage_mean_gain),
-                    "coverage_p25_gain": float(coverage_p25_gain),
-                    "coverage_min_gain": float(coverage_min_gain),
+                    **last_trace,
+                    "promoted_budget": int(candidate_budget),
                     "pass_recheck": True,
-                    "reason": "promoted_larger_feasible_budget",
+                    "reason": (
+                        "promoted_adjacent_feasible_budget"
+                        if candidate_mode == "adjacent_only"
+                        else "promoted_larger_feasible_budget"
+                    ),
                 }
             )
             return summary
 
-    last_budget = int(larger_candidates[-1])
-    last_metrics = metrics_by_budget[last_budget]
-    summary.update(
-        {
-            "triggered": True,
-            "selected_budget": int(selected_budget),
-            "promoted_budget": int(last_budget),
-            "support_drop": float(smaller_metrics["support_mean"] - last_metrics["support_mean"]),
-            "coverage_mean_gain": float(last_metrics["coverage_mean"] - smaller_metrics["coverage_mean"]),
-            "coverage_p25_gain": float(last_metrics["coverage_p25"] - smaller_metrics["coverage_p25"]),
-            "coverage_min_gain": float(last_metrics["coverage_min"] - smaller_metrics["coverage_min"]),
-            "pass_recheck": False,
-            "reason": "no_larger_budget_passed_guards",
-        }
-    )
+    if last_trace is not None:
+        summary.update(
+            {
+                **last_trace,
+                "promoted_budget": None,
+                "pass_recheck": False,
+                "reason": (
+                    "adjacent_feasible_budget_failed_guards"
+                    if candidate_mode == "adjacent_only"
+                    else "no_larger_budget_passed_guards"
+                ),
+            }
+        )
+    else:
+        summary.update(
+            {
+                "triggered": True,
+                "selected_budget": int(selected_budget),
+                "candidate_budget": int(last_candidate_budget),
+                "promoted_budget": None,
+                "reason": "no_larger_budget_passed_guards",
+            }
+        )
     return summary
 
 
@@ -582,6 +626,7 @@ def select_budget_by_constrained_utility(
         feasible_budgets=feasible_budgets,
         selected_budget=int(selected["resolved_seed_top_k"]),
         calibration_cfg=calibration_cfg,
+        coverage_constraint=coverage_constraint,
     )
     if constrained_recheck["enabled"] and constrained_recheck["pass_recheck"]:
         previous_selected_budget = int(selected["resolved_seed_top_k"])

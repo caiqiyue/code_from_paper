@@ -1,0 +1,10 @@
+selector:
+  seed_budget_rule:
+    constrained_recheck:
+      enabled: true
+      candidate_mode: adjacent_only
+      support_drop_ratio_max: 0.015
+      coverage_mean_gain_min: 0.00005
+      coverage_p25_gain_min: 0.0
+      coverage_min_gain_min: 0.0
+      family_score_gain_min: 0.01

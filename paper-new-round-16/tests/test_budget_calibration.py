@@ -411,10 +411,18 @@ class BudgetCalibrationTests(unittest.TestCase):
             calibration_cfg={
                 "constrained_recheck": {
                     "enabled": True,
-                    "support_drop_max": 0.02,
+                    "support_drop_ratio_max": 0.02,
                     "coverage_mean_gain_min": 0.00005,
                     "coverage_p25_gain_min": 0.0,
                     "coverage_min_gain_min": 0.0,
+                    "family_score_gain_min": 0.01,
+                }
+            },
+            coverage_constraint={
+                "family_score_by_budget": {
+                    "18": 0.0,
+                    "19": 0.08,
+                    "20": 0.25,
                 }
             },
         )
@@ -422,6 +430,57 @@ class BudgetCalibrationTests(unittest.TestCase):
         self.assertTrue(result["triggered"])
         self.assertTrue(result["pass_recheck"])
         self.assertEqual(result["promoted_budget"], 19)
+        self.assertAlmostEqual(result["support_drop_normalized"], (0.820 - 0.806) / 0.820)
+        self.assertAlmostEqual(result["family_score_gain"], 0.08)
+
+    def test_evaluate_constrained_recheck_only_checks_adjacent_larger_budget(self):
+        result = evaluate_constrained_recheck(
+            metrics_by_budget={
+                18: {
+                    "support_mean": 0.820,
+                    "coverage_mean": 0.208010,
+                    "coverage_p25": 0.169911,
+                    "coverage_min": 0.085525,
+                },
+                19: {
+                    "support_mean": 0.790,
+                    "coverage_mean": 0.208020,
+                    "coverage_p25": 0.169911,
+                    "coverage_min": 0.085525,
+                },
+                20: {
+                    "support_mean": 0.810,
+                    "coverage_mean": 0.209000,
+                    "coverage_p25": 0.170500,
+                    "coverage_min": 0.085900,
+                },
+            },
+            feasible_budgets=[18, 19, 20],
+            selected_budget=18,
+            calibration_cfg={
+                "constrained_recheck": {
+                    "enabled": True,
+                    "candidate_mode": "adjacent_only",
+                    "support_drop_ratio_max": 0.02,
+                    "coverage_mean_gain_min": 0.00005,
+                    "coverage_p25_gain_min": 0.0,
+                    "coverage_min_gain_min": 0.0,
+                    "family_score_gain_min": 0.01,
+                }
+            },
+            coverage_constraint={
+                "family_score_by_budget": {
+                    "18": 0.0,
+                    "19": 0.005,
+                    "20": 0.5,
+                }
+            },
+        )
+        self.assertTrue(result["triggered"])
+        self.assertFalse(result["pass_recheck"])
+        self.assertEqual(result["candidate_budget"], 19)
+        self.assertIsNone(result["promoted_budget"])
+        self.assertEqual(result["reason"], "adjacent_feasible_budget_failed_guards")
 
     def test_select_budget_by_constrained_utility_can_apply_constrained_recheck(self):
         result = select_budget_by_constrained_utility(
@@ -480,10 +539,11 @@ class BudgetCalibrationTests(unittest.TestCase):
                 },
                 "constrained_recheck": {
                     "enabled": True,
-                    "support_drop_max": 0.02,
+                    "support_drop_ratio_max": 0.02,
                     "coverage_mean_gain_min": 0.00005,
                     "coverage_p25_gain_min": 0.0,
                     "coverage_min_gain_min": 0.0,
+                    "family_score_gain_min": 0.01,
                 },
             },
         )
@@ -491,6 +551,7 @@ class BudgetCalibrationTests(unittest.TestCase):
         self.assertEqual(result["tiebreak_reason"], "constrained_recheck_promoted_larger_budget")
         self.assertTrue(result["constrained_recheck"]["pass_recheck"])
         self.assertLess(result["utility_gap"], 0.0)
+        self.assertLessEqual(result["constrained_recheck"]["support_drop_normalized"], 0.02)
 
     def test_should_trigger_near_boundary_recheck_requires_larger_runner_up_within_gap(self):
         self.assertTrue(

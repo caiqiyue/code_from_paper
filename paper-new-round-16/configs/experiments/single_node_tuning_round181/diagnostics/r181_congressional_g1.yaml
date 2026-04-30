@@ -1,0 +1,10 @@
+inherits:
+  - ../_base_selector_tuning_round181.yaml
+  - ../_g1_loose.yaml
+  - ../../single_node_tuning_round16/_data_congressional.yaml
+
+meta:
+  experiment_id: r181_congressional_g1
+
+paths:
+  output_root: paper-new/outputs/r181_congressional_g1

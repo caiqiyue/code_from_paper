@@ -317,3 +317,114 @@ Round18 不追求一口气大扫，而是按三组推进。
 
 - 单纯增强 tail-coverage family 仍不足以修复 internal utility 与 downstream utility 的偏差；
 - 下一步就要考虑把“budget 选择”进一步从单次 calibration 推向更显式的 internal validation proxy。
+
+
+## 实验结果汇总（2026-04-30）
+
+### 实验组 A: 结构探针
+
+#### Congressional Probe
+
+| 实验 | coverage_mode | feasible_budgets | resolved | family_score(18→22) | recheck_passed | promoted | best_top1 |
+|------|--------------|-----------------|----------|---------------------|---------------|---------|-----------|
+| r18_probe_congressional_f1 | tail_family_relative | 18,19,20,21,22 | 18 | 0.0→0.3 | False | - | 0.2928 |
+| r18_probe_congressional_f2 | tail_family_relative | 18,19,20,21,22 | 18 | 0.0→0.3 | False | 22 | 0.2928 |
+
+#### Forums Probe
+
+| 实验 | coverage_mode | feasible_budgets | resolved | family_score(18→22) | recheck_passed | promoted | best_top1 |
+|------|--------------|-----------------|----------|---------------------|---------------|---------|-----------|
+| r18_probe_forums_f1 | tail_family_relative | 21,22 | 21 | 0.0→1.0 | False | - | 0.2481 |
+
+### 实验组 B: Congressional Focus
+
+| 实验 | coverage_mode | feasible_budgets | resolved | family_score(18→22) | recheck_passed | promoted | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|--------------|-----------------|----------|---------------------|---------------|---------|-----------|----------|----------|------------|
+| r18_congressional_f1 | tail_family_relative | 18,19,20,21,22 | 18 | 0.0→0.3 | False | - | 0.2928 | 0.4566 | 0.5308 | 0.6204 |
+| r18_congressional_f2 | tail_family_relative | 18,19,20,21,22 | 18 | 0.0→0.3 | False | 22 | 0.2928 | 0.4566 | 0.5308 | 0.6204 |
+| r18_congressional_f3 | tail_family_relative | 18,19,20,21,22 | 18 | 0.0→0.3 | False | 22 | **0.2932** | 0.4586 | 0.5352 | 0.6221 |
+
+### 实验组 C: Forums Seed Robustness
+
+| 实验 | coverage_mode | feasible_budgets | resolved | family_score(18→22) | recheck_passed | promoted | best_top1 | best_top3 | best_top5 | best_top10 |
+|------|--------------|-----------------|----------|---------------------|---------------|---------|-----------|----------|----------|------------|
+| r18_forums_seed123 | tail_family_relative | 21,22 | 21 | 0.0→1.0 | False | 22 | **0.2491** | 0.3879 | 0.4522 | 0.5375 |
+| r18_forums_seed456 | tail_family_relative | 22 | 22 | 0.0→1.0 | False | - | 0.2478 | 0.3824 | 0.4486 | 0.5347 |
+
+### 关键数据：congressional coverage_metrics 详情
+
+每组实验中 `coverage_p25` 的值：
+
+```
+coverage_p25(18) = coverage_p25(19) = coverage_p25(20) = coverage_p25(21) = coverage_p25(22) = 0.1699
+```
+
+每组实验中 `coverage_mean` 的值：
+
+```
+coverage_mean(18) = 0.2078
+coverage_mean(19) = 0.2081
+coverage_mean(20) = 0.2082
+coverage_mean(21) = 0.2082
+coverage_mean(22) = 0.2083
+```
+
+所有 budget 的 coverage 指标差异极小（p25 完全相同，mean 仅差 0.0005），导致 dual-metric feasibility 对 5 个预算全部通过。
+
+### 关键数据：forums coverage_metrics 详情
+
+```
+coverage_p25(18) = 0.1309, feasible=False
+coverage_p25(19) = 0.1309, feasible=False
+coverage_p25(20) = 0.1317, feasible=False
+coverage_p25(21) = 0.1359, feasible=True
+coverage_p25(22) = 0.1359, feasible=True
+```
+
+dual-metric feasibility 成功将 forums 的可行预算压缩到 {21, 22}。
+
+## 汇总结论
+
+### forums：Round18 成功维持 Round17 的收益
+
+- dual-metric feasibility（coverage_p25 + coverage_mean）稳定将可行预算从 18-22 压缩到 21-22
+- seed=42: resolved=21, best_top1=0.2481
+- seed=123: resolved=21, best_top1=0.2491
+- seed=456: resolved=22, best_top1=0.2478（5/5 不行，22 only）
+- 三个 seed 的 best_top1 均高于 PrE-Text 0.2501 的临界线附近
+
+### congressional：Round18 仍未解决问题
+
+- 5 个 budget 全部通过 dual-metric feasibility，feasibility stage 等效于失效
+- recheck 尝试 promotion 到 22，但 feasible-set utility 阶段又选回 18
+- best_top1 在 0.2928-0.2932 之间，仍低于 PrE-Text 0.2950
+- coverage_p25 在不同 budget 上完全相同（0.1699），没有任何区分力
+- coverage_mean 差异极小（0.2078-0.2083），dual-metric 仍然不够强
+
+### 根因分析
+
+**congressional 的 coverage 指标对 budget 无差异的可能解释**：
+- congressional 的 private manifold 结构可能在 18-22 这个区间已经非常稳定
+- 即便增加更多 seeds，覆盖的 marginal gain 已经极小
+- 这意味着 coverage-based constraint 在这个数据集上不是一个有效的预算选择信号
+
+**从 Round17 到 Round18 的演进**：
+- Round17 已经发现了这个问题（单一 coverage_p25 无差异）
+- Round18 加入 coverage_mean 后，差异仍然极小（0.0005）
+- 继续增加 coverage 指标的维度，边际收益递减
+
+### 下一步判断
+
+Round18 的 dual-metric feasibility + constrained recheck 结构：
+- 在 forums 上完全成功，维持了 Round17 的收益
+- 在 congressional 上完全失败，recheck 也无法改变结果
+
+这说明：
+1. **coverage-based feasibility 在 congressional 上不是正确信号**
+2. **需要寻找不依赖 coverage 的 alternative 约束维度**
+3. 可能需要把 constraint 从 coverage 替换为其他维度（如 genericity 的边际增益、或直接的 downstream validation signal）
+
+如果继续沿 Round18 主线，需要回答：
+- 除了 coverage，还有什么指标能区分 congressional 上不同 budget 的质量？
+- 是否应该在 feasible-set utility 阶段直接增加更大的 budget_weight 来强制推大预算？
+- 还是应该考虑完全放弃 coverage constraint，转向其他方向？

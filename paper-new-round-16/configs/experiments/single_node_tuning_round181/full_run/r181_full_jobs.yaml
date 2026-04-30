@@ -1,0 +1,10 @@
+inherits:
+  - ../_base_selector_tuning_round181.yaml
+  - ../_g2_balanced.yaml
+  - ../../single_node_tuning_round16/_data_jobs.yaml
+
+meta:
+  experiment_id: r181_full_jobs
+
+paths:
+  output_root: paper-new/outputs/r181_full_jobs

@@ -1,0 +1,32 @@
+inherits:
+  - ../single_node_tuning_round18/_base_selector_tuning_round18.yaml
+
+meta:
+  stage: single_node_tuning_round181
+  seed: 42
+
+selector:
+  seed_budget_rule:
+    coverage_constraint:
+      mode: tail_family_relative
+      metrics:
+        - name: coverage_p25
+          relative_ratio: 0.98
+          required: true
+          weight: 0.7
+        - name: coverage_mean
+          relative_ratio: 0.998
+          required: true
+          weight: 0.3
+        - name: coverage_min
+          relative_ratio: 0.995
+          required: false
+          weight: 0.0
+    constrained_recheck:
+      enabled: true
+      candidate_mode: adjacent_only
+      support_drop_ratio_max: 0.02
+      coverage_mean_gain_min: 0.00005
+      coverage_p25_gain_min: 0.0
+      coverage_min_gain_min: 0.0
+      family_score_gain_min: 0.01
