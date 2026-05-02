@@ -1,0 +1,6 @@
+inherits:
+  - ../base/pretext_style_base.yaml
+  - ../datasets/pretext_congressional.yaml
+
+experiment:
+  id: p1_congressional_pretext_style

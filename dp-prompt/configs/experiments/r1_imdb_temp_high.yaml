@@ -1,0 +1,8 @@
+inherits:
+  - r1_imdb_base.yaml
+
+experiment:
+  id: r1_imdb_temp_high
+
+privacy:
+  temperature: 1.5

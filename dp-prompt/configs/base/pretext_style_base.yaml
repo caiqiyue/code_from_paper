@@ -1,0 +1,44 @@
+runtime:
+  seed: 42
+  output_root: outputs
+
+experiment:
+  id: pretext_style_placeholder
+  pipeline_mode: pretext_style
+
+prompting:
+  template_name: document_paraphrase
+
+privacy:
+  temperature: 0.2
+  logits_clipping:
+    enabled: false
+    lower_bound: null
+    upper_bound: null
+  max_generated_tokens: 192
+  stop_sequences: []
+  report_privacy_summary: true
+
+generation:
+  num_documents: 128
+  max_new_tokens: 192
+  temperature: 0.2
+
+evaluation:
+  linux_small_eval_mode: distilgpt2
+
+llm:
+  server:
+    engine: vllm
+    model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
+    device: cuda
+    dtype: auto
+    temperature: 0.2
+    max_new_tokens: 220
+    use_chat_template: false
+    max_model_len: 512
+    gpu_memory_utilization: 0.55
+    startup_required_free_gb: 26
+    tensor_parallel_size: 1
+    top_p: 1.0
+    enforce_eager: false

@@ -1,0 +1,7 @@
+inherits:
+  - ../base/document_dp_prompt_base.yaml
+  - ../datasets/imdb_document.yaml
+  - ../models/local_open_source_llm.yaml
+
+experiment:
+  id: r1_imdb_base

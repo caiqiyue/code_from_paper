@@ -145,7 +145,107 @@ Stage 2 将生成得到的 synthetic texts 导出为：
 
 因此，新版创新算法与 `PrE-Text` 的 screening 现在已经能在同一数据规模口径下进行公平比较。
 
-## 4. 四个数据集快速对比实验总表
+## 4. `PrE-Text` 60 次快速对比实验结果（15 轮 × 4 数据集）
+
+### 4.1 实验运行记录
+
+- 运行分支：`paper-2-genereic`
+- 运行环境：旧服务器 `pretext`
+- 运行显卡：`A6000`（`CUDA_VISIBLE_DEVICES=0`）
+- 实验类型：`single_node_screening`
+- 组织方式：15 轮，每轮严格串行 `jobs → congressional → forums → microblog`
+- 实验次数：共 60 个实验（4 数据集 × 15 轮）
+- 成功率：60/60（100%）
+- 运行时间：2026-05-02 15:22:41 ~ 18:58:11（约 3.6 小时）
+
+### 4.2 原始实验数据
+
+| Round | Dataset | Seed | Status | best_top1 | synthetic_train_count |
+| :---: | :--- | :---: | :---: | ---: | ---: |
+| 1 | jobs | 1 | success | 0.2759 | 95 |
+| 1 | congressional | 1 | success | 0.2911 | 96 |
+| 1 | forums | 1 | success | 0.2477 | 94 |
+| 1 | microblog | 1 | success | 0.2789 | 94 |
+| 2 | jobs | 2 | success | 0.2767 | 95 |
+| 2 | congressional | 2 | success | 0.2905 | 95 |
+| 2 | forums | 2 | success | 0.2449 | 91 |
+| 2 | microblog | 2 | success | 0.2781 | 93 |
+| 3 | jobs | 3 | success | 0.2750 | 92 |
+| 3 | congressional | 3 | success | 0.2937 | 98 |
+| 3 | forums | 3 | success | 0.2501 | 93 |
+| 3 | microblog | 3 | success | 0.2761 | 92 |
+| 4 | jobs | 4 | success | 0.2750 | 95 |
+| 4 | congressional | 4 | success | 0.2970 | 93 |
+| 4 | forums | 4 | success | 0.2463 | 90 |
+| 4 | microblog | 4 | success | 0.2767 | 91 |
+| 5 | jobs | 5 | success | 0.2826 | 93 |
+| 5 | congressional | 5 | success | 0.2950 | 92 |
+| 5 | forums | 5 | success | 0.2494 | 93 |
+| 5 | microblog | 5 | success | 0.2757 | 95 |
+| 6 | jobs | 6 | success | 0.2784 | 93 |
+| 6 | congressional | 6 | success | 0.2906 | 93 |
+| 6 | forums | 6 | success | 0.2466 | 95 |
+| 6 | microblog | 6 | success | 0.2758 | 96 |
+| 7 | jobs | 7 | success | 0.2780 | 94 |
+| 7 | congressional | 7 | success | 0.2911 | 95 |
+| 7 | forums | 7 | success | 0.2449 | 96 |
+| 7 | microblog | 7 | success | 0.2780 | 96 |
+| 8 | jobs | 8 | success | 0.2753 | 95 |
+| 8 | congressional | 8 | success | 0.2902 | 96 |
+| 8 | forums | 8 | success | 0.2463 | 97 |
+| 8 | microblog | 8 | success | 0.2765 | 96 |
+| 9 | jobs | 9 | success | 0.2799 | 89 |
+| 9 | congressional | 9 | success | 0.2969 | 89 |
+| 9 | forums | 9 | success | 0.2478 | 95 |
+| 9 | microblog | 9 | success | 0.2782 | 96 |
+| 10 | jobs | 10 | success | 0.2800 | 95 |
+| 10 | congressional | 10 | success | 0.2924 | 96 |
+| 10 | forums | 10 | success | 0.2481 | 93 |
+| 10 | microblog | 10 | success | 0.2788 | 93 |
+| 11 | jobs | 11 | success | 0.2803 | 91 |
+| 11 | congressional | 11 | success | 0.2914 | 96 |
+| 11 | forums | 11 | success | 0.2440 | 93 |
+| 11 | microblog | 11 | success | 0.2772 | 94 |
+| 12 | jobs | 12 | success | 0.2772 | 96 |
+| 12 | congressional | 12 | success | 0.2982 | 94 |
+| 12 | forums | 12 | success | 0.2469 | 96 |
+| 12 | microblog | 12 | success | 0.2763 | 93 |
+| 13 | jobs | 13 | success | 0.2753 | 95 |
+| 13 | congressional | 13 | success | 0.2888 | 98 |
+| 13 | forums | 13 | success | 0.2409 | 97 |
+| 13 | microblog | 13 | success | 0.2776 | 95 |
+| 14 | jobs | 14 | success | 0.2765 | 94 |
+| 14 | congressional | 14 | success | 0.2952 | 97 |
+| 14 | forums | 14 | success | 0.2476 | 94 |
+| 14 | microblog | 14 | success | 0.2783 | 96 |
+| 15 | jobs | 15 | success | 0.2735 | 97 |
+| 15 | congressional | 15 | success | 0.2926 | 94 |
+| 15 | forums | 15 | success | 0.2461 | 92 |
+| 15 | microblog | 15 | success | 0.2764 | 95 |
+
+### 4.3 各数据集统计分析
+
+| Dataset | Mean | Std | Min | Max | Median |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| jobs | 0.2768 | 0.0024 | **0.2735** | 0.2826 | 0.2765 |
+| congressional | 0.2929 | 0.0026 | **0.2888** | 0.2982 | 0.2914 |
+| forums | 0.2465 | 0.0023 | **0.2409** | 0.2501 | 0.2466 |
+| microblog | 0.2775 | 0.0011 | **0.2757** | 0.2789 | 0.2769 |
+
+### 4.4 各数据集性能最差实验（标记为 PrE-Text 快速对比标准结果）
+
+> **说明**：以下结果为 PrE-Text 在各数据集上性能最差的实验，代表该算法在快速对比场景下的基线标准结果。
+
+| Dataset | Round | Seed | best_top1 | synthetic_train_count | experiment_dir |
+| :--- | ---: | ---: | ---: | ---: | :--- |
+| **jobs** | 15 | 15 | **0.2735** | 97 | `outputs/repeat15_rounds/round15_sp_s_jobs_screening_seed15` |
+| **congressional** | 13 | 13 | **0.2888** | 98 | `outputs/repeat15_rounds/round13_sp_s_congressional_screening_seed13` |
+| **forums** | 13 | 13 | **0.2409** | 97 | `outputs/repeat15_rounds/round13_sp_s_forums_screening_seed13` |
+| **microblog** | 5 | 5 | **0.2757** | 95 | `outputs/repeat15_rounds/round05_sp_s_microblog_screening_seed5` |
+
+---
+
+## 5. 四个数据集快速对比实验总表（历史单次结果）
 
 | 数据集 | 算法 | synthetic_train_count | eval_count | best_top1 | best_top3 | best_top5 | best_top10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -158,9 +258,9 @@ Stage 2 将生成得到的 synthetic texts 导出为：
 | `microblog` | `PrE-Text` | 96 | 256 | 0.2762705387848682 | 0.4185454082282512 | 0.4803846643739651 | 0.5627945484651636 |
 | `microblog` | 新版创新算法 | 88 | 256 | 0.27493312953763854 | 0.41911858361992105 | 0.4793019997452554 | 0.5648325054133232 |
 
-## 5. `PrE-Text` 四个快速对比实验结果
+## 6. `PrE-Text` 四个快速对比实验结果（历史单次）
 
-### 5.1 `SP-S-JOBS`
+### 6.1 `SP-S-JOBS`
 
 - 配置文件：`PrE-Text/configs/experiments/single_node_screening/sp_s_jobs_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/PrE-Text/outputs/pretext_platform/sp_s_jobs_screening`
@@ -173,7 +273,7 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.4890012642225032`
   - `best_top10 = 0.5697850821744627`
 
-### 5.2 `SP-S-CONG`
+### 6.2 `SP-S-CONG`
 
 - 配置文件：`PrE-Text/configs/experiments/single_node_screening/sp_s_congressional_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/PrE-Text/outputs/pretext_platform/sp_s_congressional_screening`
@@ -186,7 +286,7 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.5315963445459848`
   - `best_top10 = 0.6188346620001296`
 
-### 5.3 `SP-S-FORUMS`
+### 6.3 `SP-S-FORUMS`
 
 - 配置文件：`PrE-Text/configs/experiments/single_node_screening/sp_s_forums_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/PrE-Text/outputs/pretext_platform/sp_s_forums_screening`
@@ -199,7 +299,7 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.4547678835876634`
   - `best_top10 = 0.5375056338935034`
 
-### 5.4 `SP-S-MICRO`
+### 6.4 `SP-S-MICRO`
 
 - 配置文件：`PrE-Text/configs/experiments/single_node_screening/sp_s_microblog_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/PrE-Text/outputs/pretext_platform/sp_s_microblog_screening`
@@ -212,9 +312,9 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.4803846643739651`
   - `best_top10 = 0.5627945484651636`
 
-## 6. 新版创新算法四个快速对比实验结果
+## 7. 新版创新算法四个快速对比实验结果
 
-### 6.1 `NS-S-JOBS`
+### 7.1 `NS-S-JOBS`
 
 - 配置文件：`paper-new/configs/experiments/single_node_screening/ns_s_jobs_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/ns_s_jobs_screening`
@@ -231,7 +331,7 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.4928571428571429`
   - `best_top10 = 0.5747155499367889`
 
-### 6.2 `NS-S-CONG`
+### 7.2 `NS-S-CONG`
 
 - 配置文件：`paper-new/configs/experiments/single_node_screening/ns_s_congressional_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/ns_s_congressional_screening`
@@ -248,7 +348,7 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.5337999870373971`
   - `best_top10 = 0.6212975565493551`
 
-### 6.3 `NS-S-FORUMS`
+### 7.3 `NS-S-FORUMS`
 
 - 配置文件：`paper-new/configs/experiments/single_node_screening/ns_s_forums_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/ns_s_forums_screening`
@@ -265,7 +365,7 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.44935934582448006`
   - `best_top10 = 0.5317751593587019`
 
-### 6.4 `NS-S-MICRO`
+### 7.4 `NS-S-MICRO`
 
 - 配置文件：`paper-new/configs/experiments/single_node_screening/ns_s_microblog_screening.yaml`
 - 结果目录：`/mnt/public/caiqiyue_file/code_from_paper/paper-new/outputs/ns_s_microblog_screening`
@@ -282,7 +382,7 @@ Stage 2 将生成得到的 synthetic texts 导出为：
   - `best_top5 = 0.4793019997452554`
   - `best_top10 = 0.5648325054133232`
 
-## 7. 当前快速对比结论
+## 8. 当前快速对比结论
 
 从这轮 `screening-balanced` 快速对比结果看：
 

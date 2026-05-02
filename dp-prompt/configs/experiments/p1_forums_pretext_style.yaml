@@ -1,0 +1,6 @@
+inherits:
+  - ../base/pretext_style_base.yaml
+  - ../datasets/pretext_forums.yaml
+
+experiment:
+  id: p1_forums_pretext_style

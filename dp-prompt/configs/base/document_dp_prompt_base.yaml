@@ -1,0 +1,28 @@
+runtime:
+  seed: 42
+  output_root: outputs
+
+experiment:
+  id: r1_placeholder
+
+prompting:
+  template_name: review_paraphrase
+
+privacy:
+  temperature: 1.0
+  logits_clipping:
+    enabled: false
+    lower_bound: null
+    upper_bound: null
+  max_generated_tokens: 128
+  stop_sequences: []
+  report_privacy_summary: true
+
+evaluation:
+  task_name: document_classification
+  utility_text_field: sanitized_text
+
+attacks:
+  text_attack_modes:
+    - static
+    - adaptive

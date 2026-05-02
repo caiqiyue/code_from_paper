@@ -1,0 +1,6 @@
+inherits:
+  - ../base/pretext_style_base.yaml
+  - ../datasets/pretext_microblog.yaml
+
+experiment:
+  id: p1_microblog_pretext_style

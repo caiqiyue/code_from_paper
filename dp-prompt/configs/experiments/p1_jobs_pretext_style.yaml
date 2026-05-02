@@ -1,0 +1,6 @@
+inherits:
+  - ../base/pretext_style_base.yaml
+  - ../datasets/pretext_jobs.yaml
+
+experiment:
+  id: p1_jobs_pretext_style
