@@ -34,13 +34,13 @@
 
 1. `forums` 当前最优行为已被 `Round18.2` 明确验证：固定 `k=22` 时可以达到 `0.2514`，高于 `PrE-Text 0.2501`。
 2. 因此，`forums` 当前的主要问题不是 selector 主体退化，而是**自动 budget 层把它压到了错误的 `k=21`**。
-3. `congressional` 则更适合较小、较紧凑的 budget 路径，说明它与 `forums` 的最优 budget principle 本来就不同。
+3. 另一类更短、更集中、更结构化的 private distribution 更适合较小、较紧凑的 budget 路径。
 
 ### 2.3 结论
 
-最终版方法**不应再追求“所有数据集共用一个完全统一的 budget argmax 公式”**，而应追求：
+最终版方法**不应再追求“所有数据共用一个完全统一的 budget argmax 公式”**，而应追求：
 
-> 一个统一主框架下的层级式预算决策：先识别数据分布属于哪类 regime，再在该 regime 下运行对应的 budget calibration。
+> 一个统一主框架下的层级式预算决策：先仅根据 private train split 上的可观测分布统计识别 regime，再在该 regime 下运行对应的 budget calibration。
 
 ---
 
@@ -120,36 +120,99 @@
 
 从 private subset 中提取一个轻量级 `distribution shape descriptor`。推荐初始特征集合为：
 
-1. `mean length`
-2. `median length`
-3. `p75 length`
-4. `tail ratio`（如超过某阈值的比例）
-5. `dispersion`（如 `IQR` 或 `std`）
+1. `median length`
+2. `p75 length`
+3. `tail ratio`（如 `len >= 350` 的比例）
+4. `short ratio`（如 `len <= 120` 的比例）
+5. `dispersion`（优先 `IQR`，必要时补 `std`）
+
+记为：
+
+```text
+d(x) = [median_len, p75_len, tail_ratio, short_ratio, iqr_len]
+```
+
+这些统计量**只允许从 private training split 中提取**，不能看 eval 数据，也不能看 downstream 结果。
 
 设计原则：
 
 - 不训练复杂模型；
 - 只使用容易解释、容易复现实验、容易写进论文的统计量；
 - 目的不是精确预测最佳 `k`，而是识别 budget regime。
+- router 使用的是连续 shape score，而不是单条硬编码长度规则。
 
 ### 5.3 新增模块二：Regime Router
 
 router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 
-建议先只保留两个主 regime：
+最终版 router 建议保留 **两个主 regime + 一个 uncertainty fallback**：
 
 1. `compact-structured regime`
 2. `broad-tail regime`
+3. `uncertain regime`
 
-原因：
+router 不直接使用数据集名字，而是使用**固定等权**的连续 shape score：
 
-- 当前最强证据正是 `congressional-like` 与 `forums-like` 的两类差异；
-- 先保持 regime 数量最小，能显著降低工程与叙事复杂度；
-- `jobs / microblog` 可以通过 policy 内部 calibration 或 conservative fallback 自然落位。
+```text
+z_shape = z(median_len)
+        + z(p75_len)
+        + z(iqr_len)
+        + tail_ratio
+        - short_ratio
+```
+
+其中：
+
+- `z(*)` 表示固定 screening-scale z-normalization；
+- 不再学习特征权重，默认全部等权；
+- 只拟合 `tau_center` 与 `delta_router` 两个 router 参数；
+- 一旦开发阶段确定，就在正式 quick comparison 与 final regression 中冻结，不再按目标数据集单独重调。
+
+router 规则为：
+
+```text
+if z_shape >= tau_center + delta_router:
+    regime = broad-tail
+elif z_shape <= tau_center - delta_router:
+    regime = compact-structured
+else:
+    regime = uncertain
+```
+
+这样做的意义是：
+
+- 避免“单一长度阈值 = 单一 regime”的硬编码观感；
+- 允许 `jobs / microblog` 落入 uncertainty 区间，由统一 fallback resolver 处理；
+- 使 router 具备可比较的连续基线形式，后续可直接与简单 length-family rule 做实验对照。
 
 ### 5.4 新增模块三：Policy-Conditioned Budget Resolver
 
 最终版不建议再做完全自由的统一 global search，而应做“受 policy 约束的 budget 解析”。
+
+首先固定候选 budget 集合：
+
+```text
+K = [18, 19, 20, 21, 22]
+```
+
+对任意 `k in K`，都运行一次 budget-conditioned greedy selection，并计算：
+
+```text
+M(k) = {
+  support_mean(k),
+  genericity_mean(k),
+  redundancy_mean(k),
+  coverage_mean(k),
+  coverage_p25(k),
+  coverage_min(k),
+  budget_cost(k)
+}
+```
+
+也就是说：
+
+- candidate generation、private support、genericity 是 `k` 无关的前置计算；
+- `dynamic redundancy`、最终 greedy selection、boundary-aware negatives 是 `k` 相关的后置计算。
 
 #### A. Coverage-Preserving Policy
 
@@ -159,10 +222,29 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 
 1. 避免 budget 被压得过小；
 2. coverage sufficiency 优先于 compactness；
-3. 允许预算落在已被实验验证有效的较大 budget 区间；
-4. 在高预算候选中再做 conservative resolution。
+3. 只在高预算带内解析最终 `k`；
+4. tie-break 在近边界时偏向更大 budget。
 
-这条 policy 的目标，是把当前 `forums` 上已经验证有效的高预算行为正式纳入统一框架。
+形式化定义建议为：
+
+```text
+K_broad = [21, 22]
+
+feasible_broad(k) =
+    coverage_p25(k) >= tau_p25_broad * max_j coverage_p25(j)
+and coverage_mean(k) >= tau_mean_broad * max_j coverage_mean(j)
+```
+
+解析规则：
+
+1. 仅在 `K_broad` 内评估；
+2. 若 `feasible_broad` 非空，则按以下字典序排序：
+   - 更高 `coverage_p25(k)`
+   - 更高 `coverage_mean(k)`
+   - 更高 `support_mean(k)`
+   - 更大 `k`
+3. 若 top-2 的 `coverage_p25` 与 `coverage_mean` 均在 `epsilon_broad` 内，则优先更大 `k`；
+4. 若 `feasible_broad` 为空，则回退到 global constrained fallback。
 
 #### B. Compactness-Aware Policy
 
@@ -172,10 +254,90 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 
 1. 避免无效扩种；
 2. 小而精的 budget 优先；
-3. 保持 constrained / utility 风格的 calibration；
-4. 在 coverage 不区分 budgets 时，允许 compactness 主导决策。
+3. coverage 只作为最低充分性 guard；
+4. tie-break 在近边界时偏向更小 budget。
 
-这条 policy 的目标，是保留当前 `congressional` 上更稳定的小预算路径。
+形式化定义建议为：
+
+```text
+K_compact = [18, 19, 20]
+
+feasible_compact(k) =
+    coverage_p25(k) >= tau_p25_compact * max_j coverage_p25(j)
+
+U_compact(k) =
+    b1 * norm(support_mean(k))
+  - b2 * norm(genericity_mean(k))
+  - b3 * norm(redundancy_mean(k))
+  - b4 * norm(budget_cost(k))
+```
+
+解析规则：
+
+1. 仅在 `K_compact` 内评估；
+2. 若 `feasible_compact` 非空，则选 `argmax U_compact(k)`；
+3. 若 top-2 utility gap `<= epsilon_compact`，优先更小 `k`；
+4. 若 `feasible_compact` 为空，则回退到 global constrained fallback。
+
+#### C. Uncertain Fallback Policy
+
+适用：`uncertain regime`
+
+形式化定义：
+
+```text
+K_uncertain = K
+```
+
+解析规则：
+
+1. 在全部 `K` 上运行已有 `self_calibrated_constrained` 风格的 global fallback；
+2. 使用统一 coverage constraint + feasible-set utility；
+3. tie-break 仍采用 conservative smaller-budget preference。
+
+这一层的作用是：
+
+- 避免 router 对边界型数据做过强判断；
+- 给 `jobs / microblog` 这类中间态分布保留统一 fallback 路径；
+- 防止最终方法被解释成“所有数据都必须先被硬分成两类”。
+
+### 5.5 参数拟合与冻结协议
+
+为了避免“参数太多 + 数据集太少”的过拟合风险，最终版只允许拟合最少量的 router 参数：
+
+1. `tau_center`
+2. `delta_router`
+
+其余部分全部固定：
+
+1. `z_shape` 的特征权重固定为等权
+2. `K = [18, 19, 20, 21, 22]` 固定
+3. `K_broad = [21, 22]` 固定
+4. `K_compact = [18, 19, 20]` 固定
+5. `tau_p25_broad / tau_mean_broad / tau_p25_compact` 固定为开发期一次性选定的全局值
+6. `U_compact` 的系数固定为沿用当前 constrained utility 默认值：
+
+```text
+support_weight = 1.0
+genericity_weight = 0.5
+redundancy_weight = 0.3
+budget_weight = 0.1
+```
+
+router 参数的开发协议必须写死为：
+
+```text
+目标：
+    maximize mean seed-level improvement over the fixed PrE-Text screening baseline
+约束：
+    worst-dataset improvement >= 0
+搜索：
+    leave-one-dataset-out development fitting on historical screening results
+平局：
+    prefer smaller delta_router, then simpler boundary placement
+```
+
+也就是说，最终版不允许针对某个目标数据集单独再调 router。
 
 ---
 
@@ -188,21 +350,41 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 3. 计算 `importance prior`
 4. 计算 `Top-Q weighted private support`
 5. 计算 `genericity penalty`
-6. 计算 `dynamic redundancy penalty`
-7. 从 private subset 计算 `shape descriptor`
-8. 由 `shape descriptor` 输出 `regime label`
-9. 根据 `regime label` 激活对应的 `budget policy`
-10. 在该 policy 下解析 `resolved_seed_top_k`
-11. 用解析出的 budget 完成 greedy seed selection
-12. 输出 `selected seeds / hard negatives / boundary state`
-13. 进入保持不变的 Stage-2 bootstrap
-14. 生成 synthetic corpus 并进行下游统一评测
+6. 仅从 private train split 计算 `shape descriptor`
+7. 由 `shape descriptor` 计算 `z_shape` 并输出 `regime label`
+8. 根据 `regime label` 确定 active budget set 与 active policy
+9. 对 active budget set 中每个 `k` 运行一次 budget-conditioned greedy selection
+10. 计算 `M(k)` 与 policy-specific objective
+11. 在该 policy 下解析 `resolved_seed_top_k`
+12. 若 policy 内无可行解，则回退到 global constrained fallback
+13. 用最终 budget 的 greedy decision 输出 `selected seeds / hard negatives / boundary state`
+14. 进入保持不变的 Stage-2 bootstrap
+15. 生成 synthetic corpus 并进行下游统一评测
 
 关键包装原则：
 
 - 不写成“某数据集对应某个固定 `k`”；
 - 写成“某类 private distribution 触发某类 budget policy”；
 - 最终 `k` 是 policy-conditioned resolver 的产物。
+
+可直接写入论文的方法伪代码为：
+
+```text
+Input: private train split D_priv, public init pool D_init, candidate budget set K
+Output: selected seeds S
+
+1. Generate candidate set C from D_init
+2. Compute private support s(c), genericity g(c) for each c in C
+3. Compute descriptor d(D_priv) and shape score z_shape
+4. Route to regime r = g_router(d)
+5. Choose active budget subset K_r and policy P_r
+6. For each k in K_r:
+     Run greedy selector with budget k
+     Obtain M(k)
+7. Resolve k* = argmax under P_r with tie-break and feasibility guards
+8. If P_r has no feasible solution, run global constrained fallback on K
+9. Return the greedy selection result associated with final k*
+```
 
 ---
 
@@ -235,6 +417,21 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 
 为了同时证明“结果有效”和“创新点成立”，实验必须分成 4 层证据。
 
+### 8.0 Reproducibility 与公平性协议
+
+以下协议在 quick comparison 和 final regression 中固定：
+
+1. 数据口径：`train_limit = 256`, `eval_limit = 256`, `initialization_limit = 1024`
+2. Stage 2：`bootstrap.num_prompts = 100`, `bootstrap.max_tokens = 85`
+3. 下游评测：`gpt2 small eval`, `epochs = 6`
+4. 候选 budget：固定 `K = [18, 19, 20, 21, 22]`
+5. router descriptor 仅能使用 private train split
+6. quick comparison seed 集合：`{42}`
+7. final robustness seed 集合：推荐 `N = 5`，例如 `{42, 123, 456, 789, 1011}`
+8. 主统计：`mean / std / min / max`
+9. 不确定性：报告 95% bootstrap CI 或 paired seed-level improvement CI
+10. 基线公平性：`PrE-Text` 不在 quick comparison 中重新调参，只使用已经固定口径的 screening baseline；可在附录补充均值基线对照
+
 ### 8.1 第一层：主结果实验
 
 目标：
@@ -249,10 +446,14 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 3. 与 `PrE-Text` 最差基准对比
 4. 可选：与 `PrE-Text` 的均值基准对比
 
-成功标准：
+主结果的主判断不应再写成“追某个历史最好点”，而应写成：
 
-- 四数据集全部高于 `PrE-Text` 基准下界
-- 最好在 `forums` 上保持 `>= 0.2514` 级别
+- 四数据集的 seed-level mean improvement 全部高于 `PrE-Text` screening 基准下界
+- 四数据集的 worst-seed result 尽量不低于基准
+- broad-tail family 的最终预算应稳定落在高预算带
+- compact-structured family 的最终预算应稳定落在低预算带
+
+历史上的 `0.2514`、`0.2950+` 等数值，只保留为 retrospective sanity check，而不是 primary success criterion。
 
 ### 8.2 第二层：机制消融实验
 
@@ -276,16 +477,18 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 
 目标：
 
-证明 `distribution-shape routing` 是有效且合理的。
+证明 `distribution-shape routing` 是有效且合理的，而不是把 length-threshold 改名。
 
 建议实验：
 
-1. 展示四个数据集的 shape descriptor
+1. 展示四个数据集的 shape descriptor 与 `z_shape`
 2. 展示 router 的 regime 输出
 3. 展示不同 regime 下 budget 分布差异
-4. 做“错路由”实验：
-   - 让 `forums-like` 强行走 compact policy
-   - 让 `congressional-like` 强行走 broad-tail policy
+4. 与简单 `length-family` 阈值路由做对照
+5. 做 leave-one-dataset-out routing validation
+6. 做“错路由”实验：
+   - broad-tail family 强行走 compact policy
+   - compact-structured family 强行走 broad-tail policy
 
 如果错路由显著掉分，证据会非常强。
 
@@ -359,8 +562,8 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 
 建议先跑以下最关键实验：
 
-1. `forums`：验证 broad-tail policy 是否稳定回到高预算区间，并复现 `>= 0.2514`
-2. `congressional`：验证 compactness-aware policy 是否稳定保持高于 `0.2950`
+1. broad-tail guard：验证 broad-tail policy 是否稳定回到高预算区间，并优于统一 fallback
+2. compact guard：验证 compactness-aware policy 是否稳定落在小预算区间，并优于统一 fallback
 
 这两点先过，再做四数据集统一回归。
 
@@ -393,9 +596,19 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 最终版方法是否成立，不看它是否“更复杂”，只看以下 4 条是否同时满足：
 
 1. 四数据集统一超过 `PrE-Text`
-2. `forums` 的高预算优势被稳定保留
-3. `congressional` 的小预算优势被稳定保留
+2. broad-tail family 的高预算优势被稳定保留
+3. compact-structured family 的小预算优势被稳定保留
 4. 层级式 routing + policy-conditioned calibration 的必要性被 ablation 明确证明
+
+主结论使用 protocol-based 表述：
+
+> 在固定评测协议、固定 baseline 口径与多 seed 设置下，最终版方法在四数据集上取得正的平均改进，并且最差数据集不再掉出 `PrE-Text` 基准线。
+
+历史最好点只作为 sanity check：
+
+- broad-tail family 是否回到历史高预算带；
+- compact family 是否保持历史小预算带；
+- 最终 `k` 分布是否符合 router 设计预期。
 
 如果只满足第 1 条而没有第 4 条，结果能用，但论文创新性偏弱。  
 如果只满足第 4 条而没有第 1 条，叙事好看，但不符合当前项目目标。  
@@ -416,4 +629,3 @@ router 的输出不是具体预算，而是要激活哪种 `budget policy`。
 1. 稳定全面超过 `PrE-Text`
 2. 向导师展示明确、完整、可解释的创新结构
 3. 为论文提供充分的实验支撑与文献依据
-
