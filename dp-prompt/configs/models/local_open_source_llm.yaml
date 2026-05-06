@@ -1,0 +1,7 @@
+model:
+  backend: local_transformers
+  model_path: ../thesis_platform/open_model/llama_2_7b_hf
+  tokenizer_path: null
+  torch_dtype: float16
+  batch_size: 2
+  max_context_length: 512

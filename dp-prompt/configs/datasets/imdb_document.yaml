@@ -1,0 +1,11 @@
+dataset:
+  name: imdb
+  text_field: text
+  label_field: label
+  author_field: author_id
+  splits:
+    train: ../thesis_platform/datasets/imdb/formatted/train_len256.jsonl
+    validation: ../thesis_platform/datasets/imdb/formatted/validation_len256.jsonl
+    # thesis_platform 里当前只有 train/validation 两个现成分片。
+    # 这里先复用 validation 作为 smoke test 的 test split。
+    test: ../thesis_platform/datasets/imdb/formatted/validation_len256.jsonl

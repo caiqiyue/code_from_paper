@@ -1,0 +1,9 @@
+data:
+  dataset_name: forums
+  train_path: ../thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: ../thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: ../thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+  train_limit: 256
+  eval_limit: 256
+  initialization_limit: 512
+  max_samples_per_client: 8

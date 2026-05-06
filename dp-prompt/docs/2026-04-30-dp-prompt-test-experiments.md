@@ -111,6 +111,10 @@ export DP_PROMPT_PRETEXT_INIT=/mnt/public/caiqiyue_file/code_from_paper/thesis_p
 - server generation backend: `vllm`
 - server model path: `thesis_platform/open_model/llama_2_7b_hf`
 - downstream small eval mode: `gpt2`
+- repository layout assumption:
+  - run from `dp-prompt/`
+  - sibling resources live at `../thesis_platform/datasets` and `../thesis_platform/open_model`
+  - this matches both the local workspace and the Linux server layout
 
 ### Run commands
 
@@ -133,7 +137,7 @@ bash scripts/run_dp_prompt.sh configs/experiments/p1_microblog_pretext_style.yam
 
 ## Required output artifacts
 
-Each experiment output directory must contain:
+For the paper-style document pipeline, each experiment output directory must contain:
 
 - `sanitized_corpus.json`
 - `utility_summary.json`
@@ -141,18 +145,21 @@ Each experiment output directory must contain:
 - `privacy_controls_summary.json`
 - `experiment_summary.json`
 
-For pretext-style experiments, the output directory should also contain:
+For pretext-style experiments, the required comparison artifacts are:
 
+- `sanitized_corpus.json`
+- `privacy_controls_summary.json`
 - `stage2/llama7b_text_syn.json`
 - `eval/eval_small_summary.json`
+- `experiment_summary.json`
 
 ## Minimum success checklist
 
 The smoke experiments are considered successful if:
 
-1. sanitized text is generated for train / validation / test records,
-2. utility evaluation writes a structured result,
-3. both static and adaptive text attacks write structured results,
+1. paper-style runs generate sanitized text for train / validation / test records,
+2. paper-style runs write structured utility results,
+3. paper-style runs write both static and adaptive attack results,
 4. privacy-control metadata is persisted,
 5. experiment summary references all artifact paths.
 

@@ -29,3 +29,21 @@ def test_load_experiment_config_records_source_paths(tmp_path: Path):
     cfg = load_experiment_config(cfg_file)
 
     assert str(cfg_file) in cfg["_meta"]["config_chain"]
+
+
+def test_all_checked_in_experiment_configs_resolve():
+    root = Path(__file__).resolve().parents[1]
+    config_paths = [
+        "configs/experiments/r1_imdb_base.yaml",
+        "configs/experiments/r1_imdb_temp_low.yaml",
+        "configs/experiments/r1_imdb_temp_mid.yaml",
+        "configs/experiments/r1_imdb_temp_high.yaml",
+        "configs/experiments/p1_jobs_pretext_style.yaml",
+        "configs/experiments/p1_forums_pretext_style.yaml",
+        "configs/experiments/p1_microblog_pretext_style.yaml",
+        "configs/experiments/p1_congressional_pretext_style.yaml",
+    ]
+
+    for config_path in config_paths:
+        cfg = load_experiment_config(root / config_path)
+        assert cfg["experiment"]["id"]

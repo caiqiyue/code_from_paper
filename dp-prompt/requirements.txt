@@ -14,3 +14,5 @@ torchtyping
 transformers
 datasets
 evaluate
+PyYAML
+pytest

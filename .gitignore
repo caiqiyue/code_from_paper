@@ -8,6 +8,10 @@
 # Data, models, outputs, and config/assets directories
 **/datasets/
 **/models/
+!dp-prompt/configs/datasets/
+!dp-prompt/configs/datasets/*.yaml
+!dp-prompt/configs/models/
+!dp-prompt/configs/models/*.yaml
 !thesis_platform/models/
 thesis_platform/open_model/
 thesis_platform/outputs/

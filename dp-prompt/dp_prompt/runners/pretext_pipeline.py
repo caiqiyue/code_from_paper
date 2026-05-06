@@ -85,6 +85,10 @@ def run_pretext_style_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         eval_path=str(config["data"]["eval_path"]),
         initialization_path=str(config["data"]["initialization_path"]),
         output_root=str(output_dir),
+        train_limit=config["data"].get("train_limit"),
+        eval_limit=config["data"].get("eval_limit"),
+        initialization_limit=config["data"].get("initialization_limit"),
+        max_samples_per_client=int(config["data"].get("max_samples_per_client", 8)),
         linux_small_eval_mode=str(config.get("evaluation", {}).get("linux_small_eval_mode", "distilgpt2")),
     )
     eval_summary = export_and_run_small_eval(
