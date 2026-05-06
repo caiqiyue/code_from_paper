@@ -21,7 +21,7 @@ This document now covers **two runnable experiment families**:
      - `forums`
      - `microblog`
    - server generation through `vllm + thesis_platform/open_model/llama_2_7b_hf`
-   - downstream small evaluation through `distilgpt2 / gpt2` via `thesis_platform`
+   - downstream small evaluation through `gpt2` via `thesis_platform`
 
 ## Required real resources
 
@@ -110,7 +110,7 @@ export DP_PROMPT_PRETEXT_INIT=/mnt/public/caiqiyue_file/code_from_paper/thesis_p
 - conda env: `pretext`
 - server generation backend: `vllm`
 - server model path: `thesis_platform/open_model/llama_2_7b_hf`
-- downstream small eval model path: `thesis_platform/open_model/distilgpt2`
+- downstream small eval mode: `gpt2`
 
 ### Run commands
 

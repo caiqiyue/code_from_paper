@@ -13,4 +13,4 @@ def test_build_thesis_eval_config_sets_small_eval_paths():
 
     assert cfg.data["dataset_name"] == "jobs"
     assert cfg.downstream_eval["run_small_eval"] is True
-    assert cfg.downstream_eval["linux_small_eval_mode"] == "distilgpt2"
+    assert cfg.downstream_eval["linux_small_eval_mode"] == "gpt2"

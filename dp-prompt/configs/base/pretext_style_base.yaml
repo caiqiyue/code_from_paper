@@ -25,7 +25,7 @@ generation:
   temperature: 0.2
 
 evaluation:
-  linux_small_eval_mode: distilgpt2
+  linux_small_eval_mode: gpt2
 
 llm:
   server:

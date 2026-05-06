@@ -27,7 +27,7 @@ def build_thesis_eval_config(
     repo_root: Path | None = None,
     distilgpt2_path: str = "thesis_platform/open_model/distilgpt2",
     llama2_7b_path: str = "thesis_platform/open_model/llama_2_7b_hf",
-    linux_small_eval_mode: str = "distilgpt2",
+    linux_small_eval_mode: str = "gpt2",
 ) -> Any:
     root = repo_root or resolve_repo_root()
     ensure_thesis_platform_importable(root)
@@ -39,7 +39,7 @@ def build_thesis_eval_config(
             "seed": 42,
         },
         "paths": {
-            "repo_root": ".",
+            "repo_root": str(root),
             "output_root": output_root,
         },
         "data": {
@@ -56,7 +56,7 @@ def build_thesis_eval_config(
             "enabled": True,
             "run_large_eval": False,
             "run_small_eval": True,
-            "small_eval_mode": "auto",
+            "small_eval_mode": linux_small_eval_mode,
             "windows_small_eval_mode": "gpt2",
             "linux_small_eval_mode": linux_small_eval_mode,
             "llama2_7b_path": llama2_7b_path,
