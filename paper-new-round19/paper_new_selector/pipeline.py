@@ -11,6 +11,12 @@ from .synthetic_contract import resolve_downstream_synthetic_texts
 from .thesis_bridge import load_yaml_config, resolve_output_root, write_json
 
 
+def _has_shared_backend(shared_session: Any) -> bool:
+    if isinstance(shared_session, dict):
+        return shared_session.get("backend") is not None
+    return getattr(shared_session, "backend", None) is not None
+
+
 def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dict[str, Any]:
     config = load_yaml_config(config_path)
     stage1_summary, stage1_runtime = run_stage1_with_runtime(config_path, validate_only=validate_only)
@@ -60,11 +66,21 @@ def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dic
                 num_prompts=int(bootstrap_runtime["bootstrap_cfg"]["num_prompts"]),
                 seed=int(config.get("meta", {}).get("seed", 42)),
             )
-            bootstrap_outputs = bootstrap_runtime["generate_with_shared_session"](
-                prompt_list,
-                shared_session=stage1_runtime.get("shared_session"),
-                bootstrap_cfg=bootstrap_runtime["bootstrap_cfg"],
-            )
+            shared_session = stage1_runtime.get("shared_session")
+            if _has_shared_backend(shared_session):
+                bootstrap_outputs = bootstrap_runtime["generate_with_shared_session"](
+                    prompt_list,
+                    shared_session=shared_session,
+                    bootstrap_cfg=bootstrap_runtime["bootstrap_cfg"],
+                )
+                summary["stage2"]["generation_path"] = "shared_session"
+            else:
+                bootstrap_outputs = bootstrap_runtime["generate_bootstrapped_samples"](
+                    prompt_list,
+                    bootstrap_runtime["model_path"],
+                    bootstrap_runtime["bootstrap_cfg"],
+                )
+                summary["stage2"]["generation_path"] = "standalone_bootstrap"
             summary["stage2"]["prompt_count"] = len(prompt_list)
             summary["stage2"]["generated_count"] = len(bootstrap_outputs)
             summary["stage2"]["synthetic_outputs"] = bootstrap_outputs

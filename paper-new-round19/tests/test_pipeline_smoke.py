@@ -140,6 +140,45 @@ class PipelineSmokeTests(unittest.TestCase):
         self.assertIn("stage1_summary.json", written_names)
         self.assertIn("stage1_budget_calibration.json", written_names)
 
+    def test_pipeline_falls_back_to_standalone_stage2_generation_without_shared_session(self):
+        with patch(
+            "paper_new_selector.pipeline.run_stage1_with_runtime",
+            return_value=(
+                {
+                    "generator_contract": {"llm_backend": "none"},
+                    "selected_texts": ["seed one", "seed two"],
+                    "skip_bootstrap": False,
+                    "seed_budget": {"mode": "fixed_public_seed_budget"},
+                },
+                {
+                    "generator_handle": None,
+                    "shared_session": None,
+                    "embedder": None,
+                },
+            ),
+        ), patch(
+            "paper_new_selector.pipeline.prepare_bootstrap_runtime",
+            return_value={
+                "bootstrap_cfg": {"num_prompts": 2, "generator_backend": "vllm"},
+                "model_path": "local-llama",
+                "build_bootstrap_prompts": lambda seed_texts, *, num_prompts, seed: ["prompt-a", "prompt-b"],
+                "generate_bootstrapped_samples": lambda prompt_list, _model_path, _bootstrap_cfg: [f"fresh::{p}" for p in prompt_list],
+                "generate_with_shared_session": lambda prompt_list, *, shared_session, bootstrap_cfg: (_ for _ in ()).throw(
+                    AssertionError("shared session path should not run")
+                ),
+            },
+        ), patch(
+            "paper_new_selector.pipeline.prepare_eval_runtime",
+            return_value={"enabled": False, "mode": "pretext_small"},
+        ), patch(
+            "paper_new_selector.pipeline.release_runtime_memory",
+        ):
+            summary = run_pipeline("configs/single_node_jobs_selector.yaml", validate_only=False)
+
+        self.assertEqual(summary["stage2"]["generation_path"], "standalone_bootstrap")
+        self.assertEqual(summary["stage2"]["generated_count"], 2)
+        self.assertEqual(summary["stage2"]["synthetic_outputs"], ["fresh::prompt-a", "fresh::prompt-b"])
+
 
 if __name__ == "__main__":
     unittest.main()

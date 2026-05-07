@@ -160,6 +160,54 @@ Both runs used:
 
 This shows that the instability is not only in downstream scoring; it already appears in Stage2 output volume.
 
+### O10. `expand_only` and `expand_private` fail before eval when Stage2 requires a shared vLLM backend
+
+Local minimal reproduction using `run_pipeline()` with mocked Stage1/Stage2 contracts:
+
+- `stage1_summary["skip_bootstrap"] = False`
+- `stage1_runtime["shared_session"] = None`
+- `prepare_bootstrap_runtime()` exposes both:
+  - `generate_bootstrapped_samples(...)`
+  - `generate_with_shared_session(...)`
+
+Observed result:
+
+- pipeline calls `generate_with_shared_session(...)` unconditionally
+- `pretext_bridge.generate_with_shared_vllm_session()` raises
+  - `ValueError: shared_session must expose a backend for Stage 2 shared generation.`
+
+This matches the server failures for:
+
+- `eo_jobs_single_run`
+- `ep_forums_single_run`
+
+### O11. `c4_only` succeeds because it skips Stage2 entirely
+
+Server single-run bug check:
+
+- `c4_congressional_single_run` completed
+- `expand_only` / `expand_private` did not
+
+The working/broken boundary is:
+
+- `skip_bootstrap=True` path works
+- `skip_bootstrap=False` path without `shared_session.backend` does not
+
+### O12. `WASP` and `DPGA-TextSyn` single-run configs currently fail on missing source artifacts, not eval logic
+
+`validate-only` results for current config-driven external single-run entries:
+
+- `WASP/outputs/paper_new_screening/jobs/train.jsonl`
+  - `source_exists = False`
+- `DPGA-TextSyn/outputs/paper_new_screening/jobs/epoch_all.json`
+  - `source_exists = False`
+
+Server failures matched those exact missing files. This means the current blocker is:
+
+- missing four-dataset artifact preparation/organization flow
+
+not a downstream evaluator crash.
+
 ## Hypotheses
 
 ### H1. Hidden runtime/model-state drift on the server changed outputs even though code/config files are identical (ROOT HYPOTHESIS)
@@ -209,6 +257,29 @@ This shows that the instability is not only in downstream scoring; it already ap
 - Test:
   - inspect historical docs/logs around `Round18.2` and `Round18.1` for raw output references, not just summary prose
 
+### H5. `expand_only` / `expand_private` assume a Stage1 shared generator session that those baseline modes never create (ROOT HYPOTHESIS for single-run internal baseline bug)
+
+- Supports:
+  - both modes return `shared_session = None` from `run_stage1_with_runtime()`
+  - pipeline currently calls `generate_with_shared_session(...)` whenever `skip_bootstrap=False`
+  - the raised error message exactly matches `pretext_bridge.generate_with_shared_vllm_session()`
+  - `c4_only` works because it avoids the shared-session-dependent Stage2 path
+- Conflicts:
+  - none found
+- Test:
+  - reproduce locally with mocked pipeline contracts and confirm the failure is triggered solely by `shared_session=None`
+
+### H6. `WASP` / `DPGA-TextSyn` single-run configs fail because standardized per-dataset source artifacts are never materialized under `outputs/paper_new_screening/<dataset>/...` (ROOT HYPOTHESIS for external baseline blocker)
+
+- Supports:
+  - `validate-only` reports `source_exists=False`
+  - server failures are direct `FileNotFoundError` on the YAML-declared artifact paths
+  - current repos have adapter/export scripts, but no four-dataset artifact preparation script targeting those standardized paths
+- Conflicts:
+  - none found
+- Test:
+  - add dataset-aware artifact preparation scripts that materialize the exact expected paths, then verify the configs resolve to existing sources
+
 ## Experiments
 
 ### E1. Compare local vs server commit/config/code state
@@ -238,6 +309,30 @@ This shows that the instability is not only in downstream scoring; it already ap
   - none; read-only inspection
 - Result:
   - server `pretext` versions recorded in `O4`
+
+### E4. Reproduce the `expand_only` / `expand_private` failure without heavy runtime dependencies
+
+- Change:
+  - none to production code; ran `run_pipeline()` with mocked Stage1/Stage2 contracts
+- Result:
+  - reproduced `ValueError: shared_session must expose a backend for Stage 2 shared generation.`
+  - reproduction required only:
+    - `skip_bootstrap=False`
+    - `shared_session=None`
+- Conclusion:
+  - confirms `H5`
+  - rejects the idea that the failure depends on dataset paths or eval code
+
+### E5. Validate external single-run configs against the current filesystem
+
+- Change:
+  - none to production code; ran `run_external_single_run_from_config(..., validate_only=True)`
+- Result:
+  - `WASP jobs`: `source_exists=False`
+  - `DPGA jobs`: `source_exists=False`
+- Conclusion:
+  - confirms `H6`
+  - rejects the idea that common eval itself is the primary blocker for the external baselines
   - local machine has no `pretext` env
 - Conclusion:
   - local runtime cannot currently falsify or confirm server-side environment drift
@@ -275,3 +370,54 @@ This shows that the instability is not only in downstream scoring; it already ap
 - Conclusion:
   - confirmed material run-to-run instability for `r182_forums_fixed22`
   - instability is visible before downstream scoring, because synthetic corpus size also changed
+
+### E7. Implement and verify a Stage2 fallback path for baseline modes without a shared Stage1 session
+
+- Change:
+  - updated `paper-new-round19/paper_new_selector/pipeline.py`
+  - when `skip_bootstrap=False` but `shared_session.backend` is absent, pipeline now calls
+    `generate_bootstrapped_samples(prompt_list, model_path, bootstrap_cfg)`
+    instead of `generate_with_shared_session(...)`
+- Result:
+  - `tests.test_pipeline_smoke` passes under `unittest`
+  - new regression test confirms `expand_only`/`expand_private` style contracts use
+    `generation_path = "standalone_bootstrap"`
+- Conclusion:
+  - confirmed the internal single-run blocker was the unconditional shared-session Stage2 call
+
+### E8. Add and verify standardized artifact preparation scripts for `WASP` and `DPGA-TextSyn`
+
+- Change:
+  - added `WASP/src/prepare_paper_new_artifacts.py`
+  - added `DPGA-TextSyn/main/prepare_paper_new_artifacts.py`
+  - both scripts normalize user-provided per-dataset raw artifacts into:
+    - `WASP/outputs/paper_new_screening/<dataset>/train.jsonl`
+    - `DPGA-TextSyn/outputs/paper_new_screening/<dataset>/epoch_all.json`
+- Result:
+  - direct CLI checks succeeded for both scripts
+  - after preparing `jobs` artifacts, config-driven `validate-only` reports:
+    - `wasp_jobs_single_run`: `source_exists=True`
+    - `dpga_jobs_single_run`: `source_exists=True`
+- Conclusion:
+  - confirmed the external single-run blocker was the missing artifact-organization flow, not the evaluator
+
+## Root Cause
+
+`expand_only` and `expand_private` were written as Stage2-expanding baselines but their Stage1 paths never create a shared generator backend, while the pipeline unconditionally required one; `WASP` and `DPGA-TextSyn` already had export/eval adapters but lacked any dataset-aware script that materialized the exact source artifact paths declared by the four-dataset single-run YAMLs.
+
+## Fix
+
+- `paper-new-round19/paper_new_selector/pipeline.py`
+  - add shared-session detection
+  - use shared-session Stage2 generation when available
+  - otherwise fall back to standalone bootstrap generation with the configured bootstrap model
+- `paper-new-round19/tests/test_pipeline_smoke.py`
+  - add regression coverage for the no-shared-session Stage2 path
+- `WASP/src/prepare_paper_new_artifacts.py`
+  - add dataset/manifest-driven artifact normalization to `outputs/paper_new_screening/<dataset>/train.jsonl`
+- `DPGA-TextSyn/main/prepare_paper_new_artifacts.py`
+  - add dataset/manifest-driven artifact normalization to `outputs/paper_new_screening/<dataset>/epoch_all.json`
+- `paper-new-round19/configs/experiments/single_run_baseline_screening/_base_single_run_wasp.yaml`
+  - record `prepare_entry`
+- `paper-new-round19/configs/experiments/single_run_baseline_screening/_base_single_run_dpga.yaml`
+  - record `prepare_entry`

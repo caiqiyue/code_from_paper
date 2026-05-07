@@ -8,6 +8,7 @@ external_baseline:
   baseline_name: DPGA-TextSyn
   source_kind: epoch_all_json
   source_repo_root: DPGA-TextSyn
+  prepare_entry: DPGA-TextSyn/main/prepare_paper_new_artifacts.py
   adapter_entry: DPGA-TextSyn/main/run_paper_new_screening.py
   eval_entry: paper-new-round19/paper_new_selector/run_external_baseline_single_run.py
   expected_budget: 100
