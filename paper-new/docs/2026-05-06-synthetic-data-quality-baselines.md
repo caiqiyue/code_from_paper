@@ -503,3 +503,236 @@
 > 在相同约束下，谁生成的 synthetic data 更能提升下游任务表现？
 
 围绕这个问题，`PrE-Text + WASP + DPGA-TextSyn + c4-only + Expand-only + Expand-private` 是最合适的一组主 baseline。
+
+## 14. 结合当前四数据集快速对比实验来理解这三种 baseline
+
+为了避免把 `c4-only`、`Expand-only`、`Expand-private` 误解成“完全独立的新算法”，这里需要先把当前 `PrE-Text` / `paper-new` 四数据集实验里的数据角色说清楚。
+
+### 14.1 当前实验里的 public / private / eval 数据分别是什么
+
+在当前四数据集快速对比实验中，数据角色实际上已经是固定的：
+
+- **公共初始化数据（public initialization / `D_init`）**
+  - 统一来自：
+    - `thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json`
+  - 这是当前 `PrE-Text` 和 `paper-new` 都在复用的公共语料池。
+  - 在 `paper-new` 中，它被加载为 `init_samples`，作用是给生成器提供 public seed / exemplar。
+
+- **私有训练数据（private train / `D_private`）**
+  - `jobs`:
+    - `thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json`
+  - `forums`:
+    - `thesis_platform/datasets/pretext_forums/formatted/forums_train.json`
+  - `microblog`:
+    - `thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json`
+  - `congressional`:
+    - `thesis_platform/datasets/congressional/formatted/congressional_train.json`
+  - 这些数据代表目标私有分布，是当前方法在 Stage 1 中用来做 private support / importance / genericity decision 的核心依据。
+
+- **下游评测数据（private eval / downstream eval set）**
+  - `jobs`:
+    - `thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json`
+  - `forums`:
+    - `thesis_platform/datasets/pretext_forums/formatted/forums_eval.json`
+  - `microblog`:
+    - `thesis_platform/datasets/pretext_microblog/formatted/microblog_eval.json`
+  - `congressional`:
+    - `thesis_platform/datasets/congressional/formatted/congressional_eval.json`
+  - 这部分不参与 Stage 1 的 seed 选择，也不是 public data，而是只在最后的小模型或大模型 downstream evaluation 中使用。
+
+因此，当前创新算法的四数据集流程可以概括为：
+
+1. 从公共 `D_init` 中取 exemplar / prompt context；
+2. 生成候选文本；
+3. 用目标数据集的私有训练集 `D_private` 给候选文本打分和筛选；
+4. 得到一批 selected seeds；
+5. 用 selected seeds 做 Stage 2 bootstrap 扩增；
+6. 用扩增后的 synthetic corpus 在对应数据集的 `eval` 上做下游评测。
+
+换句话说，当前 `paper-new` 不是“public-only”方法，也不是“private-direct-expand”方法，而是：
+
+> **public initialization + private-aware seed selection + bootstrap expansion + downstream evaluation**
+
+这也是为什么 `c4-only`、`Expand-only`、`Expand-private` 更适合作为**对照实验形态**，而不是新的主算法。
+
+### 14.2 在当前平台里，这三种 baseline 到底比较的是什么
+
+如果保持四数据集、下游模型、synthetic data budget、下游指标都不变，那么这三种 baseline 本质上都只是在回答一个问题：
+
+> **最终喂给下游模型的 synthetic corpus，到底是通过什么数据来源和什么程度的 private information 利用得到的？**
+
+它们和当前创新算法的区别，不在于换了下游模型，也不在于换了任务，而只在于：
+
+- synthetic seed 从哪里来；
+- 是否使用 private train 来筛选 seed；
+- 是否做 expand；
+- 最终 synthetic corpus 是直接用还是扩增后再用。
+
+## 15. `c4-only`、`Expand-only`、`Expand-private` 在当前流程中的准确含义
+
+### 15.1 `c4-only`
+
+`c4-only` 表示：
+
+- 不使用目标数据集的私有训练集；
+- 不使用当前创新算法的 selector；
+- 不做 private-aware 筛选；
+- 最终直接使用公共初始化语料中的文本，作为下游模型的训练语料。
+
+在你当前平台里，它应理解为：
+
+> 从 `pretext_initialization_c4_en/formatted/initialization.json` 中抽取固定预算的公共文本，直接导出为最终 synthetic corpus，然后走现有 downstream eval。
+
+它的角色是：
+
+- 作为 **public-only 下界**；
+- 证明如果完全不使用 private distribution，效果会落在什么水平；
+- 用来回答“你的 synthetic data 是否真的带来了 private distribution 信息”。
+
+对应到你当前创新算法，需要做的调整是：
+
+- 去掉 Stage 1 的候选生成与筛选；
+- 去掉 Stage 2 bootstrap；
+- 直接从公共初始化集抽样，写成最终训练语料；
+- 保留现有 eval 流程不变。
+
+因此，`c4-only` 最像：
+
+> **public corpus directly used for downstream training**
+
+而不是：
+
+> **public seed + private-aware selection + expand**
+
+### 15.2 `Expand-only`
+
+`Expand-only` 表示：
+
+- 仍然不使用目标私有训练集；
+- 仍然不做 private-aware selector；
+- 但是保留 expand / bootstrap 过程；
+- 用公共初始化集中的 seed 文本去做扩增，再把扩增结果交给下游模型。
+
+在你当前平台里，它应理解为：
+
+> 从 `D_init` 中选出 seed，不做 private support / genericity / redundancy 选择，直接进入 Stage 2 bootstrap，生成 public-only expanded synthetic corpus，再做现有 downstream eval。
+
+它的角色是：
+
+- 作为 **public expand 对照组**；
+- 用来排除“你的方法只是因为做了扩增、数据量变大才更强”的解释；
+- 用来区分“数据规模效应”和“private distribution 贴近效应”。
+
+对应到你当前创新算法，需要做的调整是：
+
+- 保留 Stage 2 bootstrap；
+- 保留现有 eval；
+- 去掉所有依赖 `private train` 的 Stage 1 评分与筛选；
+- 把 Stage 1 的 seed 直接改成来自公共初始化集的采样结果。
+
+因此，`Expand-only` 最像：
+
+> **public seeds + bootstrap expansion + downstream eval**
+
+它和 `c4-only` 的差别，不是用不用 public data，而是：
+
+- `c4-only`：public text 直接训；
+- `Expand-only`：public seed 先 expand，再训。
+
+### 15.3 `Expand-private`
+
+`Expand-private` 表示：
+
+- 直接使用目标私有训练集中的文本作为 seed；
+- 不强调当前方法的 public-init + selector 约束；
+- 不强调 privacy / federated / no-private-access 的限制；
+- 用 private seeds 直接做 expand，然后把结果用于 downstream eval。
+
+在你当前平台里，它应理解为：
+
+> 直接从 `jobs_train` / `forums_train` / `microblog_train` / `congressional_train` 中抽样得到 seed，送入现有 Stage 2 bootstrap，生成 expanded synthetic corpus，再走现有 downstream eval。
+
+它的角色是：
+
+- 作为 **非隐私上界**；
+- 近似回答“如果允许直接使用 private train 做扩增，效果能到哪”；
+- 给当前创新算法提供一个可解释的 ceiling。
+
+对应到你当前创新算法，需要做的调整是：
+
+- 保留 Stage 2 bootstrap；
+- 保留现有 eval；
+- 去掉 public initialization 驱动的 Stage 1 候选生成；
+- 去掉 private-aware selector；
+- 直接把 private train 的采样结果当作 selected seeds。
+
+因此，`Expand-private` 最像：
+
+> **private seeds + bootstrap expansion + downstream eval**
+
+它和当前创新算法的关键差别在于：
+
+- 当前创新算法：先用 public init 生成候选，再用 private train 做选择；
+- `Expand-private`：直接拿 private train 当 seed，不再通过 public-init candidate search 和 selector。
+
+## 16. 这三种 baseline 对当前创新算法分别意味着删掉哪一层
+
+为了方便实现，可以把当前创新算法分成四层：
+
+1. public initialization (`D_init`)
+2. private-aware Stage 1 seed selection
+3. Stage 2 bootstrap expansion
+4. downstream evaluation
+
+则三种 baseline 对应如下：
+
+### 16.1 `c4-only`
+
+- 保留：downstream evaluation
+- 删除：Stage 1 selector
+- 删除：Stage 2 bootstrap
+- synthetic corpus 来源：直接从 `D_init` 抽样
+
+### 16.2 `Expand-only`
+
+- 保留：Stage 2 bootstrap
+- 保留：downstream evaluation
+- 删除：private-aware Stage 1 selector
+- synthetic seed 来源：直接从 `D_init` 抽样
+
+### 16.3 `Expand-private`
+
+- 保留：Stage 2 bootstrap
+- 保留：downstream evaluation
+- 删除：public-init candidate generation
+- 删除：private-aware Stage 1 selector
+- synthetic seed 来源：直接从目标数据集的 `train` 抽样
+
+## 17. 对实现层的直接建议
+
+因此，在当前 `paper-new` 平台里，最合理的做法不是“为这三种 baseline 新建三套完全不同的算法框架”，而是：
+
+- 保持四数据集配置体系不变；
+- 保持 Stage 2 bootstrap 不变；
+- 保持 downstream eval 不变；
+- 只新增三种 **synthetic corpus construction mode**。
+
+建议把当前主算法视为：
+
+> `public init + private-aware selector + bootstrap + eval`
+
+然后再派生出三种对照模式：
+
+- `c4-only`
+  - `public corpus only + eval`
+- `expand-only`
+  - `public seeds + bootstrap + eval`
+- `expand-private`
+  - `private seeds + bootstrap + eval`
+
+这样写有几个好处：
+
+- 你比较的是同一平台内“synthetic data 是怎么构造出来的”；
+- 不会把结论混成“不同下游模型能力差异”；
+- 不会把 baseline 误写成三种完全独立且不可对齐的外部算法；
+- 非常适合与你现有四数据集快对比实验直接对接。
