@@ -19,6 +19,16 @@ def extract_texts(samples: list[Any]) -> list[str]:
     return texts
 
 
+def _truncate_words(text: str, *, max_words: int | None) -> str:
+    normalized = str(text).strip()
+    if not normalized or max_words is None or int(max_words) <= 0:
+        return normalized
+    words = normalized.split()
+    if len(words) <= int(max_words):
+        return normalized
+    return " ".join(words[: int(max_words)])
+
+
 def _sample_texts(texts: list[str], *, count: int, seed: int) -> list[str]:
     cleaned = [text.strip() for text in texts if isinstance(text, str) and len(text.strip().split()) >= 2]
     if len(cleaned) <= count:
@@ -52,8 +62,17 @@ def build_c4_only_summary(*, init_texts: list[str], final_budget: int, seed: int
     }
 
 
-def build_expand_only_summary(*, init_texts: list[str], seed_top_k: int, seed: int) -> dict:
-    selected_texts = _sample_texts(init_texts, count=seed_top_k, seed=seed)
+def build_expand_only_summary(
+    *,
+    init_texts: list[str],
+    seed_top_k: int,
+    seed: int,
+    seed_text_max_words: int | None = None,
+) -> dict:
+    selected_texts = [
+        _truncate_words(text, max_words=seed_text_max_words)
+        for text in _sample_texts(init_texts, count=seed_top_k, seed=seed)
+    ]
     return {
         "mode": "expand_only",
         "selected_indices": list(range(len(selected_texts))),
@@ -70,13 +89,23 @@ def build_expand_only_summary(*, init_texts: list[str], seed_top_k: int, seed: i
             "mode": "fixed_public_seed_budget",
             "configured_seed_top_k": int(seed_top_k),
             "resolved_seed_top_k": len(selected_texts),
+            "seed_text_max_words": None if seed_text_max_words is None else int(seed_text_max_words),
         },
         "decision": {"selected_indices": list(range(len(selected_texts))), "hard_negative_indices": []},
     }
 
 
-def build_expand_private_summary(*, private_texts: list[str], seed_top_k: int, seed: int) -> dict:
-    selected_texts = _sample_texts(private_texts, count=seed_top_k, seed=seed)
+def build_expand_private_summary(
+    *,
+    private_texts: list[str],
+    seed_top_k: int,
+    seed: int,
+    seed_text_max_words: int | None = None,
+) -> dict:
+    selected_texts = [
+        _truncate_words(text, max_words=seed_text_max_words)
+        for text in _sample_texts(private_texts, count=seed_top_k, seed=seed)
+    ]
     return {
         "mode": "expand_private",
         "selected_indices": list(range(len(selected_texts))),
@@ -93,6 +122,7 @@ def build_expand_private_summary(*, private_texts: list[str], seed_top_k: int, s
             "mode": "fixed_private_seed_budget",
             "configured_seed_top_k": int(seed_top_k),
             "resolved_seed_top_k": len(selected_texts),
+            "seed_text_max_words": None if seed_text_max_words is None else int(seed_text_max_words),
         },
         "decision": {"selected_indices": list(range(len(selected_texts))), "hard_negative_indices": []},
     }

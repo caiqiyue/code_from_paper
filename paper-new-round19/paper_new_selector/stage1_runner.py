@@ -236,6 +236,7 @@ def run_stage1_with_runtime(
     seed = int(config.get("meta", {}).get("seed", 42))
     selector_cfg = dict(config.get("selector", {}))
     bootstrap_budget = int(config.get("bootstrap", {}).get("num_prompts", 100))
+    seed_text_max_words = config.get("bootstrap", {}).get("seed_text_max_words")
     init_texts = extract_texts(sample_bundle["init_samples"])
     private_texts = extract_texts(sample_bundle["train_samples"])
 
@@ -259,6 +260,11 @@ def run_stage1_with_runtime(
                 init_texts=init_texts,
                 seed_top_k=int(selector_cfg.get("seed_top_k", 6)),
                 seed=seed,
+                seed_text_max_words=(
+                    int(seed_text_max_words)
+                    if seed_text_max_words not in (None, "")
+                    else 56
+                ),
             ),
             {
                 "generator_handle": None,
@@ -273,6 +279,11 @@ def run_stage1_with_runtime(
                 private_texts=private_texts,
                 seed_top_k=int(selector_cfg.get("seed_top_k", 6)),
                 seed=seed,
+                seed_text_max_words=(
+                    int(seed_text_max_words)
+                    if seed_text_max_words not in (None, "")
+                    else 56
+                ),
             ),
             {
                 "generator_handle": None,

@@ -208,6 +208,44 @@ Server failures matched those exact missing files. This means the current blocke
 
 not a downstream evaluator crash.
 
+### O13. On the server, `CUDA_VISIBLE_DEVICES=0` is the A6000 and `CUDA_VISIBLE_DEVICES=1` is the 2080Ti
+
+Server probe under the `pretext` environment showed:
+
+- unset:
+  - device 0 = `NVIDIA RTX A6000`
+  - device 1 = `NVIDIA GeForce RTX 2080 Ti`
+- `CUDA_VISIBLE_DEVICES=0`:
+  - visible device 0 = `NVIDIA RTX A6000`
+- `CUDA_VISIBLE_DEVICES=1`:
+  - visible device 0 = `NVIDIA GeForce RTX 2080 Ti`
+
+So earlier "run on A6000 with `CUDA_VISIBLE_DEVICES=1`" was incorrect for this host.
+
+### O14. Raw `jobs` / `forums` training texts are far longer than the Stage1 seeds used by already-completed experiments
+
+Local length comparison:
+
+- raw `jobs_train` sample slice:
+  - mean words ≈ `329.7`
+  - median words ≈ `164.5`
+  - max words = `3808`
+- raw `forums_train` sample slice:
+  - mean words ≈ `286.4`
+  - median words ≈ `209.0`
+  - max words = `2070`
+- completed `PrE-Text` Stage1 surviving seeds:
+  - mean words ≈ `52.8`
+  - median words ≈ `53.5`
+  - max words = `56`
+
+This is a major structural difference between:
+
+- already-working pipelines (`PrE-Text` / selector-based paper-new)
+- new `expand_only` / `expand_private` baselines
+
+because the new baselines were feeding raw public/private documents directly into Stage2 prompt construction.
+
 ## Hypotheses
 
 ### H1. Hidden runtime/model-state drift on the server changed outputs even though code/config files are identical (ROOT HYPOTHESIS)
@@ -279,6 +317,17 @@ not a downstream evaluator crash.
   - none found
 - Test:
   - add dataset-aware artifact preparation scripts that materialize the exact expected paths, then verify the configs resolve to existing sources
+
+### H7. Even after the shared-session bug is fixed, `expand_only` / `expand_private` remain fragile because their raw sampled seed texts are much longer than the synthetic Stage1 seeds used in successful experiments
+
+- Supports:
+  - raw `jobs` / `forums` texts are 5x-6x longer on average than completed Stage1 seeds
+  - Stage2 prompt builder concatenates 3 seed texts verbatim into each bootstrap prompt
+  - server retry on the correct A6000 no longer fails on shared session; it fails inside vLLM cache sizing / context budgeting
+- Conflicts:
+  - none found
+- Test:
+  - cap the baseline seed text length to match the already-working Stage1 seed scale, and give single-run expand baselines a more appropriate A6000 bootstrap config
 
 ## Experiments
 
@@ -401,6 +450,28 @@ not a downstream evaluator crash.
 - Conclusion:
   - confirmed the external single-run blocker was the missing artifact-organization flow, not the evaluator
 
+### E9. Re-run internal single-run expand baselines on the server using the actual A6000 mapping
+
+- Change:
+  - no code change; reran with `CUDA_VISIBLE_DEVICES=0`
+- Result:
+  - the old `shared_session must expose a backend` error disappeared
+  - new failure became:
+    - `The model's max seq len (512) is larger than the maximum number of tokens that can be stored in KV cache ...`
+- Conclusion:
+  - confirms the shared-session bug is fixed
+  - identifies a new runtime/config/input-shape blocker
+
+### E10. Compare raw baseline seed lengths against already-working Stage1 seeds
+
+- Change:
+  - read-only local comparison
+- Result:
+  - raw `jobs` / `forums` texts are dramatically longer than working Stage1 seeds
+- Conclusion:
+  - confirms `H7`
+  - indicates the new baselines need seed-shape normalization, not just GPU selection fixes
+
 ## Root Cause
 
 `expand_only` and `expand_private` were written as Stage2-expanding baselines but their Stage1 paths never create a shared generator backend, while the pipeline unconditionally required one; `WASP` and `DPGA-TextSyn` already had export/eval adapters but lacked any dataset-aware script that materialized the exact source artifact paths declared by the four-dataset single-run YAMLs.
@@ -411,6 +482,18 @@ not a downstream evaluator crash.
   - add shared-session detection
   - use shared-session Stage2 generation when available
   - otherwise fall back to standalone bootstrap generation with the configured bootstrap model
+- `paper-new-round19/paper_new_selector/baseline_modes.py`
+  - cap `expand_only` / `expand_private` seed texts to a configurable word limit before Stage2 prompt building
+- `paper-new-round19/paper_new_selector/stage1_runner.py`
+  - default the expand-baseline seed text cap to `56` words, matching the scale seen in completed `PrE-Text` Stage1 seeds
+- `paper-new-round19/configs/experiments/single_run_baseline_screening/_base_single_run_expand_only.yaml`
+  - override single-run internal baseline bootstrap to:
+    - `max_tokens: 32`
+    - `max_model_len: 256`
+    - `gpu_memory_utilization: 0.65`
+    - `seed_text_max_words: 56`
+- `paper-new-round19/configs/experiments/single_run_baseline_screening/_base_single_run_expand_private.yaml`
+  - apply the same single-run internal baseline bootstrap overrides
 - `paper-new-round19/tests/test_pipeline_smoke.py`
   - add regression coverage for the no-shared-session Stage2 path
 - `WASP/src/prepare_paper_new_artifacts.py`
