@@ -12,6 +12,7 @@ from paper_new_selector.repeat15_runner import (
     append_repeat15_summary_row,
     build_repeat15_run_specs,
     resolve_repeat15_project_root,
+    resolve_repeat15_runtime_output_dir,
     run_repeat15_batch,
     write_repeat15_config,
 )
@@ -79,6 +80,18 @@ class Repeat15RunnerTests(unittest.TestCase):
             self.assertEqual(
                 raw["paths"]["output_root"],
                 "paper-new-round19/outputs/repeat15_rounds/r19_repeat15_round01_jobs_seed01",
+            )
+
+    def test_resolve_repeat15_runtime_output_dir_does_not_duplicate_repo_segment(self):
+        spec = build_repeat15_run_specs()[0]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "paper-new-round19"
+            repo_root.mkdir()
+
+            self.assertEqual(
+                resolve_repeat15_runtime_output_dir(repo_root, spec),
+                repo_root / "outputs" / "repeat15_rounds" / "r19_repeat15_round01_jobs_seed01",
             )
 
     def test_append_repeat15_summary_row_includes_dataset_seed_and_metrics(self):

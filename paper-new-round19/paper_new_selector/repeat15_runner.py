@@ -97,6 +97,11 @@ def write_repeat15_config(spec: Repeat15RunSpec, target_path: str | Path) -> Pat
     return resolved_target
 
 
+def resolve_repeat15_runtime_output_dir(project_root: str | Path, spec: Repeat15RunSpec) -> Path:
+    root = Path(project_root)
+    return root / "outputs" / "repeat15_rounds" / spec.experiment_id
+
+
 def _read_json(path: Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Missing required artifact: {path}")
@@ -216,7 +221,7 @@ def run_repeat15_batch(project_root: str | Path | None = None) -> int:
 
     for spec in build_repeat15_run_specs():
         config_path = tmpdir / f"{spec.experiment_id}.yaml"
-        output_dir = root / spec.relative_output_root
+        output_dir = resolve_repeat15_runtime_output_dir(root, spec)
         log_path = logdir / f"{spec.experiment_id}.log"
 
         write_repeat15_config(spec, config_path)

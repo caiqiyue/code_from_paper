@@ -530,3 +530,59 @@
 - Verification:
   - `python -m unittest tests.test_repeat15_runner -v` -> pass
   - `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 105 tests ... OK`
+
+## 2026-05-07 Round19 Repeat15 Summary Crash After Successful First Run
+
+### Observations
+
+- After the CUDA device-order fix, `r19_repeat15_round01_jobs_seed01` executed successfully on the A6000 path:
+  - startup log showed `free=33.47 GiB`
+  - vLLM initialized with `# GPU blocks: 451`
+  - the experiment log includes a completed downstream eval summary with valid metrics (`best_top1=0.2783...`).
+- However, the repeat15 driver itself crashed immediately after the first run, before writing `END ... status=0` into the master log.
+- The failing stack trace in `round19_full_repeat15_nohup.log` is:
+  - `FileNotFoundError: Missing required artifact: /mnt/.../paper-new-round19/paper-new-round19/outputs/repeat15_rounds/.../stage1_budget_calibration.json`
+- The missing path contains a duplicated `paper-new-round19/` segment.
+- `Repeat15RunSpec.relative_output_root` currently stores the config-facing string `paper-new-round19/outputs/repeat15_rounds/<exp>`.
+- `run_repeat15_batch()` constructs the local artifact path as `root / spec.relative_output_root`, which doubles the repo directory when `root` is already the `paper-new-round19` repo root.
+
+### Hypotheses
+
+#### H1: the repeat15 driver is reusing the config-facing output root string as a local filesystem subpath, so artifact lookup doubles the repo directory and fails during summary collection (ROOT HYPOTHESIS)
+- Supports: the thrown path is exactly `root / "paper-new-round19/outputs/..."`.
+- Supports: the actual eval artifacts already exist under the single-repo path, proving the experiment itself completed.
+- Supports: `relative_output_root` is intentionally shaped for YAML config, not necessarily for local path joins.
+- Conflicts: none.
+- Test: add a regression test that resolves the runtime artifact directory for one spec and requires `/.../paper-new-round19/outputs/repeat15_rounds/<exp>` instead of `/.../paper-new-round19/paper-new-round19/outputs/...`.
+
+#### H2: `load_yaml_config()` resolved `paths.output_root` differently at runtime than the driver expected
+- Supports: output paths are config-driven.
+- Conflicts: the actual eval summary path in the experiment log is already at the correct single-repo location, so the config resolution path itself worked.
+- Test: compare the actual artifact path in the completed log with the path used by `append_repeat15_summary_row`.
+
+#### H3: the experiment never wrote `stage1_budget_calibration.json`
+- Supports: the immediate exception is "missing required artifact".
+- Conflicts: the path in the exception is visibly malformed with duplicated repo name, so a path bug explains the miss more directly.
+- Test: inspect the completed experiment output tree path from the log.
+
+### Experiments
+
+#### E1: inspect the successful first-run log and the driver crash stack
+- Change: no code change; compare `r19_repeat15_round01_jobs_seed01.log` with `round19_full_repeat15_nohup.log`.
+- Expected confirm: the experiment writes outputs successfully, then the driver looks in the wrong doubled path.
+- Result: Confirmed.
+
+#### E2: regression test for runtime output directory resolution
+- Change: add a repeat15 test that resolves the runtime artifact directory for one spec under a temp repo root and requires no duplicated `paper-new-round19/`.
+- Expected confirm: current code fails this test before the fix.
+- Result: pending.
+
+### Root Cause
+
+- pending
+
+### Fix Plan
+
+- Split "config-facing output root" from "runtime filesystem output dir" in `repeat15_runner.py`.
+- Keep `paper-new-round19/outputs/...` in the generated YAML so config loading stays unchanged.
+- Use a separate local helper for artifact lookup and cleanup under the actual repo root.
