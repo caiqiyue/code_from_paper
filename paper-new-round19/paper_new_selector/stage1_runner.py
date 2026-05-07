@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import random
 import statistics
+import time
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,33 @@ def _clean_candidate_texts(texts: list[str]) -> list[str]:
             continue
         cleaned.append(normalized)
     return cleaned
+
+
+def _is_retryable_vllm_startup_failure(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    return "no available memory for the cache blocks" in message
+
+
+def _generate_with_retryable_vllm_startup_recovery(
+    *,
+    generator_handle: Any,
+    round_ctx: Any,
+    max_attempts: int = 2,
+    retry_delay_seconds: float = 2.0,
+):
+    last_exc: BaseException | None = None
+    for attempt_index in range(max(1, int(max_attempts))):
+        try:
+            return generator_handle.generator.generate(round_ctx)
+        except Exception as exc:
+            if not _is_retryable_vllm_startup_failure(exc) or attempt_index + 1 >= max_attempts:
+                raise
+            last_exc = exc
+            release_runtime_memory(getattr(generator_handle, "text_backend", None))
+            time.sleep(float(retry_delay_seconds))
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("Unreachable retry state in Stage 1 vLLM startup recovery.")
 
 
 def _vectorize(embedder: Any, texts: list[str]) -> list[list[float]]:
@@ -258,7 +286,10 @@ def run_stage1_with_runtime(
                 sample_id_prefix="paper_new_selector",
                 sample_source="selector_candidate",
             )
-            generated = generator_handle.generator.generate(round_ctx)
+            generated = _generate_with_retryable_vllm_startup_recovery(
+                generator_handle=generator_handle,
+                round_ctx=round_ctx,
+            )
             before = len(candidate_texts)
             candidate_texts.extend(
                 _clean_candidate_texts([sample.render_text() for sample in generated])

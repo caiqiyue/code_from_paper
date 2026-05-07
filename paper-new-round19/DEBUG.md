@@ -307,3 +307,86 @@
   - no-env fallback chooses loopback
   - explicit env override is still honored
   - the patch helper exports the resolved host consistently.
+
+## 2026-05-07 Round19 Jobs vLLM Cache-Block Startup Failure
+
+### Observations
+
+- `round19` quick comparison finished with `9/10` success; the only failure was `r19_full_jobs`.
+- The failing server log ends with:
+  - `# GPU blocks: 0, # CPU blocks: 512`
+  - `No available memory for the cache blocks. Try increasing gpu_memory_utilization when initializing the engine.`
+- `r19_full_jobs`, `r19_full_congressional`, `r19_full_forums`, and `r19_full_microblog` all inherit the same Stage 1 vLLM config from the same base. The dataset leaf files only change dataset paths and output roots.
+- `paper-new-round19`, `paper-new`, and `PrE-Text` all intentionally use local `vllm` + `llama_2_7b_hf` for synthetic generation, with the same shared budget shape:
+  - `max_model_len: 512`
+  - `gpu_memory_utilization: 0.35`
+  - `startup_required_free_gb: 2`
+  - `enforce_eager: true`
+- Successful `round19` runs immediately before/after the failure used the same vLLM config and succeeded:
+  - `r19_full_congressional`: `free=34.39 GiB`, `# GPU blocks: 457`
+  - `r19_full_forums`: `free=34.38 GiB`, `# GPU blocks: 457`
+  - `r19_full_microblog`: `free=34.39 GiB`, `# GPU blocks: 457`
+- The failed `r19_full_jobs` run reported even more free memory before startup (`free=43.87 GiB`) but still got `# GPU blocks: 0`, which argues against a deterministic config insufficiency.
+- Stage 1 candidate generation in `paper-new-round19` currently calls `round_ctx.text_backend.generate(...)` directly through `PretextPromptLLMGenerator.generate()` with no local retry path around transient vLLM startup failures.
+- `PrE-Text` has an explicit startup-memory precheck for Stage 2 vLLM, but `paper-new-round19` Stage 1 has no equivalent retry/recovery wrapper for a transient `cache blocks` startup failure.
+
+### Hypotheses
+
+#### H1: this is a transient vLLM startup failure on a shared GPU, and `paper-new-round19` incorrectly treats it as a permanent configuration error because Stage 1 has no release-and-retry wrapper (ROOT HYPOTHESIS)
+- Supports: identical vLLM config succeeds for the other `full_run` datasets.
+- Supports: the failed run had *more* free memory than the successful runs, so the failure does not fit a stable "budget too small" explanation.
+- Supports: the failure happens exactly at engine startup before generation progresses, which is the place where a transient retry is feasible.
+- Conflicts: none found so far.
+- Test: add a regression test where Stage 1 generation raises `ValueError("No available memory for the cache blocks")` on the first call and succeeds on the second; verify `run_stage1()` releases runtime memory, sleeps/backs off, and retries once.
+
+#### H2: the `jobs` dataset leaf overrides some hidden vLLM parameter not present in the other datasets
+- Supports: only `r19_full_jobs` failed.
+- Conflicts: local config comparison shows the dataset leaf only changes dataset paths/output root; Stage 1 vLLM settings come from the same inherited base.
+- Test: compare `r19_full_jobs.yaml`, `r19_full_congressional.yaml`, and the shared base config.
+
+#### H3: `gpu_memory_utilization=0.35` is fundamentally too low for all `round19 full_run` experiments, and the other three only succeeded by luck
+- Supports: the raw vLLM message suggests increasing `gpu_memory_utilization`.
+- Conflicts: the same budget is intentionally used in `paper-new` and `PrE-Text`, and the other `round19` full runs completed under that same budget.
+- Conflicts: a deterministic budget insufficiency would not explain `jobs` failing with *higher* observed free memory than the succeeding runs.
+- Test: compare inherited configs and successful logs before changing any budget parameter.
+
+### Experiments
+
+#### E1: Compare dataset leaf configs and inherited vLLM settings
+- Change: no code change; inspect `r19_full_jobs`, `r19_full_congressional`, and the shared base config.
+- Expected confirm: the leaf files do not override the Stage 1 vLLM budget.
+- Result: Confirmed.
+
+#### E2: Compare failed and successful server startup logs
+- Change: no code change; inspect `r19_full_jobs.log` and the successful `full_run` logs.
+- Expected confirm: identical vLLM constructor shape, but only `jobs` hits `# GPU blocks: 0`.
+- Result: Confirmed.
+
+#### E3: Compare with `paper-new` / `PrE-Text` vLLM generation setup
+- Change: no code change; inspect local config and runtime guard code.
+- Expected confirm: the projects intentionally share the same local-model + vLLM budget, so changing only the `jobs` dataset config would be a weak explanation.
+- Result: Confirmed.
+
+#### E4: Regression test for retryable Stage 1 cache-block startup failures
+- Change: add a Stage 1 regression test where generator startup raises `ValueError("No available memory for the cache blocks.")` once and succeeds on the second attempt.
+- Expected confirm: current code fails without a local recovery path; fixed code should release the backend and retry once.
+- Result: Confirmed. The new test failed before the fix and now passes.
+
+### Root Cause
+
+- `r19_full_jobs` did not fail because the `jobs` config uses a different vLLM/local-model setup. The `round19` full-run datasets share the same inherited Stage 1 vLLM budget, and the same budget also exists in `paper-new` and `PrE-Text`.
+- The failure is a transient vLLM startup condition on the shared GPU path: the engine sometimes comes up with `# GPU blocks: 0` and raises `No available memory for the cache blocks`, even though the same configuration succeeds immediately before/after on the same A6000.
+- `paper-new-round19` Stage 1 treated that specific startup failure as a permanent configuration/runtime error and had no local release-and-retry path, so `r19_full_jobs` aborted instead of self-recovering.
+
+### Fix
+
+- Add a narrow local recovery path in `paper_new_selector.stage1_runner`:
+  - detect the retryable vLLM startup message `No available memory for the cache blocks`
+  - release the Stage 1 text backend runtime
+  - wait briefly
+  - retry candidate generation once
+- Keep all other exceptions non-retryable so configuration errors and unrelated runtime failures still surface immediately.
+- Add a regression test in `tests/test_stage1_runner.py` that proves Stage 1 now retries exactly once after this retryable startup failure.
+- Verification:
+  - targeted regression test passes
+  - full suite passes: `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 99 tests ... OK`
