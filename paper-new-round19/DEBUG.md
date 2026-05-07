@@ -390,3 +390,64 @@
 - Verification:
   - targeted regression test passes
   - full suite passes: `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 99 tests ... OK`
+
+## 2026-05-07 Round19 Repeat15 Runner Wrong Project Root On Server
+
+### Observations
+
+- The local `repeat15` driver was synced to the server and launched from `/mnt/public/caiqiyue_file/code_from_paper/paper-new-round19`.
+- The repeat15 master log on the server recorded config paths under the parent directory instead of the repo:
+  - `/mnt/public/caiqiyue_file/code_from_paper/tmp_round19_repeat15/...`
+  - not `/mnt/public/caiqiyue_file/code_from_paper/paper-new-round19/tmp_round19_repeat15/...`
+- The first failed run log reported:
+  - `/home/k8smaster/anaconda3/bin/python: Error while finding module specification for 'paper_new_selector.run_selector_single_node' (ModuleNotFoundError: No module named 'paper_new_selector')`
+- `repeat15_runner.py` currently derives `root` from `resolve_worktree_root()`.
+- `resolve_worktree_root()` is designed around the larger thesis resource layout, not specifically the `paper-new-round19` repo root. On the server that larger root resolves to `/mnt/public/caiqiyue_file/code_from_paper`, which contains `thesis_platform` but not the `paper_new_selector` package for this repo.
+- The bug only appeared in the repeat15 driver. Existing single-run `round19` commands succeeded because they were launched manually from the repo root and did not re-derive root through this path.
+
+### Hypotheses
+
+#### H1: `repeat15_runner.py` is using the thesis resource root instead of the `paper-new-round19` repo root, so it writes logs/configs one level too high and launches subprocesses with the wrong `cwd` (ROOT HYPOTHESIS)
+- Supports: server master log paths are rooted at `/mnt/public/caiqiyue_file/code_from_paper/tmp_round19_repeat15/...`.
+- Supports: the failing subprocess error is `ModuleNotFoundError: No module named 'paper_new_selector'`, which is exactly what happens when `cwd` is set above the repo that contains the package.
+- Supports: the runner currently calls `resolve_worktree_root()`, which can legitimately return the larger thesis resource root.
+- Conflicts: none.
+- Test: add a regression test that simulates the server path `/mnt/public/.../paper-new-round19/paper_new_selector/repeat15_runner.py` and requires the runner root to be `/mnt/public/.../paper-new-round19`; add a second test that requires `run_repeat15_batch()` to use that repo root for `cwd`, logs, and temp configs.
+
+#### H2: the failure comes from the server not activating the `pretext` environment correctly
+- Supports: the failing subprocess is a Python module import error.
+- Conflicts: `python -m paper_new_selector.repeat15_runner` itself started correctly under `pretext`, which means the environment activation was successful.
+- Conflicts: the failing import is inside the child process launched by the driver, which depends on `cwd`/module path more than on the already-activated environment.
+- Test: compare parent-process success with child-process failure and verify the child `cwd` is wrong.
+
+#### H3: the generated temp YAML paths are wrong, but the subprocess `cwd` is correct
+- Supports: the master log showed the temp config path rooted at the parent directory.
+- Conflicts: the child error is package import failure, which points to a bad `cwd` or module search root, not only a bad config path.
+- Test: add a regression test that captures both generated config path and subprocess `cwd`; require both to stay under the repo root.
+
+### Experiments
+
+#### E1: server-side failure inspection
+- Change: no code change; inspect the server repeat15 nohup/master logs and the first failed experiment log.
+- Expected confirm: runner paths resolve to the parent thesis directory and child imports fail from there.
+- Result: Confirmed.
+
+#### E2: local regression tests for repo-root resolution
+- Change: add two tests in `tests/test_repeat15_runner.py`:
+  - `resolve_repeat15_project_root()` must return the repo parent of `paper_new_selector/repeat15_runner.py`
+  - `run_repeat15_batch(temp_root)` must use `temp_root` for `cwd`, logs, summary, and temp configs
+- Expected confirm: current code lacks that behavior and the new tests fail before the fix.
+- Result: Confirmed. The new test module fails before the fix because `resolve_repeat15_project_root` does not exist yet and `run_repeat15_batch` has no repo-root override path.
+
+### Root Cause
+
+- `repeat15_runner.py` used the thesis resource-oriented `resolve_worktree_root()` to derive its runtime root. On the server that resolves to `/mnt/public/caiqiyue_file/code_from_paper`, not the actual `paper-new-round19` repository. The driver therefore wrote temp configs/logs one directory too high and launched child runs with the wrong `cwd`, causing `paper_new_selector` imports to fail.
+
+### Fix Plan
+
+- Add a dedicated `resolve_repeat15_project_root()` that anchors to the repo containing `paper_new_selector/repeat15_runner.py`, not the broader thesis resource root.
+- Let `run_repeat15_batch()` accept an optional explicit project root so tests can pin the runtime root and the CLI path can still default safely.
+- Keep the fix local to `repeat15_runner.py` instead of weakening `thesis_bridge.resolve_worktree_root()` for the rest of the codebase.
+- Verify with:
+  - targeted repeat15 tests first
+  - then full `python -m unittest discover -s tests -p "test_*.py" -v`

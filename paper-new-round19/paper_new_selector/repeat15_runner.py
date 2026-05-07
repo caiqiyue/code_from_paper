@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from .thesis_bridge import load_yaml_config, resolve_worktree_root
+from .thesis_bridge import load_yaml_config
 
 REPEAT15_SUMMARY_HEADER = [
     "experiment",
@@ -55,6 +55,11 @@ class Repeat15RunSpec:
     experiment_id: str
     base_config: Path
     relative_output_root: Path
+
+
+def resolve_repeat15_project_root(module_file: str | Path | None = None) -> Path:
+    module_path = Path(module_file) if module_file is not None else Path(__file__)
+    return module_path.resolve().parents[1]
 
 
 def build_repeat15_run_specs() -> list[Repeat15RunSpec]:
@@ -178,8 +183,8 @@ def initialize_repeat15_summary(summary_path: str | Path) -> Path:
     return summary_path
 
 
-def run_repeat15_batch() -> int:
-    root = resolve_worktree_root()
+def run_repeat15_batch(project_root: str | Path | None = None) -> int:
+    root = Path(project_root).resolve() if project_root is not None else resolve_repeat15_project_root()
     logdir = root / "logs"
     tmpdir = root / "tmp_round19_repeat15"
     output_root = root / "outputs" / "repeat15_rounds"

@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -9,12 +10,23 @@ from paper_new_selector.repeat15_runner import (
     REPEAT15_SUMMARY_HEADER,
     append_repeat15_summary_row,
     build_repeat15_run_specs,
+    resolve_repeat15_project_root,
+    run_repeat15_batch,
     write_repeat15_config,
 )
 from paper_new_selector.thesis_bridge import load_yaml_config
 
 
 class Repeat15RunnerTests(unittest.TestCase):
+    def test_resolve_repeat15_project_root_anchors_to_repo_not_resource_parent(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "paper-new-round19"
+            module_path = repo_root / "paper_new_selector" / "repeat15_runner.py"
+            module_path.parent.mkdir(parents=True)
+            module_path.write_text("# test", encoding="utf-8")
+
+            self.assertEqual(resolve_repeat15_project_root(module_path), repo_root.resolve())
+
     def test_build_repeat15_run_specs_expands_four_datasets_across_fifteen_seeds(self):
         specs = build_repeat15_run_specs()
 
@@ -115,6 +127,46 @@ class Repeat15RunnerTests(unittest.TestCase):
                 rows[1],
                 "exp1\tjobs\t3\t0\thierarchical_shape_routing\tbroad_tail\t20\t22\t21\tbroad_tail_policy\tFalse\tFalse\t21,22\t0.61\t0.27\t0.42\t0.49\t0.57",
             )
+
+    def test_run_repeat15_batch_uses_project_root_for_artifacts_and_subprocess_cwd(self):
+        spec = build_repeat15_run_specs()[0]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir) / "paper-new-round19"
+            temp_root.mkdir()
+
+            completed = []
+
+            def fake_write_config(run_spec, target_path):
+                Path(target_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(target_path).write_text("meta:\n  seed: 1\n", encoding="utf-8")
+                return Path(target_path)
+
+            def fake_subprocess(cmd, cwd, stdout, stderr, check):
+                completed.append((cmd, cwd, Path(stdout.name)))
+                return type("Completed", (), {"returncode": 1})()
+
+            with patch("paper_new_selector.repeat15_runner.build_repeat15_run_specs", return_value=[spec]), patch(
+                "paper_new_selector.repeat15_runner.write_repeat15_config",
+                side_effect=fake_write_config,
+            ), patch(
+                "paper_new_selector.repeat15_runner.subprocess.run",
+                side_effect=fake_subprocess,
+            ), patch(
+                "paper_new_selector.repeat15_runner.time.sleep",
+                return_value=None,
+            ):
+                status = run_repeat15_batch(temp_root)
+
+            self.assertEqual(status, 1)
+            self.assertEqual(len(completed), 1)
+            self.assertEqual(completed[0][1], temp_root.resolve())
+            self.assertEqual(
+                completed[0][2],
+                (temp_root / "logs" / "r19_repeat15_round01_jobs_seed01.log").resolve(),
+            )
+            self.assertTrue((temp_root / "tmp_round19_repeat15" / "r19_repeat15_round01_jobs_seed01.yaml").exists())
+            self.assertTrue((temp_root / "logs" / "round19_full_repeat15_summary.tsv").exists())
 
 
 if __name__ == "__main__":
