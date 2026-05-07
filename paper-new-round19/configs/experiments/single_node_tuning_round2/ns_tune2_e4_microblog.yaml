@@ -1,0 +1,14 @@
+﻿inherits:
+  - ./_e4_refk_6.yaml
+
+meta:
+  experiment_id: ns_tune2_e4_microblog
+
+paths:
+  output_root: paper-new/outputs/ns_tune2_e4_microblog
+
+data:
+  dataset_name: microblog
+  train_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_train.json
+  eval_path: thesis_platform/datasets/pretext_microblog/formatted/microblog_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

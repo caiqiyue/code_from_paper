@@ -1,0 +1,14 @@
+inherits:
+  - ./_f4_weighted_ref_k6_plus_a2e5.yaml
+
+meta:
+  experiment_id: ns_tune3_f4_forums
+
+paths:
+  output_root: paper-new/outputs/ns_tune3_f4_forums
+
+data:
+  dataset_name: forums
+  train_path: thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

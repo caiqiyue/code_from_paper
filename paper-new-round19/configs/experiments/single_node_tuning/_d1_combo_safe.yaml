@@ -1,0 +1,7 @@
+inherits:
+  - ./_base_selector_tuning.yaml
+
+selector:
+  length_floor: 8
+  lambda_generic: 0.30
+  lambda_redundancy: 0.35

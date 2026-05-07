@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the final hierarchical, distribution-shape-aware seed-budget selection method on top of the existing advanced budget-calibration stack, then add a round-19 quick-comparison experiment suite and its config files.
+**Goal:** Create `paper-new-round19` by copying `paper-new`, port the advanced budget-calibration stack needed for the hierarchical method into that new directory, then implement the final hierarchical, distribution-shape-aware seed-budget selection method and add a round-19 quick-comparison experiment suite plus its config files.
 
-**Architecture:** The implementation should target `paper-new-round-16`, not the simplified `paper-new` selector package, because `paper-new-round-16` already contains `budget_calibration.py`, constrained calibration, hybrid mode support, `stage1_budget_calibration.json`, and the round18/181/182/183 config families. The new method adds two focused modules for descriptor/routing, reuses the existing per-budget metric machinery, introduces one new `seed_budget_rule.mode`, then wires a new round-19 config family that mirrors the successful `round182/round183` quick-comparison pattern.
+**Architecture:** The implementation must happen in `paper-new-round19`, but the current `paper-new` codebase is missing the advanced budget-calibration stack already present in `paper-new-round-16`. The correct round-19 flow is therefore: copy `paper-new` into `paper-new-round19`, port the advanced Stage-1 budget machinery from `paper-new-round-16` into `paper-new-round19`, then add the new hierarchical descriptor/router/resolver logic on top of that migrated stack. Quick-comparison configs should mirror the successful `round182/round183` experiment pattern while living entirely under `paper-new-round19`.
 
 **Tech Stack:** Python 3, existing `paper_new_selector` pipeline, YAML experiment configs, `unittest`/`pytest`, existing single-node quick-eval protocol
 
@@ -14,59 +14,77 @@
 
 ### Planning assumption
 
-All code changes below target:
+All development code changes below target:
 
-- `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16`
+- `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19`
 
-All documentation outputs for this planning round stay under:
+The plan also assumes two reference sources:
+
+- implementation reference: `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16`
+- document/output location: `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new\docs`
+
+All planning/design documentation outputs for this round stay under:
 
 - `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new\docs`
 
 ### Files to create
 
-- `paper-new-round-16/paper_new_selector/shape_descriptor.py`
+- `paper-new-round19/paper_new_selector/budget_calibration.py`
+  - Ported advanced per-budget calibration core from `paper-new-round-16`.
+- `paper-new-round19/paper_new_selector/shape_descriptor.py`
   - Owns lightweight private-length descriptor extraction.
-- `paper-new-round-16/paper_new_selector/regime_router.py`
+- `paper-new-round19/paper_new_selector/regime_router.py`
   - Owns `z_shape` scoring and regime routing.
-- `paper-new-round-16/paper_new_selector/hierarchical_budget.py`
+- `paper-new-round19/paper_new_selector/hierarchical_budget.py`
   - Owns hierarchical policy resolution on top of per-budget metrics.
-- `paper-new-round-16/tests/test_shape_descriptor.py`
+- `paper-new-round19/tests/test_budget_calibration.py`
+  - Ported and adapted advanced budget-calibration regression tests.
+- `paper-new-round19/tests/test_shape_descriptor.py`
   - Unit tests for descriptor statistics.
-- `paper-new-round-16/tests/test_regime_router.py`
+- `paper-new-round19/tests/test_regime_router.py`
   - Unit tests for route decisions.
-- `paper-new-round-16/tests/test_hierarchical_budget.py`
+- `paper-new-round19/tests/test_hierarchical_budget.py`
   - Unit tests for broad-tail / compact / uncertain routing and resolver behavior.
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/_base_selector_tuning_round19.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/_base_selector_tuning_round19.yaml`
   - Base round-19 quick-comparison config.
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/guard/r19_guard_forums.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/guard/r19_guard_congressional.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_jobs.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_congressional.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_forums.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_microblog.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_forums.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_congressional.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_compact_forums.yaml`
-- `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_broad_congressional.yaml`
-- `paper-new-round-16/scripts/append_round19_summary.py`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/guard/r19_guard_forums.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/guard/r19_guard_congressional.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_jobs.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_congressional.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_forums.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_microblog.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_forums.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_congressional.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_compact_forums.yaml`
+- `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_broad_congressional.yaml`
+- `paper-new-round19/scripts/append_round19_summary.py`
   - Summarizes `stage1_budget_calibration.json` + downstream eval into a comparison TSV.
-- `paper-new-round-16/scripts/run_round19_guard_batch.sh`
+- `paper-new-round19/scripts/run_round19_guard_batch.sh`
   - Runs the two critical guard experiments.
-- `paper-new-round-16/scripts/run_round19_quick_compare.sh`
+- `paper-new-round19/scripts/run_round19_quick_compare.sh`
   - Runs guard, full-run, and ablations in the intended order.
 
 ### Files to modify
 
-- `paper-new-round-16/paper_new_selector/budget_calibration.py`
-  - Extract reusable per-budget metric bundle builder and register a new hierarchical mode.
-- `paper-new-round-16/paper_new_selector/stage1_runner.py`
+- `paper-new-round19/paper_new_selector/stage1_runner.py`
   - Route `seed_budget_rule.mode=hierarchical_shape_routing` into the new resolver.
-- `paper-new-round-16/paper_new_selector/pipeline.py`
+- `paper-new-round19/paper_new_selector/pipeline.py`
   - Ensure the new mode writes `stage1_budget_calibration.json`.
-- `paper-new-round-16/tests/test_budget_calibration.py`
-  - Add regression coverage for the new mode registration and metric bundle reuse.
-- `paper-new-round-16/tests/test_stage1_runner.py`
+- `paper-new-round19/tests/test_stage1_runner.py`
   - Add integration tests for `hierarchical_shape_routing`.
+
+### Pre-implementation bootstrap step
+
+Before any round-19 feature work begins:
+
+1. Copy the current contents of `paper-new` into `paper-new-round19`.
+2. Verify that `paper-new-round19` contains the same baseline files as `paper-new`.
+3. Port the advanced budget-calibration stack from `paper-new-round-16` into `paper-new-round19`, specifically:
+   - `paper_new_selector/budget_calibration.py`
+   - `tests/test_budget_calibration.py`
+   - the `stage1_runner.py` branches for `self_calibrated`, `self_calibrated_constrained`, and `hybrid_length_family_constrained`
+   - `pipeline.py` writing of `stage1_budget_calibration.json`
+4. Only after that bootstrap is complete should the new hierarchical mode be implemented.
 
 ---
 
@@ -86,12 +104,20 @@ Reuse the same quick-comparison protocol that underpins the existing screening/t
 - `candidate_seed_top_k = [18, 19, 20, 21, 22]`
 - `meta.seed = 42` for guard and quick compare
 
+For the final round-19 implementation, `full_run/*` keeps this full screening-scale protocol, while `guard/*` is intentionally cheaper:
+
+- `guard.train_limit = 128`
+- `guard.eval_limit = 128`
+- `guard.initialization_limit = 512`
+- `guard.bootstrap.num_prompts = 40`
+- `guard.eval.small_epochs = 4`
+
 ### Quick experiment phases
 
 1. **Guard batch**
    - `r19_guard_forums`
    - `r19_guard_congressional`
-   - Purpose: verify broad-tail and compact-structured policies recover the two critical regime behaviors before spending on 4-dataset regression.
+   - Purpose: verify broad-tail and compact-structured policies recover the two critical regime behaviors under a cheaper pre-regression sanity tier before spending on 4-dataset regression.
 
 2. **Full quick compare**
    - `r19_full_jobs`
@@ -119,11 +145,11 @@ Reuse the same quick-comparison protocol that underpins the existing screening/t
 
 ### Base round-19 config
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/_base_selector_tuning_round19.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/_base_selector_tuning_round19.yaml`
 
 ```yaml
 inherits:
-  - ../single_node_tuning_round181/_base_selector_tuning_round181.yaml
+  - ../single_node_screening/_base_selector_screening.yaml
 
 meta:
   stage: single_node_tuning_round19
@@ -175,100 +201,122 @@ selector:
 
 ### Guard configs
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/guard/r19_guard_forums.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/guard/r19_guard_forums.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_forums.yaml
+  - ../_data_forums.yaml
 
 meta:
   experiment_id: r19_guard_forums
 
 paths:
-  output_root: paper-new/outputs/r19_guard_forums
+  output_root: paper-new-round19/outputs/r19_guard_forums
+
+data:
+  train_limit: 128
+  eval_limit: 128
+  initialization_limit: 512
+
+bootstrap:
+  num_prompts: 40
+
+eval:
+  small_epochs: 4
 ```
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/guard/r19_guard_congressional.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/guard/r19_guard_congressional.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_congressional.yaml
+  - ../_data_congressional.yaml
 
 meta:
   experiment_id: r19_guard_congressional
 
 paths:
-  output_root: paper-new/outputs/r19_guard_congressional
+  output_root: paper-new-round19/outputs/r19_guard_congressional
+
+data:
+  train_limit: 128
+  eval_limit: 128
+  initialization_limit: 512
+
+bootstrap:
+  num_prompts: 40
+
+eval:
+  small_epochs: 4
 ```
 
 ### Full quick-compare configs
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_jobs.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_jobs.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_jobs.yaml
+  - ../_data_jobs.yaml
 
 meta:
   experiment_id: r19_full_jobs
 
 paths:
-  output_root: paper-new/outputs/r19_full_jobs
+  output_root: paper-new-round19/outputs/r19_full_jobs
 ```
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_congressional.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_congressional.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_congressional.yaml
+  - ../_data_congressional.yaml
 
 meta:
   experiment_id: r19_full_congressional
 
 paths:
-  output_root: paper-new/outputs/r19_full_congressional
+  output_root: paper-new-round19/outputs/r19_full_congressional
 ```
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_forums.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_forums.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_forums.yaml
+  - ../_data_forums.yaml
 
 meta:
   experiment_id: r19_full_forums
 
 paths:
-  output_root: paper-new/outputs/r19_full_forums
+  output_root: paper-new-round19/outputs/r19_full_forums
 ```
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/full_run/r19_full_microblog.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/full_run/r19_full_microblog.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_microblog.yaml
+  - ../_data_microblog.yaml
 
 meta:
   experiment_id: r19_full_microblog
 
 paths:
-  output_root: paper-new/outputs/r19_full_microblog
+  output_root: paper-new-round19/outputs/r19_full_microblog
 ```
 
 ### Ablation configs
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_forums.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_forums.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_forums.yaml
+  - ../_data_forums.yaml
 
 meta:
   experiment_id: r19_ablate_no_router_forums
@@ -278,15 +326,15 @@ selector:
     mode: self_calibrated_constrained
 
 paths:
-  output_root: paper-new/outputs/r19_ablate_no_router_forums
+  output_root: paper-new-round19/outputs/r19_ablate_no_router_forums
 ```
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_congressional.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_congressional.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_congressional.yaml
+  - ../_data_congressional.yaml
 
 meta:
   experiment_id: r19_ablate_no_router_congressional
@@ -296,15 +344,15 @@ selector:
     mode: self_calibrated_constrained
 
 paths:
-  output_root: paper-new/outputs/r19_ablate_no_router_congressional
+  output_root: paper-new-round19/outputs/r19_ablate_no_router_congressional
 ```
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_compact_forums.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_compact_forums.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_forums.yaml
+  - ../_data_forums.yaml
 
 meta:
   experiment_id: r19_ablate_force_compact_forums
@@ -316,15 +364,15 @@ selector:
       delta_router: 0.0
 
 paths:
-  output_root: paper-new/outputs/r19_ablate_force_compact_forums
+  output_root: paper-new-round19/outputs/r19_ablate_force_compact_forums
 ```
 
-File: `paper-new-round-16/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_broad_congressional.yaml`
+File: `paper-new-round19/configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_broad_congressional.yaml`
 
 ```yaml
 inherits:
   - ../_base_selector_tuning_round19.yaml
-  - ../../single_node_tuning_round16/_data_congressional.yaml
+  - ../_data_congressional.yaml
 
 meta:
   experiment_id: r19_ablate_force_broad_congressional
@@ -336,7 +384,7 @@ selector:
       delta_router: 0.0
 
 paths:
-  output_root: paper-new/outputs/r19_ablate_force_broad_congressional
+  output_root: paper-new-round19/outputs/r19_ablate_force_broad_congressional
 ```
 
 ---
@@ -346,7 +394,7 @@ paths:
 ### Unit / integration verification
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_shape_descriptor.py -q
 python -m pytest tests/test_regime_router.py -q
 python -m pytest tests/test_hierarchical_budget.py -q
@@ -357,7 +405,7 @@ python -m pytest tests/test_stage1_runner.py -q
 ### Guard runs
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/guard/r19_guard_forums.yaml
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/guard/r19_guard_congressional.yaml
 ```
@@ -365,7 +413,7 @@ python -m paper_new_selector.run_selector_single_node --config configs/experimen
 ### Full quick compare
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/full_run/r19_full_jobs.yaml
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/full_run/r19_full_congressional.yaml
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/full_run/r19_full_forums.yaml
@@ -375,7 +423,7 @@ python -m paper_new_selector.run_selector_single_node --config configs/experimen
 ### Ablation quick compare
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_forums.yaml
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/ablations/r19_ablate_no_router_congressional.yaml
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/ablations/r19_ablate_force_compact_forums.yaml
@@ -384,19 +432,107 @@ python -m paper_new_selector.run_selector_single_node --config configs/experimen
 
 Expected quick-run artifacts:
 
-- `paper-new/outputs/<experiment_id>/stage1_summary.json`
-- `paper-new/outputs/<experiment_id>/stage1_budget_calibration.json`
-- `paper-new/outputs/<experiment_id>/eval/downstream_eval_summary.json`
+- `paper-new-round19/outputs/<experiment_id>/stage1_summary.json`
+- `paper-new-round19/outputs/<experiment_id>/stage1_budget_calibration.json`
+- `paper-new-round19/outputs/<experiment_id>/eval/downstream_eval_summary.json`
 
 ---
+
+### Task 0: Bootstrap `paper-new-round19` from `paper-new` and port the advanced budget stack
+
+**Files:**
+- Create/Populate: `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19\...`
+- Reference only: `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16\paper_new_selector\budget_calibration.py`
+- Reference only: `D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16\tests\test_budget_calibration.py`
+
+- [ ] **Step 1: Copy `paper-new` into `paper-new-round19`**
+
+Run:
+
+```powershell
+if (-not (Test-Path "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19")) {
+    New-Item -ItemType Directory -Path "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19" | Out-Null
+}
+robocopy "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new" "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19" /E /XD ".git" "__pycache__" "outputs"
+```
+
+Expected:
+
+```text
+Files copied from paper-new into paper-new-round19
+```
+
+- [ ] **Step 2: Verify the copied baseline layout exists**
+
+Run:
+
+```powershell
+Get-ChildItem "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19" | Select-Object Name
+```
+
+Expected:
+
+```text
+configs
+docs
+paper_new_selector
+scripts
+tests
+```
+
+- [ ] **Step 3: Port the advanced budget stack from `paper-new-round-16`**
+
+Run:
+
+```powershell
+Copy-Item "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16\paper_new_selector\budget_calibration.py" "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19\paper_new_selector\budget_calibration.py" -Force
+Copy-Item "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16\tests\test_budget_calibration.py" "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19\tests\test_budget_calibration.py" -Force
+```
+
+Expected:
+
+```text
+Advanced budget calibration files now exist in paper-new-round19
+```
+
+- [ ] **Step 4: Port the compatible `stage1_runner.py` and `pipeline.py` advanced branches**
+
+Run:
+
+```powershell
+Copy-Item "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16\paper_new_selector\stage1_runner.py" "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19\paper_new_selector\stage1_runner.py" -Force
+Copy-Item "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16\paper_new_selector\pipeline.py" "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19\paper_new_selector\pipeline.py" -Force
+Copy-Item "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16\tests\test_stage1_runner.py" "D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19\tests\test_stage1_runner.py" -Force
+```
+
+Expected:
+
+```text
+paper-new-round19 now contains self_calibrated / constrained / hybrid stage1 logic and stage1_budget_calibration output support
+```
+
+- [ ] **Step 5: Smoke-test the migrated advanced stack**
+
+Run:
+
+```bash
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
+python -m pytest tests/test_budget_calibration.py tests/test_stage1_runner.py -q
+```
+
+Expected:
+
+```text
+Migrated budget-calibration tests pass or reveal only port-specific issues to fix before Task 1
+```
 
 ### Task 1: Add descriptor extraction and regime routing modules
 
 **Files:**
-- Create: `paper-new-round-16/paper_new_selector/shape_descriptor.py`
-- Create: `paper-new-round-16/paper_new_selector/regime_router.py`
-- Test: `paper-new-round-16/tests/test_shape_descriptor.py`
-- Test: `paper-new-round-16/tests/test_regime_router.py`
+- Create: `paper-new-round19/paper_new_selector/shape_descriptor.py`
+- Create: `paper-new-round19/paper_new_selector/regime_router.py`
+- Test: `paper-new-round19/tests/test_shape_descriptor.py`
+- Test: `paper-new-round19/tests/test_regime_router.py`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -459,7 +595,7 @@ class RegimeRouterTests(unittest.TestCase):
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_shape_descriptor.py tests/test_regime_router.py -q
 ```
 
@@ -569,7 +705,7 @@ def route_budget_regime(descriptor: ShapeDescriptor, router_cfg: dict) -> Regime
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_shape_descriptor.py tests/test_regime_router.py -q
 ```
 
@@ -582,17 +718,17 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 add paper_new_selector/shape_descriptor.py paper_new_selector/regime_router.py tests/test_shape_descriptor.py tests/test_regime_router.py
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 commit -m "feat: add shape descriptor and regime router"
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 add paper_new_selector/shape_descriptor.py paper_new_selector/regime_router.py tests/test_shape_descriptor.py tests/test_regime_router.py
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 commit -m "feat: add shape descriptor and regime router"
 ```
 
 ### Task 2: Add hierarchical policy resolution on top of budget calibration
 
 **Files:**
-- Create: `paper-new-round-16/paper_new_selector/hierarchical_budget.py`
-- Modify: `paper-new-round-16/paper_new_selector/budget_calibration.py`
-- Test: `paper-new-round-16/tests/test_hierarchical_budget.py`
-- Test: `paper-new-round-16/tests/test_budget_calibration.py`
+- Create: `paper-new-round19/paper_new_selector/hierarchical_budget.py`
+- Modify: `paper-new-round19/paper_new_selector/budget_calibration.py`
+- Test: `paper-new-round19/tests/test_hierarchical_budget.py`
+- Test: `paper-new-round19/tests/test_budget_calibration.py`
 
 - [ ] **Step 1: Write the failing hierarchical tests**
 
@@ -639,7 +775,7 @@ class HierarchicalBudgetTests(unittest.TestCase):
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_hierarchical_budget.py -q
 ```
 
@@ -752,7 +888,7 @@ elif mode == "hierarchical_shape_routing":
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_hierarchical_budget.py tests/test_budget_calibration.py -q
 ```
 
@@ -765,16 +901,16 @@ PASS ... hierarchical_shape_routing mode covered
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 add paper_new_selector/hierarchical_budget.py paper_new_selector/budget_calibration.py tests/test_hierarchical_budget.py tests/test_budget_calibration.py
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 commit -m "feat: add hierarchical budget routing mode"
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 add paper_new_selector/hierarchical_budget.py paper_new_selector/budget_calibration.py tests/test_hierarchical_budget.py tests/test_budget_calibration.py
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 commit -m "feat: add hierarchical budget routing mode"
 ```
 
 ### Task 3: Wire the new mode through stage1 runner and pipeline outputs
 
 **Files:**
-- Modify: `paper-new-round-16/paper_new_selector/stage1_runner.py`
-- Modify: `paper-new-round-16/paper_new_selector/pipeline.py`
-- Test: `paper-new-round-16/tests/test_stage1_runner.py`
+- Modify: `paper-new-round19/paper_new_selector/stage1_runner.py`
+- Modify: `paper-new-round19/paper_new_selector/pipeline.py`
+- Test: `paper-new-round19/tests/test_stage1_runner.py`
 
 - [ ] **Step 1: Write the failing stage1 runner test**
 
@@ -808,7 +944,7 @@ def test_stage1_runner_uses_hierarchical_shape_routing_mode(self):
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_stage1_runner.py -k hierarchical_shape_routing -q
 ```
 
@@ -858,7 +994,7 @@ if stage1_summary.get("seed_budget", {}).get("mode") in {
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_stage1_runner.py tests/test_budget_calibration.py tests/test_hierarchical_budget.py -q
 ```
 
@@ -871,24 +1007,24 @@ PASS ... stage1 summary exposes hierarchical seed budget metadata
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 add paper_new_selector/stage1_runner.py paper_new_selector/pipeline.py tests/test_stage1_runner.py
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 commit -m "feat: wire hierarchical budget routing into stage1 pipeline"
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 add paper_new_selector/stage1_runner.py paper_new_selector/pipeline.py tests/test_stage1_runner.py
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 commit -m "feat: wire hierarchical budget routing into stage1 pipeline"
 ```
 
 ### Task 4: Add round-19 quick-comparison config family and summary scripts
 
 **Files:**
-- Create: `paper-new-round-16/configs/experiments/single_node_tuning_round19/...`
-- Create: `paper-new-round-16/scripts/append_round19_summary.py`
-- Create: `paper-new-round-16/scripts/run_round19_guard_batch.sh`
-- Create: `paper-new-round-16/scripts/run_round19_quick_compare.sh`
+- Create: `paper-new-round19/configs/experiments/single_node_tuning_round19/...`
+- Create: `paper-new-round19/scripts/append_round19_summary.py`
+- Create: `paper-new-round19/scripts/run_round19_guard_batch.sh`
+- Create: `paper-new-round19/scripts/run_round19_quick_compare.sh`
 
 - [ ] **Step 1: Add the base config and leaf configs**
 
 ```yaml
 # configs/experiments/single_node_tuning_round19/_base_selector_tuning_round19.yaml
 inherits:
-  - ../single_node_tuning_round181/_base_selector_tuning_round181.yaml
+  - ../single_node_screening/_base_selector_screening.yaml
 
 meta:
   stage: single_node_tuning_round19
@@ -994,7 +1130,7 @@ python -m paper_new_selector.run_selector_single_node --config configs/experimen
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/guard/r19_guard_forums.yaml --validate-only
 python -m paper_new_selector.run_selector_single_node --config configs/experiments/single_node_tuning_round19/guard/r19_guard_congressional.yaml --validate-only
 ```
@@ -1008,8 +1144,8 @@ JSON summary containing "mode": "selector_seed_search" and hierarchical seed_bud
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 add configs/experiments/single_node_tuning_round19 scripts/append_round19_summary.py scripts/run_round19_guard_batch.sh scripts/run_round19_quick_compare.sh
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 commit -m "feat: add round19 hierarchical quick-compare configs"
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 add configs/experiments/single_node_tuning_round19 scripts/append_round19_summary.py scripts/run_round19_guard_batch.sh scripts/run_round19_quick_compare.sh
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 commit -m "feat: add round19 hierarchical quick-compare configs"
 ```
 
 ### Task 5: Run verification and the quick-comparison suite
@@ -1023,7 +1159,7 @@ git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 comm
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 python -m pytest tests/test_shape_descriptor.py tests/test_regime_router.py tests/test_hierarchical_budget.py tests/test_budget_calibration.py tests/test_stage1_runner.py -q
 ```
 
@@ -1038,14 +1174,14 @@ All selected tests pass
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 bash scripts/run_round19_guard_batch.sh
 ```
 
 Expected:
 
 ```text
-Outputs written to paper-new/outputs/r19_guard_forums and paper-new/outputs/r19_guard_congressional
+Outputs written to paper-new-round19/outputs/r19_guard_forums and paper-new-round19/outputs/r19_guard_congressional
 ```
 
 - [ ] **Step 3: Inspect guard outputs before full quick compare**
@@ -1067,7 +1203,7 @@ Guard summary rows showing regime, resolved_seed_top_k, and best_top1 for both e
 Run:
 
 ```bash
-cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16
+cd D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19
 bash scripts/run_round19_quick_compare.sh
 ```
 
@@ -1080,8 +1216,8 @@ Summary rows for 4 full-run experiments and 4 ablation experiments
 - [ ] **Step 5: Commit experiment configs/scripts and plan adjustments if needed**
 
 ```bash
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 status --short
-git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 commit -am "chore: verify round19 hierarchical quick-compare suite"
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 status --short
+git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round19 commit -am "chore: verify round19 hierarchical quick-compare suite"
 ```
 
 ---
@@ -1125,6 +1261,7 @@ git -C D:\学习记录\导师项目\研究\caiqiyue_file\paper-new-round-16 comm
 
 The reason to keep this order is simple:
 
+- Task 0 prepares `paper-new-round19` and ports the advanced budget stack.
 - Task 1 creates the descriptor/router primitives.
 - Task 2 adds the hierarchical resolver.
 - Task 3 exposes the new mode through the actual pipeline.

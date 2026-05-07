@@ -1,0 +1,20 @@
+inherits:
+  - ./ns_c1_jobs_base.yaml
+
+meta:
+  experiment_id: ns_c7_jobs_no_privacy
+
+paths:
+  output_root: paper-new/outputs/ns_c7_jobs_no_privacy
+
+privacy:
+  enabled: false
+  mode: selector_support_gaussian
+  epsilon: inf
+  delta: 3e-6
+  enforce_budget: false
+
+stage1:
+  sigma: 0.0
+  delta: 3e-6
+  privacy_disabled: true
