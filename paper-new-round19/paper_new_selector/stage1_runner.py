@@ -8,6 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from .boundary import build_boundary_state
+from .baseline_modes import (
+    build_c4_only_summary,
+    build_expand_only_summary,
+    build_expand_private_summary,
+    extract_texts,
+)
 from .budget_calibration import (
     resolve_seed_top_k_by_hierarchical_routing,
     resolve_seed_top_k_by_self_calibration,
@@ -226,6 +232,55 @@ def run_stage1_with_runtime(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     config = load_yaml_config(config_path)
     sample_bundle = load_text_samples(config_path)
+    stage1_mode = str(config["pipeline"]["stage1_mode"]).strip().lower()
+    seed = int(config.get("meta", {}).get("seed", 42))
+    selector_cfg = dict(config.get("selector", {}))
+    bootstrap_budget = int(config.get("bootstrap", {}).get("num_prompts", 100))
+    init_texts = extract_texts(sample_bundle["init_samples"])
+    private_texts = extract_texts(sample_bundle["train_samples"])
+
+    if stage1_mode == "c4_only":
+        return (
+            build_c4_only_summary(
+                init_texts=init_texts,
+                final_budget=bootstrap_budget,
+                seed=seed,
+            ),
+            {
+                "generator_handle": None,
+                "shared_session": None,
+                "embedder": None,
+            },
+        )
+
+    if stage1_mode == "expand_only":
+        return (
+            build_expand_only_summary(
+                init_texts=init_texts,
+                seed_top_k=int(selector_cfg.get("seed_top_k", 6)),
+                seed=seed,
+            ),
+            {
+                "generator_handle": None,
+                "shared_session": None,
+                "embedder": None,
+            },
+        )
+
+    if stage1_mode == "expand_private":
+        return (
+            build_expand_private_summary(
+                private_texts=private_texts,
+                seed_top_k=int(selector_cfg.get("seed_top_k", 6)),
+                seed=seed,
+            ),
+            {
+                "generator_handle": None,
+                "shared_session": None,
+                "embedder": None,
+            },
+        )
+
     generator_handle = build_candidate_generator(config_path)
     embedder: Any | None = None
     if validate_only:

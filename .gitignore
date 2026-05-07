@@ -4,6 +4,7 @@
 
 # Local planning docs
 /docs/
+paper-new/docs/
 
 # Data, models, outputs, and config/assets directories
 **/datasets/
@@ -61,7 +62,6 @@ clash_for_linux/
 start/
 
 # Local literature/code reference projects kept out of this repo
-DPGA-TextSyn/
 DataInf/
 FedCOG/
 FedPHA/
@@ -75,5 +75,4 @@ POPri/
 PrivateKT/
 RewardDS/
 TracIn/
-WASP/
 

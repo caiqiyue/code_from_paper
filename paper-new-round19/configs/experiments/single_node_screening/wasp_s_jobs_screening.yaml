@@ -1,0 +1,10 @@
+inherits:
+  - ./_base_wasp_screening.yaml
+  - ../single_node_tuning_round19/_data_jobs.yaml
+
+meta:
+  experiment_id: wasp_s_jobs_screening
+
+paths:
+  output_root: paper-new-round19/outputs/wasp_s_jobs_screening
+

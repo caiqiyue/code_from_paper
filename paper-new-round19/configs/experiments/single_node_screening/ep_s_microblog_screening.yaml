@@ -1,0 +1,9 @@
+inherits:
+  - ./_base_expand_private_screening.yaml
+  - ../single_node_tuning_round19/_data_microblog.yaml
+
+meta:
+  experiment_id: ep_s_microblog_screening
+
+paths:
+  output_root: paper-new-round19/outputs/ep_s_microblog_screening
