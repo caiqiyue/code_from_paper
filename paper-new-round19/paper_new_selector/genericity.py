@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import statistics
 
 
 def _dot(left: list[float], right: list[float]) -> float:
@@ -63,6 +64,12 @@ def compute_genericity_penalty(
     gate_high: float = 1.0,
     low_scale: float = 1.0,
     mid_scale: float = 1.0,
+    candidate_length: int | None = None,
+    l_ref: float | None = None,
+    length_modulation_enabled: bool = False,
+    length_alpha: float = 0.0,
+    length_factor_min: float = 0.2,
+    length_factor_max: float = 5.0,
 ) -> float:
     """Estimate how close a candidate stays to the public initialization distribution."""
 
@@ -82,15 +89,30 @@ def compute_genericity_penalty(
     weighted_mean = sum(score * weight for score, weight in zip(top_scores, weights)) / denominator
     raw_score = max(0.0, min(1.0, float(weighted_mean)))
     if not apply_gate:
-        return raw_score
-    gate_scale = apply_genericity_gate(
-        score=raw_score,
-        gate_low=gate_low,
-        gate_high=gate_high,
-        low_scale=low_scale,
-        mid_scale=mid_scale,
-    )
-    return raw_score * gate_scale
+        gated = raw_score
+    else:
+        gate_scale = apply_genericity_gate(
+            score=raw_score,
+            gate_low=gate_low,
+            gate_high=gate_high,
+            low_scale=low_scale,
+            mid_scale=mid_scale,
+        )
+        gated = raw_score * gate_scale
+
+    if (
+        length_modulation_enabled
+        and candidate_length is not None
+        and l_ref is not None
+        and length_alpha != 0.0
+    ):
+        candidate_length_safe = max(int(candidate_length), 1)
+        ratio = float(l_ref) / float(candidate_length_safe)
+        raw_factor = ratio ** float(length_alpha)
+        factor = max(float(length_factor_min), min(float(length_factor_max), raw_factor))
+        gated = gated * factor
+
+    return gated
 
 
 def compute_genericity_penalties(
@@ -104,7 +126,28 @@ def compute_genericity_penalties(
     gate_high: float = 1.0,
     low_scale: float = 1.0,
     mid_scale: float = 1.0,
+    candidate_lengths: list[int] | None = None,
+    length_modulation_enabled: bool = False,
+    length_alpha: float = 0.0,
+    length_factor_min: float = 0.2,
+    length_factor_max: float = 5.0,
 ) -> list[float]:
+    if candidate_lengths is not None and len(candidate_lengths) != len(candidate_vectors):
+        raise ValueError(
+            f"candidate_lengths length ({len(candidate_lengths)}) does not match "
+            f"candidate_vectors length ({len(candidate_vectors)})"
+        )
+
+    l_ref: float | None = None
+    if length_modulation_enabled and candidate_lengths and length_alpha != 0.0:
+        l_ref = float(statistics.median(candidate_lengths))
+
+    lengths_iter: list[int | None]
+    if candidate_lengths is None:
+        lengths_iter = [None] * len(candidate_vectors)
+    else:
+        lengths_iter = list(candidate_lengths)
+
     return [
         compute_genericity_penalty(
             candidate_vector=candidate_vector,
@@ -116,6 +159,12 @@ def compute_genericity_penalties(
             gate_high=gate_high,
             low_scale=low_scale,
             mid_scale=mid_scale,
+            candidate_length=candidate_length,
+            l_ref=l_ref,
+            length_modulation_enabled=length_modulation_enabled,
+            length_alpha=length_alpha,
+            length_factor_min=length_factor_min,
+            length_factor_max=length_factor_max,
         )
-        for candidate_vector in candidate_vectors
+        for candidate_vector, candidate_length in zip(candidate_vectors, lengths_iter)
     ]

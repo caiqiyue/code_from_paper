@@ -157,6 +157,78 @@
 
 #### H2: the limits are present in `_build_pretext_raw()` but later lost when building `PretextExperimentConfig`
 - Supports: there is an additional config conversion layer after `_build_pretext_raw()`.
+
+## 2026-05-07 Round19 Genericity Length-Modulation Crash
+
+### Observations
+
+- Server-side `round19` quick comparison runs all failed inside `paper_new_selector.stage1_runner.run_stage1_with_runtime()`.
+- The exact error is `TypeError: compute_genericity_penalties() got an unexpected keyword argument 'candidate_lengths'`.
+- The failing call site is [paper_new_selector/stage1_runner.py](paper_new_selector/stage1_runner.py), which passes `candidate_lengths`, `length_modulation_enabled`, `length_alpha`, `length_factor_min`, and `length_factor_max`.
+- The current implementation in [paper_new_selector/genericity.py](paper_new_selector/genericity.py) does not accept any of those keyword arguments.
+- Local `paper-new-round19` reproduces the same mismatch, so this is not a server-only sync problem.
+- Existing test coverage already assumes the upgraded call contract:
+  - `tests/test_stage1_runner.py::test_stage1_runner_passes_length_modulation_config_to_genericity`
+  - design docs under `docs/2026-04-27-round5-*` also specify the intended `genericity.py` extension.
+- Existing tests did not catch the crash because `stage1_runner` tests patch `compute_genericity_penalties` with a mock instead of exercising the real implementation.
+
+### Hypotheses
+
+#### H1: `stage1_runner.py` was upgraded, but `genericity.py` was never finished to match the new keyword-only interface (ROOT HYPOTHESIS)
+- Supports: direct signature mismatch between caller and callee.
+- Supports: design docs and runner tests both describe the extended interface, but the production implementation does not.
+- Supports: local and server copies fail the same way.
+- Conflicts: none found.
+- Test: add a regression test that calls `compute_genericity_penalties()` with the new length-modulation kwargs and verify it fails before the fix, then implement the documented interface and rerun.
+
+#### H2: the server sync was incomplete, and only the server copy is inconsistent
+- Supports: server was the first place the bug surfaced during actual quick experiments.
+- Conflicts: local `genericity.py` has the same missing parameters, so the mismatch already exists before sync.
+- Test: compare local call site and local implementation signatures.
+
+#### H3: the intended fix is to remove the new kwargs from `stage1_runner.py`, not to extend `genericity.py`
+- Supports: removing kwargs would avoid the crash with minimal code change.
+- Conflicts: runner tests explicitly assert those kwargs are forwarded.
+- Conflicts: round5 design docs define the length-modulated genericity behavior as part of the algorithm, so stripping the kwargs would regress intended functionality.
+- Test: inspect tests and design docs for the expected public contract.
+
+### Experiments
+
+#### E1: Local signature comparison
+- Change: no code change; inspect `stage1_runner.py`, `genericity.py`, tests, and docs.
+- Expected confirm: caller and tests require length-modulation kwargs, callee does not implement them.
+- Result: Confirmed.
+
+#### E2: Server/local sync falsification
+- Change: no code change; inspect the local `genericity.py`.
+- Expected confirm: if local is already missing the kwargs, then this is not only a deployment sync issue.
+- Result: Confirmed.
+
+#### E3: Regression test for the real implementation
+- Change: add a test that calls the real `compute_genericity_penalties()` with `candidate_lengths` and length-modulation kwargs.
+- Expected confirm: current code fails before any production fix is applied.
+- Result: Confirmed. Before the fix, both new regression tests failed with `TypeError: compute_genericity_penalties() got an unexpected keyword argument 'candidate_lengths'`.
+
+### Root Cause
+
+- `paper_new_selector/stage1_runner.py` had already been upgraded to forward the round5/round19 length-modulation genericity parameters, but `paper_new_selector/genericity.py` was still on the older interface and implementation.
+- This is not merely a local/server sync issue: the same caller/callee mismatch exists in the local repository, and the server only surfaced it first because the quick-comparison batch exercised the real implementation path.
+- Existing tests missed the problem because the `stage1_runner` coverage mocked `compute_genericity_penalties()` instead of executing the concrete function with the forwarded kwargs.
+
+### Fix
+
+- Extend `compute_genericity_penalty()` to accept the documented length-modulation parameters and apply modulation only when `length_modulation_enabled=True`, `candidate_length` is present, `l_ref` is present, and `length_alpha != 0.0`.
+- Extend `compute_genericity_penalties()` to:
+  - accept `candidate_lengths` plus the new modulation kwargs
+  - validate vector/length alignment
+  - compute a batch median `l_ref`
+  - preserve exact old behavior when modulation is disabled
+- Add regression tests that:
+  - prove the new kwargs are accepted without changing disabled behavior
+  - prove non-zero `length_alpha` modulates penalties against the batch median length
+- Verification:
+  - targeted regression tests pass
+  - full suite passes: `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 98 tests ... OK`
 - Conflicts: inspecting `_build_pretext_raw()` already shows the keys are absent at the raw-mapping stage.
 - Test: compare `thesis_config.data` with raw output before `PretextExperimentConfig.from_mapping(...)`.
 

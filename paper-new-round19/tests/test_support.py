@@ -1,6 +1,10 @@
 import unittest
 
-from paper_new_selector.genericity import apply_genericity_gate, compute_genericity_penalty
+from paper_new_selector.genericity import (
+    apply_genericity_gate,
+    compute_genericity_penalties,
+    compute_genericity_penalty,
+)
 from paper_new_selector.support import apply_gaussian_privacy_noise, compute_private_support
 
 
@@ -95,6 +99,51 @@ class SupportTests(unittest.TestCase):
         raw_score = (1.0 * 1.0 + 0.7 * 0.5 + 0.0 * 0.1) / (1.0 + 0.5 + 0.1)
         expected = raw_score * 0.45
         self.assertAlmostEqual(penalty, expected, places=6)
+
+    def test_genericity_penalties_accept_length_kwargs_without_changing_disabled_behavior(self):
+        baseline = compute_genericity_penalties(
+            candidate_vectors=[[1.0, 0.0], [0.0, 1.0]],
+            reference_vectors=[[1.0, 0.0], [0.7, 0.714142842854285], [0.0, 1.0]],
+            reference_top_k=3,
+            reference_rank_weights=[1.0, 0.5, 0.1],
+            gate_low=0.78,
+            gate_high=0.90,
+            low_scale=0.10,
+            mid_scale=0.45,
+            apply_gate=True,
+        )
+        length_disabled = compute_genericity_penalties(
+            candidate_vectors=[[1.0, 0.0], [0.0, 1.0]],
+            reference_vectors=[[1.0, 0.0], [0.7, 0.714142842854285], [0.0, 1.0]],
+            reference_top_k=3,
+            reference_rank_weights=[1.0, 0.5, 0.1],
+            gate_low=0.78,
+            gate_high=0.90,
+            low_scale=0.10,
+            mid_scale=0.45,
+            apply_gate=True,
+            candidate_lengths=[5, 20],
+            length_modulation_enabled=False,
+            length_alpha=0.6,
+            length_factor_min=0.2,
+            length_factor_max=5.0,
+        )
+        self.assertEqual(length_disabled, baseline)
+
+    def test_genericity_penalties_apply_length_modulation_against_batch_median(self):
+        penalties = compute_genericity_penalties(
+            candidate_vectors=[[1.0, 0.0], [1.0, 0.0], [1.0, 0.0]],
+            reference_vectors=[[1.0, 0.0], [0.0, 1.0]],
+            reference_top_k=1,
+            candidate_lengths=[5, 10, 20],
+            length_modulation_enabled=True,
+            length_alpha=1.0,
+            length_factor_min=0.2,
+            length_factor_max=5.0,
+        )
+        self.assertAlmostEqual(penalties[0], 2.0, places=6)
+        self.assertAlmostEqual(penalties[1], 1.0, places=6)
+        self.assertAlmostEqual(penalties[2], 0.5, places=6)
 
     def test_privacy_noise_is_deterministic_for_the_same_seed(self):
         base_scores = [1.0, 2.0, 3.0]
