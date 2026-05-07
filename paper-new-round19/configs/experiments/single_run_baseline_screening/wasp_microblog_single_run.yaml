@@ -1,0 +1,14 @@
+inherits:
+  - ./_base_single_run_wasp.yaml
+  - ../single_node_tuning_round19/_data_microblog.yaml
+
+meta:
+  experiment_id: wasp_microblog_single_run
+
+paths:
+  output_root: paper-new-round19/outputs/single_run_baseline_screening/wasp/microblog
+
+external_baseline:
+  source_artifact_path: WASP/outputs/paper_new_screening/microblog/train.jsonl
+  source_dataset_name: microblog
+  summary_output_path: paper-new-round19/outputs/single_run_baseline_screening/wasp/microblog/stage1_summary.json

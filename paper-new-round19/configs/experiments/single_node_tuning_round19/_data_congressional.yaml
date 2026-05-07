@@ -1,4 +1,6 @@
 data:
+  # Note: server and local resource roots both use thesis_platform/datasets/congressional,
+  # not thesis_platform/datasets/pretext_congressional.
   dataset_name: congressional
   train_path: thesis_platform/datasets/congressional/formatted/congressional_train.json
   eval_path: thesis_platform/datasets/congressional/formatted/congressional_eval.json

@@ -1,0 +1,17 @@
+inherits:
+  - ../single_node_screening/_base_selector_screening.yaml
+
+meta:
+  stage: single_run_baseline_screening
+  seed: 42
+
+paths:
+  output_root: paper-new-round19/outputs/single_run_baseline_screening/default
+
+protocol:
+  comparison_type: single_run_four_dataset_baseline_screening
+  metrics:
+    - best_top1
+    - best_top3
+    - best_top5
+    - best_top10
