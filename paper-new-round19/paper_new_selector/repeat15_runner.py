@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -183,6 +184,13 @@ def initialize_repeat15_summary(summary_path: str | Path) -> Path:
     return summary_path
 
 
+def build_repeat15_child_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
+    env = dict(base_env or os.environ)
+    if env.get("CUDA_VISIBLE_DEVICES") and not env.get("CUDA_DEVICE_ORDER"):
+        env["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    return env
+
+
 def run_repeat15_batch(project_root: str | Path | None = None) -> int:
     root = Path(project_root).resolve() if project_root is not None else resolve_repeat15_project_root()
     logdir = root / "logs"
@@ -196,6 +204,7 @@ def run_repeat15_batch(project_root: str | Path | None = None) -> int:
     output_root.mkdir(parents=True, exist_ok=True)
     initialize_repeat15_summary(summary_path)
     master_path.write_text("", encoding="utf-8")
+    child_env = build_repeat15_child_env()
 
     had_failure = 0
 
@@ -221,6 +230,7 @@ def run_repeat15_batch(project_root: str | Path | None = None) -> int:
                 stdout=handle,
                 stderr=subprocess.STDOUT,
                 check=False,
+                env=child_env,
             )
 
         if completed.returncode == 0:

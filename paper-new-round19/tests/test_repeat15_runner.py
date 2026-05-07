@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -142,7 +143,7 @@ class Repeat15RunnerTests(unittest.TestCase):
                 Path(target_path).write_text("meta:\n  seed: 1\n", encoding="utf-8")
                 return Path(target_path)
 
-            def fake_subprocess(cmd, cwd, stdout, stderr, check):
+            def fake_subprocess(cmd, cwd, stdout, stderr, check, **kwargs):
                 completed.append((cmd, cwd, Path(stdout.name)))
                 return type("Completed", (), {"returncode": 1})()
 
@@ -167,6 +168,44 @@ class Repeat15RunnerTests(unittest.TestCase):
             )
             self.assertTrue((temp_root / "tmp_round19_repeat15" / "r19_repeat15_round01_jobs_seed01.yaml").exists())
             self.assertTrue((temp_root / "logs" / "round19_full_repeat15_summary.tsv").exists())
+
+    def test_run_repeat15_batch_pins_cuda_device_order_for_child_processes(self):
+        spec = build_repeat15_run_specs()[0]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir) / "paper-new-round19"
+            temp_root.mkdir()
+
+            completed = []
+
+            def fake_write_config(run_spec, target_path):
+                Path(target_path).parent.mkdir(parents=True, exist_ok=True)
+                Path(target_path).write_text("meta:\n  seed: 1\n", encoding="utf-8")
+                return Path(target_path)
+
+            def fake_subprocess(cmd, cwd, stdout, stderr, check, **kwargs):
+                completed.append((cmd, cwd, dict(kwargs.get("env", {}))))
+                return type("Completed", (), {"returncode": 1})()
+
+            with patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "1"}, clear=False), patch(
+                "paper_new_selector.repeat15_runner.build_repeat15_run_specs",
+                return_value=[spec],
+            ), patch(
+                "paper_new_selector.repeat15_runner.write_repeat15_config",
+                side_effect=fake_write_config,
+            ), patch(
+                "paper_new_selector.repeat15_runner.subprocess.run",
+                side_effect=fake_subprocess,
+            ), patch(
+                "paper_new_selector.repeat15_runner.time.sleep",
+                return_value=None,
+            ):
+                status = run_repeat15_batch(temp_root)
+
+            self.assertEqual(status, 1)
+            self.assertEqual(len(completed), 1)
+            self.assertEqual(completed[0][2]["CUDA_VISIBLE_DEVICES"], "1")
+            self.assertEqual(completed[0][2]["CUDA_DEVICE_ORDER"], "PCI_BUS_ID")
 
 
 if __name__ == "__main__":

@@ -451,3 +451,82 @@
 - Verify with:
   - targeted repeat15 tests first
   - then full `python -m unittest discover -s tests -p "test_*.py" -v`
+
+## 2026-05-07 Round19 Repeat15 OOM While A6000 Still Has Free Memory
+
+### Observations
+
+- The repeat15 batch was relaunched from `paper-new-round19` with `pretext` active and `CUDA_VISIBLE_DEVICES=1`.
+- The first several experiments all failed quickly with the same error family:
+  - `thesis_platform.models.backends.VllmGenerationError: vllm_runtime_gpu_oom`
+- The failing logs report:
+  - `vLLM generation memory precheck | free=10.58 GiB required=2.00 GiB gpu=0 visible=1`
+  - `torch.cuda.OutOfMemoryError ... GPU 0 has a total capacty of 10.75 GiB`
+- `10.75 GiB` matches the server's `NVIDIA GeForce RTX 2080 Ti`, not the `NVIDIA RTX A6000` (49 GiB).
+- At the same time, the user-provided `nvidia-smi` snapshot showed the A6000 still had large free memory, so the OOM cannot be explained by true exhaustion of the intended target card.
+- `VllmTextBackend` does not pass a device ordinal into vLLM; the effective device selection is driven by the launcher environment.
+- The current `scripts/run_round19_full_repeat15.sh` script does not export `CUDA_DEVICE_ORDER=PCI_BUS_ID`.
+- Historical `paper-new` / `paper-new-round19` vLLM docs and run notes repeatedly pair:
+  - `export CUDA_DEVICE_ORDER=PCI_BUS_ID`
+  - `export CUDA_VISIBLE_DEVICES=1`
+- CUDA ordinal order is not guaranteed to match `nvidia-smi` index order unless `CUDA_DEVICE_ORDER=PCI_BUS_ID` is fixed.
+
+### Hypotheses
+
+#### H1: repeat15 relies on `CUDA_VISIBLE_DEVICES=1` but does not force `CUDA_DEVICE_ORDER=PCI_BUS_ID`, so CUDA ordinal `1` resolves to the 2080 Ti instead of the A6000 (ROOT HYPOTHESIS)
+- Supports: the failing process clearly sees a `10.75 GiB` GPU, which matches the 2080 Ti.
+- Supports: the log still reports `visible=1`, so the environment variable exists but may be interpreted under the wrong device order.
+- Supports: earlier successful experiment docs explicitly include `CUDA_DEVICE_ORDER=PCI_BUS_ID` alongside `CUDA_VISIBLE_DEVICES=1`.
+- Conflicts: none.
+- Test: add a regression test that requires repeat15 child processes to run with `CUDA_DEVICE_ORDER=PCI_BUS_ID` whenever `CUDA_VISIBLE_DEVICES` is present; confirm current code does not set that env and the test fails.
+
+#### H2: vLLM startup memory precheck is querying the wrong GPU, but the actual model load still targets the A6000
+- Supports: precheck and runtime both mention `gpu=0`, which could be logical index only.
+- Conflicts: runtime OOM total capacity is still `10.75 GiB`, so the actual model load also landed on the smaller card.
+- Test: inspect runtime traceback and compare total capacity with server GPU inventory.
+
+#### H3: the batch really is running on A6000, but another hidden process already consumed ~38 GiB before vLLM startup
+- Supports: A6000 did have other processes on it.
+- Conflicts: if that were true, the runtime total capacity would still be ~49 GiB rather than `10.75 GiB`.
+- Test: compare reported total device capacity in the traceback with `nvidia-smi`.
+
+### Experiments
+
+#### E1: compare failure capacity with server inventory
+- Change: no code change; compare the traceback's total capacity with the user-provided `nvidia-smi`.
+- Expected confirm: the failing process is on the 2080 Ti, not the A6000.
+- Result: Confirmed. `10.75 GiB` matches the 2080 Ti.
+
+#### E2: compare repeat15 launch path with earlier successful launch conventions
+- Change: no code change; inspect local scripts/docs for prior vLLM launches.
+- Expected confirm: earlier successful runs explicitly set `CUDA_DEVICE_ORDER=PCI_BUS_ID`, while repeat15 does not.
+- Result: Confirmed.
+
+#### E3: regression test for repeat15 child env
+- Change: add a repeat15 test that captures `subprocess.run(..., env=...)` and requires `CUDA_DEVICE_ORDER=PCI_BUS_ID` to be present when `CUDA_VISIBLE_DEVICES` is set.
+- Expected confirm: current runner does not enforce this, so the test fails before the fix.
+- Result: Confirmed. The new test failed before the fix because repeat15 child runs inherited no explicit `CUDA_DEVICE_ORDER`.
+
+### Root Cause
+
+- The repeat15 execution path depended on `CUDA_VISIBLE_DEVICES=1` but did not also pin `CUDA_DEVICE_ORDER=PCI_BUS_ID`. On this server, CUDA ordinal order is not matching the `nvidia-smi` display order, so ordinal `1` resolved to the smaller 2080 Ti. That is why the failing logs reported `visible=1` but a total GPU capacity of only `10.75 GiB`. The OOM was therefore not a real A6000 exhaustion event; it was a wrong-device selection bug in the new repeat15 launch path.
+
+### Fix Plan
+
+- Make repeat15 explicitly stabilize CUDA ordinal mapping for child runs by exporting/passing `CUDA_DEVICE_ORDER=PCI_BUS_ID` alongside the inherited `CUDA_VISIBLE_DEVICES`.
+- Keep the fix local to `paper_new_selector.repeat15_runner` and `scripts/run_round19_full_repeat15.sh`, since the failure was introduced by this new repeat15 execution path.
+- Add a regression test that inspects the child process env passed by `run_repeat15_batch()`.
+
+### Fix
+
+- Added `build_repeat15_child_env()` in `paper_new_selector.repeat15_runner`:
+  - inherit the parent environment
+  - if `CUDA_VISIBLE_DEVICES` is set and `CUDA_DEVICE_ORDER` is absent, force `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+  - pass that env explicitly to every `subprocess.run(...)` child launch
+- Hardened `scripts/run_round19_full_repeat15.sh` with the same guard so shell-based launches also pin PCI bus ordering before Python starts.
+- Added a regression test in `tests/test_repeat15_runner.py` that captures the child env and requires:
+  - `CUDA_VISIBLE_DEVICES=1`
+  - `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+- Verification:
+  - `python -m unittest tests.test_repeat15_runner -v` -> pass
+  - `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 105 tests ... OK`
