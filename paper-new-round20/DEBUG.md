@@ -898,6 +898,34 @@
   - bootstrap `gpu_memory_utilization == 0.18`
   - bootstrap `startup_required_free_gb == 2`
 
+## 2026-05-08 Round20 Final Probe Retune To Match Stable Experiments
+
+### Observations
+
+- Even after the intermediate retunes, natural round20 probes still failed frequently with `# GPU blocks: 0`.
+- The user's requirement changed: stop prioritizing suppression of `30GiB+` peaks and instead align round20's vLLM window with the experiments that previously ran reliably.
+- The stable reference profile in existing experiments is:
+  - `llm.generator.gpu_memory_utilization = 0.35`
+  - `llm.generator.startup_required_free_gb = 2`
+  - `bootstrap.gpu_memory_utilization = 0.35`
+  - `bootstrap.startup_required_free_gb = 2`
+
+### Root Cause
+
+- Round20's special low-footprint probe profile introduced a new unstable runtime window that other experiments did not use. Since the immediate goal is to avoid frequent `GPU blocks: 0`, the most defensible move is to remove that custom window and realign round20 with the known-stable experiment profile.
+
+### Fix
+
+- Reverted round20 probe/compare vLLM profile to match the stable baseline experiments:
+  - `llm.generator.gpu_memory_utilization: 0.35`
+  - `llm.generator.startup_required_free_gb: 2`
+  - `bootstrap.gpu_memory_utilization: 0.35`
+  - `bootstrap.startup_required_free_gb: 2`
+
+### Verification
+
+- Updated config regression expectations accordingly.
+
 ## 2026-05-07 Round19 Repeat15 Summary Crash After Successful First Run
 
 ### Observations
