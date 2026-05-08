@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
-from ..thesis_bridge import load_yaml_config, resolve_repo_root
+from ..thesis_bridge import load_yaml_config, resolve_config_path, resolve_repo_root
 from .common_eval import run_external_stage1_summary_eval
 from .dpga_adapter import build_dpga_stage1_summary
 from .wasp_adapter import build_wasp_stage1_summary
@@ -58,6 +60,7 @@ def resolve_external_single_run_contract(config_path: str | Path) -> dict[str, A
             )
         )
     )
+    generator_entry = str(external_cfg.get("generator_entry", "")).strip()
     budget = int(external_cfg.get("expected_budget", 100))
     output_root = _resolve_relative_to_repo(str(config.get("paths", {}).get("output_root", "")))
     return {
@@ -66,15 +69,60 @@ def resolve_external_single_run_contract(config_path: str | Path) -> dict[str, A
         "external_cfg": external_cfg,
         "source_path": source_path,
         "summary_output_path": summary_output_path,
+        "generator_entry": generator_entry,
         "budget": budget,
         "output_root": output_root,
     }
 
 
+def materialize_external_source_artifact(config_path: str | Path) -> Path:
+    contract = resolve_external_single_run_contract(config_path)
+    source_path = Path(contract["source_path"])
+    if source_path.exists():
+        return source_path
+
+    generator_entry = str(contract.get("generator_entry", "")).strip()
+    if not generator_entry:
+        raise FileNotFoundError(
+            f"External source artifact is missing and no generator_entry is configured: {source_path}"
+        )
+
+    repo_root = resolve_repo_root()
+    entry_path = (repo_root / generator_entry).resolve()
+    if not entry_path.exists():
+        raise FileNotFoundError(f"Configured external generator entry does not exist: {entry_path}")
+
+    command = [
+        sys.executable,
+        str(entry_path),
+        "--config",
+        str(resolve_config_path(config_path)),
+    ]
+    result = subprocess.run(
+        command,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "External baseline artifact generation failed.\n"
+            f"command: {' '.join(command)}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+    if not source_path.exists():
+        raise FileNotFoundError(
+            f"External baseline generator completed but did not create the expected source artifact: {source_path}"
+        )
+    return source_path
+
+
 def build_external_stage1_summary_from_config(config_path: str | Path) -> tuple[Path, dict[str, Any]]:
     contract = resolve_external_single_run_contract(config_path)
     stage1_mode = str(contract["stage1_mode"])
-    source_path = Path(contract["source_path"])
+    source_path = materialize_external_source_artifact(config_path)
     summary_output_path = Path(contract["summary_output_path"])
     budget = int(contract["budget"])
     if stage1_mode == "wasp_external":
@@ -108,6 +156,7 @@ def run_external_single_run_from_config(
             "stage1_mode": str(contract["stage1_mode"]),
             "source_path": str(contract["source_path"]),
             "source_exists": bool(Path(contract["source_path"]).exists()),
+            "generator_entry": str(contract.get("generator_entry", "")),
             "summary_path": str(contract["summary_output_path"]),
             "expected_budget": int(contract["budget"]),
             "external_baseline": dict(config.get("external_baseline", {})),
