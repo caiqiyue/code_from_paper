@@ -1,0 +1,8 @@
+inherits:
+  - ./_base_single_run_common.yaml
+
+pipeline:
+  stage1_mode: expand_only
+
+bootstrap:
+  seed_text_max_words: 40

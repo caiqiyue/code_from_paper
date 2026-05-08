@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_selector_tuning_round4_ext.yaml
+
+selector:
+  genericity_gate_mid_scale: 0.40

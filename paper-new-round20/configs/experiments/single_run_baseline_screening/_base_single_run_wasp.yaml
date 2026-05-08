@@ -1,0 +1,21 @@
+inherits:
+  - ./_base_single_run_common.yaml
+
+pipeline:
+  stage1_mode: wasp_external
+
+external_baseline:
+  baseline_name: WASP
+  source_kind: generated_jsonl
+  source_repo_root: WASP
+  generator_entry: WASP/src/generate_paper_new_artifacts.py
+  prepare_entry: WASP/src/prepare_paper_new_artifacts.py
+  adapter_entry: WASP/src/run_paper_new_screening.py
+  eval_entry: paper-new-round19/paper_new_selector/run_external_baseline_single_run.py
+  expected_budget: 100
+  generation:
+    prompt_variants: 3
+    public_seed_count: 12
+    private_reference_count: 8
+    public_pool_limit: 96
+    max_rounds: 4

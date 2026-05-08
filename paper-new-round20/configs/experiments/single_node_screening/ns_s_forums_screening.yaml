@@ -1,0 +1,14 @@
+inherits:
+  - ./_base_selector_screening.yaml
+
+meta:
+  experiment_id: ns_s_forums_screening
+
+paths:
+  output_root: paper-new/outputs/ns_s_forums_screening
+
+data:
+  dataset_name: forums
+  train_path: thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

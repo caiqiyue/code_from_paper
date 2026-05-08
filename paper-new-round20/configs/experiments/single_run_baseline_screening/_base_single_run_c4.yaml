@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_single_run_common.yaml
+
+pipeline:
+  stage1_mode: c4_only

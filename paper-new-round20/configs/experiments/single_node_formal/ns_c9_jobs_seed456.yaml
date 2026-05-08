@@ -1,0 +1,9 @@
+inherits:
+  - ./ns_c1_jobs_base.yaml
+
+meta:
+  experiment_id: ns_c9_jobs_seed456
+  seed: 456
+
+paths:
+  output_root: paper-new/outputs/ns_c9_jobs_seed456

@@ -1,0 +1,9 @@
+inherits:
+  - ./ns_c1_jobs_base.yaml
+  - ../../templates/noise_eps05.yaml
+
+meta:
+  experiment_id: ns_c5_jobs_eps05
+
+paths:
+  output_root: paper-new/outputs/ns_c5_jobs_eps05

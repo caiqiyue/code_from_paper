@@ -1,0 +1,130 @@
+paths:
+  datasets_root: thesis_platform/datasets
+  models_root: thesis_platform/open_model
+  pretext_root: PrE-Text
+  output_root: paper-new-round19/outputs/repeat10_baseline_screening/expand_only/forums/seed05
+runtime:
+  device: cuda
+embedding:
+  model_path: thesis_platform/open_model/all_minilm_l6_v2
+  device: cuda
+llm:
+  generator:
+    engine: vllm
+    model_name_or_path: thesis_platform/open_model/llama_2_7b_hf
+    device: cuda
+    dtype: auto
+    use_chat_template: false
+    temperature: 1.0
+    top_p: 1.0
+    max_new_tokens: 128
+    max_model_len: 512
+    gpu_memory_utilization: 0.35
+    startup_required_free_gb: 2
+    tensor_parallel_size: 1
+    enforce_eager: true
+    role: generator
+privacy:
+  enabled: true
+  mode: selector_support_gaussian
+  epsilon: 1.29
+  delta: 3e-6
+  enforce_budget: false
+stage1:
+  sigma: 11.3
+  delta: 3e-6
+  privacy_disabled: false
+meta:
+  stage: repeat10_baseline_screening
+  seed: 5
+  experiment_id: eo_forums_repeat10_seed05
+pipeline:
+  stage1_mode: expand_only
+  stage2_mode: pretext_bootstrap
+  run_eval: true
+generator:
+  backend: thesis_pretext_prompt
+  source: thesis_platform/adapters/generators/pretext_prompt_generator.py
+  initial_prompt: Generate realistic texts that match the target dataset style and
+    task domain.
+  candidate_count: 24
+  generated_per_round: 8
+  exemplars_per_prompt: 2
+  max_new_tokens: 128
+  max_rounds: 4
+  max_prompt_chars: 512
+  max_exemplar_chars: 256
+selector:
+  top_q: 4
+  rank_weights:
+  - 1.0
+  - 0.6
+  - 0.3
+  - 0.15
+  seed_top_k: 6
+  hard_negative_top_k: 6
+  private_knn_k: 8
+  reference_top_k: 6
+  reference_rank_weights:
+  - 1.0
+  - 0.8
+  - 0.6
+  - 0.4
+  - 0.25
+  - 0.1
+  density_lambda: 0.5
+  novelty_lambda: 0.3
+  length_lambda: 0.2
+  length_floor: 12
+  length_ceiling: 128
+  lambda_generic: 0.35
+  lambda_redundancy: 0.25
+  genericity_gate_low: 0.78
+  genericity_gate_high: 0.9
+  genericity_gate_low_scale: 0.1
+  genericity_gate_mid_scale: 0.45
+bootstrap:
+  num_prompts: 100
+  generator_backend: vllm
+  generator_model: llama2_7b
+  batch_size: 1
+  max_tokens: 85
+  temperature: 1.0
+  top_p: 1.0
+  max_model_len: 512
+  tensor_parallel_size: 1
+  gpu_memory_utilization: 0.35
+  startup_required_free_gb: 2
+  enforce_eager: true
+  device: cuda
+  seed_text_max_words: 40
+eval:
+  enabled: true
+  mode: pretext_small
+  small_eval_mode: gpt2
+  device: cuda
+  max_samples_per_client: 16
+  initialization_min_words: 20
+  small_epochs: 6
+  small_batch_size: 8
+  small_eval_batch_size: 2
+  small_grad_accum_steps: 4
+  small_cutoff_len: 64
+  small_learning_rate: 0.0002
+  small_num_proc: 1
+data:
+  train_limit: 256
+  eval_limit: 256
+  initialization_limit: 1024
+  dataset_name: forums
+  train_path: thesis_platform/datasets/pretext_forums/formatted/forums_train.json
+  eval_path: thesis_platform/datasets/pretext_forums/formatted/forums_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+protocol:
+  comparison_type: repeat10_four_dataset_baseline_screening
+  metrics:
+  - best_top1
+  - best_top3
+  - best_top5
+  - best_top10
+  repeat_protocol: round19_repeat10_baselines

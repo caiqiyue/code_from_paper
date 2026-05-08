@@ -1,0 +1,48 @@
+inherits:
+  - ../single_node_formal/_base_selector_formal.yaml
+
+meta:
+  stage: single_node_tuning_round3
+  seed: 42
+
+paths:
+  output_root: paper-new/outputs/ns_tuning_round3_default
+
+data:
+  train_limit: 256
+  eval_limit: 256
+  initialization_limit: 1024
+
+llm:
+  generator:
+    max_new_tokens: 128
+
+generator:
+  candidate_count: 24
+  generated_per_round: 8
+  max_rounds: 4
+  max_new_tokens: 128
+
+selector:
+  seed_top_k: 6
+  hard_negative_top_k: 6
+  reference_top_k: 6
+  reference_rank_weights: [1.0, 0.8, 0.6, 0.4, 0.25, 0.1]
+
+bootstrap:
+  num_prompts: 100
+  max_tokens: 85
+
+eval:
+  enabled: true
+  mode: pretext_small
+  small_eval_mode: gpt2
+  max_samples_per_client: 16
+  initialization_min_words: 20
+  small_epochs: 6
+  small_batch_size: 8
+  small_eval_batch_size: 2
+  small_grad_accum_steps: 4
+  small_cutoff_len: 64
+  small_learning_rate: 0.0002
+  small_num_proc: 1

@@ -1,0 +1,14 @@
+inherits:
+  - ./_base_single_run_wasp.yaml
+  - ../single_node_tuning_round19/_data_forums.yaml
+
+meta:
+  experiment_id: wasp_forums_single_run
+
+paths:
+  output_root: paper-new-round19/outputs/single_run_baseline_screening/wasp/forums
+
+external_baseline:
+  source_artifact_path: WASP/outputs/paper_new_screening/forums/train.jsonl
+  source_dataset_name: forums
+  summary_output_path: paper-new-round19/outputs/single_run_baseline_screening/wasp/forums/stage1_summary.json
