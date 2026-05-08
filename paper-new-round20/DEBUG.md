@@ -754,6 +754,87 @@
 - `python -m unittest tests.test_pipeline_smoke -v` -> pass
 - `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 115 tests ... OK`
 
+## 2026-05-08 Round20 Still Spikes To 30GiB+ During Jobs Arbitration
+
+### Observations
+
+- After the eval-subprocess fix, the user still observed `round20` reaching `33GiB+` on the A6000 during `r20_jobs_arbitration`.
+- The offending process was the main experiment process itself, not an eval subprocess.
+- Remote `r20_jobs_arbitration.log` showed:
+  - `vLLM generation memory precheck | free=25.01 GiB required=2.00 GiB`
+  - `# GPU blocks: 2504`
+- The large cache allocation happened before downstream eval finished, so the remaining spike was not explained by the already-fixed eval overlap bug.
+- `round20` configs still inherited `round19`'s full quick-compare vLLM profile:
+  - `llm.generator.gpu_memory_utilization = 0.35`
+  - `bootstrap.gpu_memory_utilization = 0.35`
+  - `startup_required_free_gb = 2`
+- For the user’s shared-GPU scenario, this profile is too aggressive for the "jobs + microblog uncertain-path validation" purpose of round20.
+
+### Hypotheses
+
+#### H1: the 33GiB+ spike is still caused by eval overlap, so the eval-subprocess fix did not actually work
+- Supports: the earlier bug also produced unexpectedly large end-to-end memory residency.
+- Conflicts: the observed high-memory process during `jobs_arbitration` was the main experiment process while Stage 1 / Stage 2 generation was still active.
+- Test: inspect the running PID / cmdline and correlate with the experiment log phase.
+
+#### H2: round20 arbitration creates extra GPU models or duplicate vLLM engines (ROOT HYPOTHESIS REJECTED)
+- Supports: the new algorithm branch is in round20, so it is a natural suspect.
+- Conflicts: arbitration only compares already-computed policy metrics and does not instantiate extra generator backends.
+- Test: inspect local round20 arbitration code paths and remote log stage ordering.
+
+#### H3: round20 quick-compare configs still use the inherited high-footprint vLLM profile, so the remaining 30GiB+ spike is an experiment-profile issue rather than an algorithm bug (ROOT HYPOTHESIS)
+- Supports: remote logs show high cache-block count (`2504`) already during Stage 1 generation.
+- Supports: local config inheritance confirms round20 had not yet introduced a low-footprint shared-GPU profile.
+- Supports: the round20 first validation pass only targets uncertain-path behavior on `jobs` and `microblog`, so it does not require the same aggressive vLLM footprint as round19 full quick-compare.
+- Test: lower round20's compare-profile vLLM utilization / startup gate locally, add config regression tests, and keep the algorithm unchanged.
+
+### Experiments
+
+#### E1: inspect the live high-memory process phase
+- Change: inspect the remote PID, batch logs, and `r20_jobs_arbitration.log`.
+- Expected confirm: if the log is still inside Stage 1 / Stage 2 generation while the process is already at `33GiB+`, the spike is intrinsic to the current runtime profile rather than a downstream eval overlap.
+- Result: Confirmed.
+
+#### E2: compare round20 config inheritance with its intended validation scope
+- Change: inspect `configs/experiments/single_node_tuning_round20/_base_selector_tuning_round20.yaml`.
+- Expected confirm: if round20 simply inherits round19’s full vLLM profile, it lacks a dedicated low-footprint shared-GPU compare profile.
+- Result: Confirmed.
+
+#### E3: add a dedicated low-footprint round20 compare profile
+- Change: override round20 base config with:
+  - `llm.generator.gpu_memory_utilization: 0.18`
+  - `llm.generator.startup_required_free_gb: 20`
+  - `bootstrap.gpu_memory_utilization: 0.18`
+  - `bootstrap.startup_required_free_gb: 20`
+- Expected confirm: round20 compare experiments keep the same algorithmic logic while reducing the steady-state vLLM cache footprint and refusing to start when the shared GPU is too crowded.
+- Result: Confirmed locally via merged-config tests.
+
+### Root Cause
+
+- The remaining `33GiB+` spike was not another lifecycle leak. After the eval isolation fix, the high memory came from the round20 compare profile itself: it still inherited round19’s high-footprint vLLM settings (`gpu_memory_utilization=0.35`, `startup_required_free_gb=2`) even though round20’s first purpose was only lightweight uncertain-path validation on a shared A6000. In other words, the algorithm was fine, but the round20 experiment profile was still too expensive for the intended shared-GPU operating mode.
+
+### Fix Plan
+
+- Keep round20 arbitration logic unchanged.
+- Introduce a dedicated low-footprint vLLM profile only for `single_node_tuning_round20`.
+- Raise the startup free-memory gate so these shared-GPU validation runs fail early instead of competing for nearly all remaining memory.
+- Add config regression coverage so future edits cannot silently restore the high-footprint inherited profile.
+
+### Fix
+
+- Updated `configs/experiments/single_node_tuning_round20/_base_selector_tuning_round20.yaml`:
+  - `llm.generator.gpu_memory_utilization: 0.18`
+  - `llm.generator.startup_required_free_gb: 20`
+  - `bootstrap.gpu_memory_utilization: 0.18`
+  - `bootstrap.startup_required_free_gb: 20`
+- Added `tests.test_config.PaperNewSelectorConfigTests.test_round20_uncertain_compare_uses_low_footprint_shared_gpu_profile` to lock this profile in.
+
+### Verification
+
+- `python -m unittest tests.test_config.PaperNewSelectorConfigTests.test_round20_uncertain_compare_uses_low_footprint_shared_gpu_profile -v` -> pass
+- `python -m unittest tests.test_config -v` -> pass
+- `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 116 tests ... OK`
+
 ## 2026-05-07 Round19 Repeat15 Summary Crash After Successful First Run
 
 ### Observations

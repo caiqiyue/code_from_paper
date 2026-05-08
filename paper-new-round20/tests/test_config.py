@@ -271,6 +271,17 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         self.assertEqual(full["bootstrap"]["num_prompts"], 100)
         self.assertEqual(full["eval"]["small_epochs"], 6)
 
+    def test_round20_uncertain_compare_uses_low_footprint_shared_gpu_profile(self):
+        config = load_yaml_config(
+            "configs/experiments/single_node_tuning_round20/r20_jobs_arbitration.yaml"
+        )
+
+        self.assertEqual(config["llm"]["generator"]["gpu_memory_utilization"], 0.18)
+        self.assertEqual(config["llm"]["generator"]["startup_required_free_gb"], 20)
+        self.assertEqual(config["bootstrap"]["gpu_memory_utilization"], 0.18)
+        self.assertEqual(config["bootstrap"]["startup_required_free_gb"], 20)
+        self.assertEqual(config["selector"]["seed_budget_rule"]["policies"]["uncertain"]["mode"], "policy_arbitration")
+
 
 if __name__ == "__main__":
     unittest.main()

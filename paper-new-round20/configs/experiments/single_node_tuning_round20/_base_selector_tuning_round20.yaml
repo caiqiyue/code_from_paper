@@ -8,6 +8,15 @@ meta:
 paths:
   output_root: paper-new-round20/outputs/r20_default
 
+llm:
+  generator:
+    gpu_memory_utilization: 0.18
+    startup_required_free_gb: 20
+
+bootstrap:
+  gpu_memory_utilization: 0.18
+  startup_required_free_gb: 20
+
 selector:
   seed_budget_rule:
     policies:
