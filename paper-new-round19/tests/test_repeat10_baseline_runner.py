@@ -8,8 +8,10 @@ from paper_new_selector.repeat10_baseline_runner import (
     build_repeat10_run_specs,
     classify_retryable_failure,
     materialize_repeat10_configs,
+    parse_nvidia_smi_memory_report,
     reset_repeat10_output_dir,
     resolve_repeat10_effective_status,
+    spec_requires_vllm,
 )
 
 
@@ -52,6 +54,11 @@ def test_repeat10_retryable_failure_classifier_handles_vllm_cache_issue():
     assert classify_retryable_failure("different failure") is None
 
 
+def test_repeat10_retryable_failure_classifier_handles_vllm_runtime_oom():
+    log_text = "thesis_platform.models.backends.VllmGenerationError: vllm_runtime_gpu_oom: vLLM passed the startup memory gate but hit CUDA out of memory while loading."
+    assert classify_retryable_failure(log_text) == "retryable_vllm_resource"
+
+
 def test_repeat10_command_routing_uses_external_runner_for_external_baselines():
     specs = {spec.experiment_id: spec for spec in build_repeat10_run_specs()}
     internal = build_repeat10_command(
@@ -69,6 +76,25 @@ def test_repeat10_command_routing_uses_external_runner_for_external_baselines():
 def test_repeat10_materialize_configs_returns_200_paths():
     generated = materialize_repeat10_configs(Path(__file__).resolve().parents[1])
     assert len(generated) == 200
+
+
+def test_repeat10_parse_nvidia_smi_memory_report_finds_a6000():
+    report = "\n".join(
+        [
+            "0, NVIDIA GeForce RTX 2080 Ti, 5623",
+            "1, NVIDIA RTX A6000, 24576",
+        ]
+    )
+    index, free_gb = parse_nvidia_smi_memory_report(report, target_name_token="RTX A6000")
+    assert index == "1"
+    assert round(free_gb, 2) == 24.0
+
+
+def test_repeat10_spec_requires_vllm_skips_c4_only():
+    specs = {spec.experiment_id: spec for spec in build_repeat10_run_specs()}
+    assert spec_requires_vllm(specs["c4_jobs_repeat10_seed01"]) is False
+    assert spec_requires_vllm(specs["eo_jobs_repeat10_seed01"]) is True
+    assert spec_requires_vllm(specs["wasp_jobs_repeat10_seed01"]) is True
 
 
 def test_repeat10_effective_status_requires_completed_downstream_eval(tmp_path: Path):

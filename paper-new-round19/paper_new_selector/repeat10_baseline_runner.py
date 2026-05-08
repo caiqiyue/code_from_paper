@@ -32,9 +32,17 @@ REPEAT10_SUMMARY_HEADER = [
 REPEAT10_TRANSIENT_FAILURE_MARKERS = (
     "# GPU blocks: 0",
     "No available memory for the cache blocks",
+    "vllm_runtime_gpu_oom",
+    "CUDA out of memory",
+    "Stage 2 passed the startup memory gate but vLLM later hit CUDA out of memory.",
 )
 REPEAT10_DEFAULT_CUDA_VISIBLE_DEVICES = "1"
 REPEAT10_CUDA_OVERRIDE_ENV = "REPEAT10_CUDA_VISIBLE_DEVICES"
+REPEAT10_TARGET_GPU_NAME_TOKEN = "RTX A6000"
+REPEAT10_MIN_FREE_GB_FOR_VLLM = 20.0
+REPEAT10_GPU_POLL_SECONDS = 30
+REPEAT10_GPU_WAIT_TIMEOUT_SECONDS = 6 * 60 * 60
+REPEAT10_MAX_ATTEMPTS = 4
 
 _BASELINE_TEMPLATE_MAP: dict[str, tuple[str, str]] = {
     "c4": ("c4", "c4"),
@@ -143,9 +151,11 @@ def build_repeat10_command(spec: Repeat10BaselineSpec, config_path: Path) -> lis
 
 
 def classify_retryable_failure(log_text: str) -> str | None:
-    for marker in REPEAT10_TRANSIENT_FAILURE_MARKERS:
+    if "# GPU blocks: 0" in log_text or "No available memory for the cache blocks" in log_text:
+        return "retryable_vllm_cache"
+    for marker in REPEAT10_TRANSIENT_FAILURE_MARKERS[2:]:
         if marker in log_text:
-            return "retryable_vllm_cache"
+            return "retryable_vllm_resource"
     return None
 
 
@@ -201,6 +211,60 @@ def reset_repeat10_output_dir(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
 
+def spec_requires_vllm(spec: Repeat10BaselineSpec) -> bool:
+    return spec.baseline != "c4"
+
+
+def parse_nvidia_smi_memory_report(report_text: str, *, target_name_token: str) -> tuple[str, float]:
+    for raw_line in report_text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 3:
+            continue
+        index, name, free_mib = parts
+        if target_name_token in name:
+            return index, float(free_mib) / 1024.0
+    raise RuntimeError(f"Could not find GPU with token {target_name_token!r} in nvidia-smi output.")
+
+
+def query_repeat10_a6000_free_gb() -> tuple[str, float]:
+    completed = subprocess.run(
+        [
+            "nvidia-smi",
+            "--query-gpu=index,name,memory.free",
+            "--format=csv,noheader,nounits",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return parse_nvidia_smi_memory_report(completed.stdout, target_name_token=REPEAT10_TARGET_GPU_NAME_TOKEN)
+
+
+def wait_for_repeat10_vllm_capacity(log, *, minimum_free_gb: float = REPEAT10_MIN_FREE_GB_FOR_VLLM) -> None:
+    deadline = time.time() + REPEAT10_GPU_WAIT_TIMEOUT_SECONDS
+    while True:
+        gpu_index, free_gb = query_repeat10_a6000_free_gb()
+        if free_gb >= minimum_free_gb:
+            log(
+                f"GPU_READY target={REPEAT10_TARGET_GPU_NAME_TOKEN} index={gpu_index} "
+                f"free_gb={free_gb:.2f} threshold={minimum_free_gb:.2f}"
+            )
+            return
+        if time.time() >= deadline:
+            raise TimeoutError(
+                f"A6000 free memory stayed below {minimum_free_gb:.2f} GiB for "
+                f"{REPEAT10_GPU_WAIT_TIMEOUT_SECONDS} seconds."
+            )
+        log(
+            f"GPU_WAIT target={REPEAT10_TARGET_GPU_NAME_TOKEN} index={gpu_index} "
+            f"free_gb={free_gb:.2f} threshold={minimum_free_gb:.2f}"
+        )
+        time.sleep(REPEAT10_GPU_POLL_SECONDS)
+
+
 def resolve_repeat10_effective_status(returncode: int, output_dir: Path) -> int:
     if returncode != 0:
         return returncode
@@ -240,7 +304,9 @@ def run_repeat10_batch(project_root: str | Path | None = None) -> int:
         status = 1
         log(f"START {spec.experiment_id} dataset={spec.dataset} seed={spec.seed} cfg={config_path}")
 
-        for attempt in (1, 2):
+        for attempt in range(1, REPEAT10_MAX_ATTEMPTS + 1):
+            if spec_requires_vllm(spec):
+                wait_for_repeat10_vllm_capacity(log)
             reset_repeat10_output_dir(output_dir)
             mode = "w" if attempt == 1 else "a"
             with log_path.open(mode, encoding="utf-8") as handle:
@@ -258,8 +324,12 @@ def run_repeat10_batch(project_root: str | Path | None = None) -> int:
             if status == 0:
                 break
             failure_class = classify_retryable_failure(log_path.read_text(encoding="utf-8"))
-            if failure_class != "retryable_vllm_cache" or attempt == 2:
+            if failure_class not in {"retryable_vllm_cache", "retryable_vllm_resource"} or attempt == REPEAT10_MAX_ATTEMPTS:
                 break
+            log(
+                f"RETRY {spec.experiment_id} attempt={attempt} class={failure_class} "
+                f"status={status}"
+            )
             time.sleep(5)
 
         append_repeat10_summary_row(summary_path, spec, status)

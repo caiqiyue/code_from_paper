@@ -666,3 +666,87 @@ The repeat10 launcher forced `CUDA_DEVICE_ORDER=PCI_BUS_ID` while still pinning 
   - export `CUDA_VISIBLE_DEVICES=${REPEAT10_CUDA_VISIBLE_DEVICES:-1}` so the default server target is the A6000
 - `paper-new-round19/tests/test_repeat10_baseline_runner.py`
   - update regression coverage to assert the repeat10 child env defaults to the A6000 slot and still honors explicit overrides
+
+## Observations (2026-05-08 repeat10 external baseline seed04 failures)
+
+- The repeat10 resume run completed `ep_microblog_repeat10_seed04` and `wasp_jobs_repeat10_seed04`, then failed the remaining external runs for `seed04`:
+  - `wasp_congressional_repeat10_seed04`
+  - `wasp_forums_repeat10_seed04`
+  - `wasp_microblog_repeat10_seed04`
+  - `dpga_congressional_repeat10_seed04`
+  - `dpga_forums_repeat10_seed04`
+  - `dpga_microblog_repeat10_seed04`
+- Representative success logs (`wasp_jobs_repeat10_seed04`, `dpga_jobs_repeat10_seed04`) show the full eval path completed normally.
+- Representative failure logs (`wasp_congressional_repeat10_seed04`, `dpga_congressional_repeat10_seed04`) both fail before eval, inside external artifact generation.
+- The shared error signature is `thesis_platform.models.backends.VllmGenerationError: vllm_runtime_gpu_oom`.
+- The failure logs explicitly report the A6000 as the target device (`visible=1`, total capacity `47.54 GiB`), so this is not another wrong-GPU-selection bug.
+- The same failure logs also show another process already holding roughly `34 GiB` on the A6000:
+  - `Process 1228 has 34.23 GiB memory in use.` in the WASP failure
+  - `Process 11279 has 34.05 GiB memory in use.` in the DPGA failure
+- The repeat10 runner currently retries only `# GPU blocks: 0` / `No available memory for the cache blocks`, and it launches every baseline immediately without waiting for a safe A6000 free-memory window.
+
+## Hypotheses (2026-05-08 repeat10 external baseline seed04 failures)
+
+### H1: External baseline failures are caused by transient A6000 memory contention from other processes (ROOT HYPOTHESIS)
+- Supports:
+  - both failing baselines die in `vllm_runtime_gpu_oom`
+  - both logs show a different large foreign process consuming ~34 GiB on the A6000
+  - `jobs` succeeds for the same seed when the card is freer
+- Conflicts:
+  - none in the collected evidence
+- Test:
+  - compare success vs failure logs and verify the failure path coincides with low free memory on the A6000
+
+### H2: Congressional / forums / microblog configs are intrinsically wrong for WASP and DPGA
+- Supports:
+  - only non-`jobs` runs failed in this batch
+- Conflicts:
+  - the same error appears in both methods and points to GPU OOM, not config or path errors
+  - the runner continued successfully into later `c4` work, so the batch loop itself was healthy
+- Test:
+  - inspect the failure stack and check whether the exception appears before config-dependent eval logic
+
+### H3: The repeat10 runner is correctly using A6000 but treats resource contention as a permanent failure
+- Supports:
+  - the runner only classifies cache-block startup failures as retryable
+  - the actual error is `vllm_runtime_gpu_oom`, which it currently records as hard failure
+- Conflicts:
+  - none
+- Test:
+  - inspect retry classification logic and confirm it lacks runtime-OOM handling and any pre-launch wait for safe free memory
+
+## Experiments (2026-05-08 repeat10 external baseline seed04 failures)
+
+### E14. Compare successful and failed external-baseline repeat10 logs for the same seed
+
+- Change:
+  - read-only inspection of:
+    - `logs/wasp_jobs_repeat10_seed04.log`
+    - `logs/wasp_congressional_repeat10_seed04.log`
+    - `logs/dpga_jobs_repeat10_seed04.log`
+    - `logs/dpga_congressional_repeat10_seed04.log`
+- Result:
+  - `jobs` succeeds end-to-end for both baselines
+  - `congressional` fails in external artifact generation with `vllm_runtime_gpu_oom`
+  - the failing logs show another process consuming ~34 GiB on the A6000
+- Conclusion:
+  - confirms `H1`
+  - confirms `H3`
+  - rejects `H2` as the primary cause
+
+## Root Cause (2026-05-08 repeat10 external baseline seed04 failures)
+
+The repeat10 runner treats `vllm_runtime_gpu_oom` as a permanent failure and launches external `vllm` generation without first waiting for the A6000 to have a safe free-memory buffer, so transient contention from other users' large A6000 jobs gets written into the summary as baseline failures.
+
+## Fix (2026-05-08 repeat10 external baseline seed04 failures)
+
+- `paper-new-round19/paper_new_selector/repeat10_baseline_runner.py`
+  - classify `vllm_runtime_gpu_oom`, `CUDA out of memory`, and the standalone Stage2 OOM wrapper message as retryable resource failures
+  - add `spec_requires_vllm(...)` so only non-`c4` baselines wait on GPU capacity
+  - query `nvidia-smi` for the A6000 free memory before each `vllm` run
+  - wait until the A6000 has a safe free-memory threshold before launching a `vllm`-dependent experiment
+  - raise the repeat10 retry budget beyond a single cache-block retry so transient resource contention can recover
+- `paper-new-round19/tests/test_repeat10_baseline_runner.py`
+  - add regression coverage for runtime-OOM classification
+  - add regression coverage for parsing the A6000 free-memory report
+  - add regression coverage for `spec_requires_vllm(...)`
