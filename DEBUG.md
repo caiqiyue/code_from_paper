@@ -610,3 +610,59 @@ For the next layer of failures after that fix:
   - record `prepare_entry`
 - `paper-new-round19/configs/experiments/single_run_baseline_screening/_base_single_run_dpga.yaml`
   - record `prepare_entry`
+
+## Observations (2026-05-08 repeat10 GPU routing)
+
+- The repeat10 batch runner exported both `CUDA_VISIBLE_DEVICES=0` and `CUDA_DEVICE_ORDER=PCI_BUS_ID`.
+- On the server:
+  - `CUDA_VISIBLE_DEVICES=0` with no `CUDA_DEVICE_ORDER` made `torch.cuda.get_device_name(0)` report `NVIDIA RTX A6000`.
+  - `CUDA_VISIBLE_DEVICES=0 CUDA_DEVICE_ORDER=PCI_BUS_ID` made `torch.cuda.get_device_name(0)` report `NVIDIA GeForce RTX 2080 Ti`.
+  - `CUDA_VISIBLE_DEVICES=1 CUDA_DEVICE_ORDER=PCI_BUS_ID` made `torch.cuda.get_device_name(0)` report `NVIDIA RTX A6000`.
+- The failed repeat10 logs for `expand_only`, `expand_private`, and `WASP` showed `GPU 0 has a total capacity of 10.75 GiB`, which matches the 2080Ti, not the A6000.
+- `c4` runs succeeded because they do not load the Stage2 `vllm` generator, while every baseline that needed `vllm` failed immediately with 2080Ti-sized OOM conditions.
+
+## Hypotheses (2026-05-08 repeat10 GPU routing)
+
+### H1: `CUDA_DEVICE_ORDER=PCI_BUS_ID` reorders the devices so `CUDA_VISIBLE_DEVICES=0` points at the 2080Ti (ROOT HYPOTHESIS)
+- Supports: direct server-side `torch.cuda.get_device_name(0)` flips from A6000 to 2080Ti when only `CUDA_DEVICE_ORDER=PCI_BUS_ID` is added.
+- Conflicts: none after the direct comparison experiment.
+- Test: compare `torch.cuda.get_device_name(0)` under the three environment combinations above.
+
+### H2: `nohup` or `conda activate` dropped the intended GPU environment variables
+- Supports: the first server run behaved differently from a simple foreground `torch` check.
+- Conflicts: the logs showed the exact memory signature expected from the `PCI_BUS_ID + visible=0` combination; the issue reproduced without `nohup`.
+- Test: reproduce the device-name check in a normal shell with the same exported variables.
+
+### H3: The batch runner was actually using the A6000, but another process inside the same environment lowered the visible memory reading
+- Supports: A6000 already had other workloads on it.
+- Conflicts: the reported total capacity was 10.75 GiB, not 49 GiB, so the device identity itself was wrong.
+- Test: compare reported total capacity in failure logs against direct `torch` device-name checks.
+
+## Experiments (2026-05-08 repeat10 GPU routing)
+
+### E13. Compare `torch.cuda.get_device_name(0)` across the exact env combinations used by repeat10
+
+- Change:
+  - no code change; three read-only server checks
+- Result:
+  - `CUDA_VISIBLE_DEVICES=0` => `NVIDIA RTX A6000`
+  - `CUDA_VISIBLE_DEVICES=0 CUDA_DEVICE_ORDER=PCI_BUS_ID` => `NVIDIA GeForce RTX 2080 Ti`
+  - `CUDA_VISIBLE_DEVICES=1 CUDA_DEVICE_ORDER=PCI_BUS_ID` => `NVIDIA RTX A6000`
+- Conclusion:
+  - confirms `H1`
+  - rejects `H2` and `H3` as primary causes
+
+## Root Cause (2026-05-08 repeat10 GPU routing)
+
+The repeat10 launcher forced `CUDA_DEVICE_ORDER=PCI_BUS_ID` while still pinning `CUDA_VISIBLE_DEVICES=0`, and on this server that combination selects the 2080Ti rather than the A6000.
+
+## Fix (2026-05-08 repeat10 GPU routing)
+
+- `paper-new-round19/paper_new_selector/repeat10_baseline_runner.py`
+  - default repeat10 runs to `CUDA_VISIBLE_DEVICES=1` when using `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+  - allow an explicit override via `REPEAT10_CUDA_VISIBLE_DEVICES`
+- `paper-new-round19/scripts/run_repeat10_baseline_screening.sh`
+  - keep `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+  - export `CUDA_VISIBLE_DEVICES=${REPEAT10_CUDA_VISIBLE_DEVICES:-1}` so the default server target is the A6000
+- `paper-new-round19/tests/test_repeat10_baseline_runner.py`
+  - update regression coverage to assert the repeat10 child env defaults to the A6000 slot and still honors explicit overrides

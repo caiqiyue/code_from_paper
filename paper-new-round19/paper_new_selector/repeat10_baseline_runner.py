@@ -33,6 +33,8 @@ REPEAT10_TRANSIENT_FAILURE_MARKERS = (
     "# GPU blocks: 0",
     "No available memory for the cache blocks",
 )
+REPEAT10_DEFAULT_CUDA_VISIBLE_DEVICES = "1"
+REPEAT10_CUDA_OVERRIDE_ENV = "REPEAT10_CUDA_VISIBLE_DEVICES"
 
 _BASELINE_TEMPLATE_MAP: dict[str, tuple[str, str]] = {
     "c4": ("c4", "c4"),
@@ -178,7 +180,7 @@ def append_repeat10_summary_row(summary_path: Path, spec: Repeat10BaselineSpec, 
 
 def build_repeat10_child_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(base_env or os.environ)
-    env["CUDA_VISIBLE_DEVICES"] = "0"
+    env["CUDA_VISIBLE_DEVICES"] = str(env.get(REPEAT10_CUDA_OVERRIDE_ENV, REPEAT10_DEFAULT_CUDA_VISIBLE_DEVICES))
     env["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     return env
 

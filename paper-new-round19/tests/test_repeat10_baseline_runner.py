@@ -35,8 +35,14 @@ def test_repeat10_external_source_artifacts_are_seed_specific():
 
 
 def test_repeat10_build_repeat10_child_env_pins_a6000_slot():
-    env = build_repeat10_child_env({"CUDA_VISIBLE_DEVICES": "1"})
-    assert env["CUDA_VISIBLE_DEVICES"] == "0"
+    env = build_repeat10_child_env({"CUDA_VISIBLE_DEVICES": "0"})
+    assert env["CUDA_VISIBLE_DEVICES"] == "1"
+    assert env["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
+
+
+def test_repeat10_build_repeat10_child_env_allows_explicit_override():
+    env = build_repeat10_child_env({"REPEAT10_CUDA_VISIBLE_DEVICES": "3"})
+    assert env["CUDA_VISIBLE_DEVICES"] == "3"
     assert env["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
 
 
