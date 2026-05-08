@@ -125,6 +125,139 @@
 
 ### Root Cause
 
+## 2026-05-08 Round20 A6000 30GiB+ GPU Spike
+
+### Observations
+
+- `round20` 的 merged config 没有把 vLLM/Stage2 显存参数调大。
+  - `r19_full_microblog.yaml` 与 `r20_microblog_arbitration.yaml` 的关键参数一致：
+  - `llm.generator.gpu_memory_utilization = 0.35`
+  - `bootstrap.gpu_memory_utilization = 0.35`
+  - `max_model_len = 512`
+  - `tensor_parallel_size = 1`
+- 服务器上的 `jobs` 两项失败不是算法逻辑崩溃，而是启动期 OOM：
+  - `r20_jobs_baseline_fallback.log` 和 `r20_jobs_arbitration.log` 都报
+    `vllm_runtime_gpu_oom`
+  - 日志显示当时 A6000 上同时还有别的进程：
+    - `Process 13576 ... 6.21 GiB`
+    - `Process 22744 ... 10.40/11.51 GiB`
+    - `Process 29592 ... 16.66/18.96 GiB`
+- `microblog` 两项都能完整跑完，说明 `round20` 配置本身不是“必然 OOM”。
+  - `r20_microblog_baseline_fallback` 完成并写出结果。
+  - `r20_microblog_arbitration` 也完成并写出结果。
+- 运行中的 `round20` Python 进程 `PID 11279` 在 A6000 上一度占用约 `34.9 GiB`。
+- `r20_microblog_baseline_fallback` 的产物表明：
+  - `stage2.generation_path = "shared_session"`
+  - 也就是 Stage 2 不是单独新起 bootstrap vLLM，而是复用 Stage 1 的 shared vLLM backend。
+- `pipeline.py` 的执行顺序是：
+  1. `run_stage1_with_runtime(...)`
+  2. 若有 `shared_session`，用它完成 Stage 2 generation
+  3. 在 `finally:` 中调用 `release_runtime_memory(stage1_text_backend, embedder)`
+  4. 然后继续做 `run_eval(...)`
+- `VllmTextBackend.release()` 只是：
+  - 把 `self._llm = None`
+  - 查找 `llm.release`
+  - 仅当 `llm.release` 可调用时才真正执行 release
+- 服务器 `pretext` 环境实测：
+  - `from vllm import LLM`
+  - `hasattr(LLM, "release") == False`
+- 这意味着当前 `release_runtime_memory(text_backend)` 对 vLLM engine 实际上不会触发真正的 unload/shutdown。
+
+### Hypotheses
+
+#### H1: `round20` 的 30GiB+ 峰值来自 Stage 1 vLLM session 没有被真正释放，随后又叠加了后续阶段的 GPU 占用（ROOT HYPOTHESIS）
+- Supports:
+  - `stage2.generation_path = "shared_session"`，说明 Stage 1 的 vLLM engine 会跨到 Stage 2。
+  - `pipeline.py` 只在 Stage 2 之后才尝试 release Stage 1 backend。
+  - `VllmTextBackend.release()` 依赖 `llm.release()`。
+  - 服务器实测 `vllm.LLM` 没有 `release()`。
+  - 因此 Stage 1 vLLM engine 很可能一直活到进程退出，而不是在 eval 前释放。
+- Conflicts:
+  - 同样的 backend/release 逻辑在 `round19` 里也存在，所以这不是“只在 round20 新引入的 bug”。
+  - 更准确地说，这是一个被 `round20` 运行现象清楚暴露出来的 inherited runtime-lifetime bug。
+- Test:
+  - 确认 `round20` 的 Stage 2 走的是 shared session。
+  - 确认服务器 vLLM 类没有 `release()`，使当前 `release()` 路径失效。
+
+#### H2: `round20` 的显存暴涨是因为配置继承错误，把 `gpu_memory_utilization` 或模型长度调大了
+- Supports:
+  - 这是最直观的怀疑方向。
+- Conflicts:
+  - merged config 对比显示 `round19` 和 `round20` 的 vLLM / bootstrap 核心显存参数完全一致。
+- Test:
+  - 比较 merged config 中的 `llm.generator` 与 `bootstrap` 关键字段。
+
+#### H3: `round20` arbitration 代码额外实例化了第二个 Stage 1 generator/backend
+- Supports:
+  - `round20` 新增了 uncertain arbitration 逻辑，理论上可能重复构建策略或 runtime。
+- Conflicts:
+  - 本地代码检查显示 arbitration 只复用 `metrics_by_budget` 和 policy summaries，不会新建第二个 text backend。
+  - `hierarchical_budget.py` 只做 budget resolution，不接触 vLLM backend 生命周期。
+- Test:
+  - 审查 `hierarchical_budget.py`、`uncertainty_arbitration.py`、`stage1_runner.py` 的对象构建路径。
+
+#### H4: 30GiB+ 主要是外部进程抢卡导致的错觉，不是 `round20` 自身生命周期问题
+- Supports:
+  - `jobs` 两项确实因为别的进程占卡而 OOM。
+- Conflicts:
+  - `microblog` 两项在相同外部环境下能跑完，但本进程仍冲到 30GiB+。
+  - 这说明“外部抢卡”解释了 `jobs` 的失败，但解释不了 `round20` 单进程为何长期占到 30GiB+。
+- Test:
+  - 将 `jobs` 的 OOM 日志与 `microblog` 的成功日志分开分析。
+
+### Experiments
+
+#### E1: 对比 `round19` 与 `round20` merged config 的显存参数
+- Change: 无代码改动，只加载 merged config。
+- Expected confirm:
+  - 若参数一致，则排除“round20 配置变大”。
+- Result: Confirmed.
+  - `gpu_memory_utilization/max_model_len/tensor_parallel_size` 等关键参数一致。
+
+#### E2: 检查 `microblog` 成功运行时的 Stage 2 generation path
+- Change: 无代码改动，只读 `r20_microblog_baseline_fallback` / `r20_microblog_arbitration` 产物。
+- Expected confirm:
+  - 若 `generation_path == shared_session`，则 Stage 1 vLLM engine 会跨到 Stage 2。
+- Result: Confirmed.
+
+#### E3: 检查服务器 `pretext` 环境里 `vllm.LLM` 是否有 `release()`
+- Change: 无代码改动，只在服务器环境执行：
+  - `from vllm import LLM`
+  - `hasattr(LLM, "release")`
+- Expected confirm:
+  - 若为 `False`，则当前 `VllmTextBackend.release()` 的真正 unload 路径失效。
+- Result: Confirmed.
+  - `has_release False`
+
+#### E4: 检查 `jobs` 失败与 `microblog` 成功是否属于同一类问题
+- Change: 无代码改动，只读远端日志。
+- Expected confirm:
+  - `jobs` 如果是启动期 OOM，而 `microblog` 成功完成，则“30GiB+ 占用”与 `jobs` 失败不是同一个根因。
+- Result: Confirmed.
+  - `jobs` 是启动期 OOM。
+  - `microblog` 成功跑完但仍暴露出大显存峰值。
+
+### Root Cause
+
+- `round20` 出现 30GiB+ A6000 占用的直接根因，不是算法配置变大，也不是 arbitration 本身额外创建了第二个 Stage 1 runtime，而是 **Stage 1 的 vLLM engine 在进入后续阶段后没有被真正释放**。
+- 具体机制是：
+  - Stage 2 走 `shared_session`，所以 Stage 1 的 vLLM backend 会继续存活到 Stage 2 结束。
+  - `pipeline.py` 虽然在 Stage 2 后调用了 `release_runtime_memory(stage1_text_backend, ...)`，
+    但 `VllmTextBackend.release()` 依赖 `llm.release()`。
+  - 服务器 `pretext` 环境中的 `vllm.LLM` 并没有 `release()` 方法，因此这条 release 路径实际上不执行真正的 vLLM teardown。
+  - 结果是 Stage 1 的 vLLM 显存常驻，随后再叠加 eval 等后续 GPU 开销，就把单进程峰值推到了 30GiB+。
+- 这解释了为什么：
+  - `jobs` 在外部进程抢卡时更容易直接 OOM；
+  - `microblog` 即使能跑完，也会表现出远高于单个 0.35-utilization vLLM 的显存峰值。
+
+### Fix Plan
+
+- 不应继续假设 `VllmTextBackend.release()` 能靠 `llm.release()` 完成卸载。
+- 下一步修复需要选择一种“可证实真正释放 GPU”的策略，而不能拍脑袋：
+  1. 先确认 vLLM 是否存在别的正式 shutdown API；
+  2. 如果没有正式 API，则应考虑用**进程边界**隔离 Stage 1/Stage 2 与 eval，而不是继续在同一 Python 进程里堆叠生命周期。
+- 在找到可证实的释放方案前，不应贸然写一个“看起来会释放”的假清理逻辑。
+
 - The formal experiment configs intentionally use `null` to mean "no dataset cap", but `eval_bridge._build_thesis_eval_config()` violates that contract by forcing those `None` values through `int(...)`, so every formal experiment fails as soon as it enters the eval-config construction path.
 
 ### Fix Plan
@@ -530,6 +663,96 @@
 - Verification:
   - `python -m unittest tests.test_repeat15_runner -v` -> pass
   - `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 105 tests ... OK`
+
+## 2026-05-08 Round20 A6000 30GiB+ GPU Spike
+
+### Observations
+
+- `round20` on the server showed a single Python process on the A6000 occupying `34GiB+`, which is much higher than earlier quick-compare runs usually observed.
+- `jobs` failed during startup with `vllm_runtime_gpu_oom`, but `microblog` completed, so the spike was not caused by a universal config regression.
+- Comparing `round19` and `round20` quick-compare configs showed no material Stage 1 / Stage 2 memory knob increase:
+  - same `gpu_memory_utilization`
+  - same `max_model_len`
+  - same `tensor_parallel_size`
+- Successful `round20 microblog` summaries reported `stage2.generation_path = "shared_session"`, so Stage 2 reused the Stage 1 vLLM backend.
+- Local `pipeline.py` released runtime memory only after Stage 2 and then called downstream eval in the **same Python process**.
+- `thesis_platform.models.backends.VllmTextBackend.release()` only does a hard release if the underlying `vllm.LLM` object exposes `release()`.
+- The server `pretext` environment's `vllm.LLM` does **not** expose `release()`:
+  - `hasattr(LLM, "release") == False`
+  - inspecting `vllm/entrypoints/llm.py` confirmed no release/close/shutdown API exists on that class.
+
+### Hypotheses
+
+#### H1: round20 accidentally increased generation/eval memory settings, so the 30GiB+ spike is simply expected behavior
+- Supports: the observed process memory was much larger than the user expected.
+- Conflicts: merged config inspection showed the relevant vLLM knobs match round19.
+- Test: compare merged `round19` and `round20` config values for Stage 1 / Stage 2 runtime settings.
+
+#### H2: the arbitration algorithm launches two Stage 1 vLLM engines or doubles model residency (ROOT HYPOTHESIS REJECTED)
+- Supports: the new innovation is in the `uncertain` path, so it is a natural first suspect.
+- Conflicts: local code inspection showed arbitration only reuses in-memory budget metrics and does not construct another generator backend.
+- Test: inspect `hierarchical_budget.py`, `uncertainty_arbitration.py`, and the runtime pipeline for extra backend creation.
+
+#### H3: Stage 1 vLLM survives too long because eval runs in the same process after a non-effective `release()` path, so memory residency persists into downstream eval (ROOT HYPOTHESIS)
+- Supports: Stage 2 uses `shared_session`, so Stage 1 backend remains alive through synthetic generation.
+- Supports: the server vLLM build does not provide `LLM.release()`, so `release_runtime_memory(...)` cannot actually tear down the engine.
+- Supports: eval was being called in the same Python process immediately after the weak release path.
+- Test: verify the installed vLLM API, then isolate eval behind a subprocess boundary and require pipeline tests to observe subprocess eval instead of in-process eval.
+
+### Experiments
+
+#### E1: compare round19 and round20 merged configs
+- Change: inspect merged configs locally and on the server.
+- Expected confirm: if memory knobs are identical, the spike is not caused by a larger round20 config.
+- Result: Confirmed. Round19 and round20 use the same relevant Stage 1 / Stage 2 vLLM settings.
+
+#### E2: inspect vLLM release behavior
+- Change: inspect local bridge code and query the server environment for `hasattr(vllm.LLM, "release")`.
+- Expected confirm: if `release()` is absent, the current runtime cleanup cannot truly unload the Stage 1 engine.
+- Result: Confirmed. The server vLLM build has no `release()` method on `LLM`.
+
+#### E3: force a red test for eval isolation
+- Change: add a pipeline test that patches `paper_new_selector.pipeline.run_eval` to raise if called directly, while expecting subprocess execution instead.
+- Expected confirm: the current code should fail because eval still runs in-process.
+- Result: Confirmed. The new test failed before the fix.
+
+#### E4: move eval behind a subprocess boundary and rerun tests
+- Change: add `paper_new_selector.eval_subprocess_runner`, serialize Stage 2 synthetic outputs to disk, and invoke eval via `subprocess.run(...)` after runtime cleanup.
+- Expected confirm: if eval happens in a child process, the parent no longer carries Stage 1 vLLM residency into the downstream evaluation stage.
+- Result: Confirmed locally. The new subprocess test passed, the pipeline smoke tests passed, and the full suite passed.
+
+### Root Cause
+
+- The 30GiB+ spike was **not** caused by round20 making the algorithm itself larger. The direct issue was runtime lifetime: Stage 1 vLLM stayed resident through Stage 2 shared-session generation, and the parent process then proceeded into downstream eval without a reliable way to truly unload that vLLM engine first. Because the deployed `vllm.LLM` implementation has no `release()` API, the existing cleanup path could only null references and empty caches, not force engine teardown. That allowed Stage 1 model residency to overlap with later stages and inflated the single-process GPU footprint.
+
+### Fix Plan
+
+- Keep round20 algorithm/config behavior unchanged.
+- Isolate downstream eval behind a subprocess boundary so the parent process can drop Stage 1 runtime references before eval begins.
+- Preserve all existing output artifacts and eval summary contracts so experiment harnesses do not need redesign.
+- Add a regression test that fails if eval runs directly inside the parent process again.
+
+### Fix
+
+- Added `paper_new_selector.eval_subprocess_runner`:
+  - reads serialized synthetic texts
+  - executes `run_eval(...)`
+  - prints the JSON summary to stdout for the parent process
+- Updated `paper_new_selector.pipeline.run_pipeline(...)`:
+  - keep Stage 1 / Stage 2 behavior unchanged
+  - serialize downstream synthetic texts to `eval_synthetic_texts.json`
+  - call `release_runtime_memory(...)`
+  - run eval via `subprocess.run([sys.executable, "-m", "paper_new_selector.eval_subprocess_runner", ...])`
+  - parse the child JSON summary back into the pipeline return value
+- Added a regression test in `tests/test_pipeline_smoke.py` that:
+  - fails if `run_eval(...)` is called in-process
+  - requires a subprocess eval launch instead
+
+### Verification
+
+- `python -m unittest tests.test_pipeline_smoke.PipelineSmokeTests.test_pipeline_runs_eval_in_subprocess_after_runtime_release -v` -> pass
+- `python -m unittest tests.test_pipeline_smoke -v` -> pass
+- `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 115 tests ... OK`
 
 ## 2026-05-07 Round19 Repeat15 Summary Crash After Successful First Run
 

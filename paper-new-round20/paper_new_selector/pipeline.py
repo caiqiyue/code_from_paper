@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import subprocess
+import sys
 from typing import Any
 
 from .eval_bridge import prepare_eval_runtime, run_eval
@@ -15,6 +18,33 @@ def _has_shared_backend(shared_session: Any) -> bool:
     if isinstance(shared_session, dict):
         return shared_session.get("backend") is not None
     return getattr(shared_session, "backend", None) is not None
+
+
+def _run_eval_in_subprocess(
+    *,
+    synthetic_texts: list[str],
+    config_path: str | Path,
+    output_dir: Path,
+) -> dict[str, Any]:
+    synthetic_path = output_dir.parent / "eval_synthetic_texts.json"
+    write_json(synthetic_path, list(synthetic_texts))
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "paper_new_selector.eval_subprocess_runner",
+            "--config",
+            str(config_path),
+            "--synthetic-path",
+            str(synthetic_path),
+            "--output-dir",
+            str(output_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(completed.stdout)
 
 
 def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dict[str, Any]:
@@ -97,7 +127,7 @@ def run_pipeline(config_path: str | Path, *, validate_only: bool = False) -> dic
         )
 
     if eval_runtime.get("enabled", False):
-        summary["eval"] = run_eval(
+        summary["eval"] = _run_eval_in_subprocess(
             synthetic_texts=generated_outputs,
             config_path=config_path,
             output_dir=output_root / "eval",
