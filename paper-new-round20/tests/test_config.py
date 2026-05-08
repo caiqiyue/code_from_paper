@@ -276,7 +276,7 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
             "configs/experiments/single_node_tuning_round20/r20_jobs_arbitration.yaml"
         )
 
-        self.assertEqual(config["llm"]["generator"]["gpu_memory_utilization"], 0.18)
+        self.assertEqual(config["llm"]["generator"]["gpu_memory_utilization"], 0.22)
         self.assertEqual(config["llm"]["generator"]["startup_required_free_gb"], 20)
         self.assertEqual(config["bootstrap"]["gpu_memory_utilization"], 0.18)
         self.assertEqual(config["bootstrap"]["startup_required_free_gb"], 20)

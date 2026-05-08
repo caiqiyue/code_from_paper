@@ -10,7 +10,7 @@ paths:
 
 llm:
   generator:
-    gpu_memory_utilization: 0.18
+    gpu_memory_utilization: 0.22
     startup_required_free_gb: 20
 
 bootstrap:

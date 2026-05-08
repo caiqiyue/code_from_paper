@@ -835,6 +835,35 @@
 - `python -m unittest tests.test_config -v` -> pass
 - `python -m unittest discover -s tests -p "test_*.py" -v` -> `Ran 116 tests ... OK`
 
+## 2026-05-08 Round20 Probe Threshold Retune After `GPU blocks: 0`
+
+### Observations
+
+- The first natural probe `r20_probe_jobs_seed42` failed even with abundant free memory:
+  - `free=45.23 GiB required=20.00 GiB`
+  - `# GPU blocks: 0`
+- This happened under the newly introduced low-footprint round20 profile:
+  - `llm.generator.gpu_memory_utilization = 0.18`
+  - `bootstrap.gpu_memory_utilization = 0.18`
+- The failure happened during Stage 1 startup, before any bootstrap/eval behavior mattered.
+
+### Root Cause
+
+- `round20`'s Stage 1 vLLM utilization floor was pushed too low. On this server/runtime combination, `gpu_memory_utilization=0.18` can pass the free-memory gate but still yield `# GPU blocks: 0`, so vLLM cannot construct a usable cache.
+
+### Fix
+
+- Retuned only the Stage 1 probe/compare profile in `single_node_tuning_round20`:
+  - `llm.generator.gpu_memory_utilization: 0.18 -> 0.22`
+- Kept bootstrap unchanged at `0.18`.
+- Kept `startup_required_free_gb` unchanged at `20`.
+
+### Verification
+
+- Updated `tests.test_config.PaperNewSelectorConfigTests.test_round20_uncertain_compare_uses_low_footprint_shared_gpu_profile` to assert:
+  - Stage 1 `gpu_memory_utilization == 0.22`
+  - bootstrap `gpu_memory_utilization == 0.18`
+
 ## 2026-05-07 Round19 Repeat15 Summary Crash After Successful First Run
 
 ### Observations
