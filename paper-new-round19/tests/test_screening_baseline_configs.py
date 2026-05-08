@@ -34,3 +34,15 @@ def test_all_internal_screening_baseline_configs_resolve():
         assert config["data"]["initialization_limit"] == 1024
         assert config["bootstrap"]["num_prompts"] == 100
         assert config["eval"]["max_samples_per_client"] == 16
+
+
+def test_single_run_expand_baselines_apply_compact_bootstrap_overrides():
+    for path in [
+        Path("configs/experiments/single_run_baseline_screening/eo_jobs_single_run.yaml"),
+        Path("configs/experiments/single_run_baseline_screening/ep_forums_single_run.yaml"),
+    ]:
+        config = load_yaml_config(path)
+        assert config["bootstrap"]["max_tokens"] == 85
+        assert config["bootstrap"]["max_model_len"] == 512
+        assert config["bootstrap"]["gpu_memory_utilization"] == 0.35
+        assert config["bootstrap"]["seed_text_max_words"] == 40

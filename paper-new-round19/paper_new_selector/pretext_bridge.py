@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .runtime_cleanup import release_runtime_memory
 from .thesis_bridge import load_yaml_config, resolve_repo_root
 
 
@@ -77,15 +78,53 @@ def generate_with_shared_vllm_session(
     )
 
 
+def _generate_bootstrapped_samples_with_vllm_cleanup(
+    prompt_list: list[str],
+    model_path: Path,
+    bootstrap_cfg: dict[str, Any],
+) -> list[str]:
+    from pretext_platform.core.gpu_memory import ensure_vllm_startup_memory
+    from pretext_platform.core.run_state import PretextFailure, is_cuda_oom
+    from vllm import LLM, SamplingParams
+
+    llm = None
+    memory_details = ensure_vllm_startup_memory(bootstrap_cfg)
+    try:
+        llm = LLM(
+            model=str(model_path),
+            max_model_len=int(bootstrap_cfg.get("max_model_len", 1000)),
+            tensor_parallel_size=int(bootstrap_cfg.get("tensor_parallel_size", 1)),
+            gpu_memory_utilization=float(bootstrap_cfg.get("gpu_memory_utilization", 0.35)),
+            enforce_eager=bool(bootstrap_cfg.get("enforce_eager", False)),
+        )
+        sampling_params = SamplingParams(
+            temperature=float(bootstrap_cfg.get("temperature", 1.0)),
+            top_p=float(bootstrap_cfg.get("top_p", 1.0)),
+            max_tokens=int(bootstrap_cfg.get("max_tokens", 85)),
+        )
+        outputs = llm.generate(prompt_list, sampling_params)
+        return [output.outputs[0].text for output in outputs]
+    except PretextFailure:
+        raise
+    except Exception as exc:
+        if is_cuda_oom(exc):
+            raise PretextFailure(
+                "stage2_runtime_gpu_oom",
+                "Stage 2 passed the startup memory gate but vLLM later hit CUDA out of memory.",
+                phase="stage2",
+                details=memory_details,
+            ) from exc
+        raise
+    finally:
+        release_runtime_memory(llm)
+
+
 def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
     config = load_yaml_config(config_path)
     repo_root = resolve_repo_root()
     _ensure_pretext_importable(repo_root)
 
-    from pretext_platform.algorithms.bootstrap import (
-        build_bootstrap_prompts,
-        generate_bootstrapped_samples_vllm,
-    )
+    from pretext_platform.algorithms.bootstrap import build_bootstrap_prompts
 
     backend = str(config["bootstrap"]["generator_backend"]).strip().lower()
     if backend != "vllm":
@@ -95,7 +134,7 @@ def prepare_bootstrap_runtime(config_path: str | Path) -> dict[str, Any]:
         )
     def generator_fn(prompt_list, model_path, bootstrap_cfg):
         _patch_vllm_network_host_ip()
-        return generate_bootstrapped_samples_vllm(prompt_list, model_path, bootstrap_cfg)
+        return _generate_bootstrapped_samples_with_vllm_cleanup(prompt_list, model_path, bootstrap_cfg)
 
     bootstrap_cfg = {
         "num_prompts": int(config["bootstrap"]["num_prompts"]),

@@ -7,6 +7,7 @@ from unittest.mock import patch
 import yaml
 
 from paper_new_selector.pretext_bridge import (
+    _generate_bootstrapped_samples_with_vllm_cleanup,
     _patch_vllm_network_host_ip,
     generate_with_shared_vllm_session,
     prepare_bootstrap_runtime,
@@ -72,11 +73,7 @@ class BridgeTests(unittest.TestCase):
         def fake_build_bootstrap_prompts(seed_texts, *, num_prompts, seed):
             return [f"{len(seed_texts)}:{num_prompts}:{seed}"]
 
-        def fake_generate(prompt_list, model_path, bootstrap_cfg):
-            return [f"{prompt_list[0]}::{model_path.name}::{bootstrap_cfg['generator_backend']}"]
-
         fake_bootstrap_module.build_bootstrap_prompts = fake_build_bootstrap_prompts
-        fake_bootstrap_module.generate_bootstrapped_samples_vllm = fake_generate
         config_path = self._write_temp_config("configs/single_node_jobs_selector.yaml", {})
 
         with patch.dict(
@@ -88,12 +85,69 @@ class BridgeTests(unittest.TestCase):
         ), patch(
             "paper_new_selector.pretext_bridge._patch_vllm_network_host_ip",
             side_effect=lambda: patch_calls.append("patched"),
+        ), patch(
+            "paper_new_selector.pretext_bridge._generate_bootstrapped_samples_with_vllm_cleanup",
+            side_effect=lambda prompt_list, model_path, bootstrap_cfg: [
+                f"{prompt_list[0]}::{Path(model_path).name}::{bootstrap_cfg['generator_backend']}"
+            ],
         ):
             runtime = prepare_bootstrap_runtime(str(config_path))
             outputs = runtime["generate_bootstrapped_samples"](["prompt"], Path("demo-model"), {"generator_backend": "vllm"})
 
         self.assertEqual(patch_calls, ["patched"])
         self.assertEqual(outputs, ["prompt::demo-model::vllm"])
+
+    def test_standalone_vllm_bootstrap_releases_runtime_memory(self):
+        fake_run_state = ModuleType("pretext_platform.core.run_state")
+        class _FakePretextFailure(RuntimeError):
+            pass
+        fake_run_state.PretextFailure = _FakePretextFailure
+        fake_run_state.is_cuda_oom = lambda exc: False
+
+        fake_gpu_memory = ModuleType("pretext_platform.core.gpu_memory")
+        fake_gpu_memory.ensure_vllm_startup_memory = lambda cfg: {"checked": True, "cfg": dict(cfg)}
+
+        release_calls = []
+
+        class FakeLLM:
+            def __init__(self, **_kwargs):
+                self.released = False
+
+            def generate(self, prompts, sampling_params):
+                del sampling_params
+                return [type("O", (), {"outputs": [type("R", (), {"text": f"generated::{prompts[0]}"})()]})()]
+
+            def release(self):
+                self.released = True
+
+        class FakeSamplingParams:
+            def __init__(self, **_kwargs):
+                pass
+
+        fake_vllm = ModuleType("vllm")
+        fake_vllm.LLM = FakeLLM
+        fake_vllm.SamplingParams = FakeSamplingParams
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "pretext_platform.core.run_state": fake_run_state,
+                "pretext_platform.core.gpu_memory": fake_gpu_memory,
+                "vllm": fake_vllm,
+            },
+        ), patch(
+            "paper_new_selector.pretext_bridge.release_runtime_memory",
+            side_effect=lambda *objects: release_calls.append(objects),
+        ):
+            outputs = _generate_bootstrapped_samples_with_vllm_cleanup(
+                ["prompt"],
+                Path("demo-model"),
+                {"max_model_len": 256, "gpu_memory_utilization": 0.65, "max_tokens": 32, "temperature": 1.0, "top_p": 1.0},
+            )
+
+        self.assertEqual(outputs, ["generated::prompt"])
+        self.assertEqual(len(release_calls), 1)
+        self.assertEqual(type(release_calls[0][0]).__name__, "FakeLLM")
 
     def test_shared_stage2_generation_uses_existing_backend_batch_generate(self):
         class _FakeBackend:

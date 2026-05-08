@@ -246,6 +246,55 @@ This is a major structural difference between:
 
 because the new baselines were feeding raw public/private documents directly into Stage2 prompt construction.
 
+### O15. On the server, `expand_only` now reaches Stage2 but writes an empty downstream synthetic corpus
+
+After the shared-session fix and the first round of single-run config tightening:
+
+- `eo_jobs_single_run` exits with process status `0`
+- `eval_small` fails with:
+  - `Columns ['input_ids', 'attention_mask', 'labels'] not in the dataset. Current columns in the dataset: []`
+- the exported corpus at
+  - `outputs/single_run_baseline_screening/expand_only/jobs/eval/stage2/llama7b_text_syn.json`
+  is an empty list (`count = 0`)
+
+This means the failure is not in the trainer first; the downstream training corpus is already empty.
+
+### O16. `expand_private` now produces synthetic texts, but the same process still holds large-model GPU memory when small eval starts
+
+Server rerun after the shared-session fix:
+
+- `ep_forums_single_run` writes
+  - `outputs/single_run_baseline_screening/expand_private/forums/eval/stage2/llama7b_text_syn.json`
+  with `28` non-empty strings
+- then `eval_small` fails with CUDA OOM on the A6000
+- the failure message reports the same process already holds about `44 GiB`
+
+GPT-2 / DistilGPT2 small eval should not need that much memory by itself, so the most plausible explanation is that the standalone Stage2 vLLM engine is still resident when eval begins.
+
+### O17. The bootstrap prompt token lengths still exceed or sit too close to the configured single-run `max_model_len`
+
+Server-side tokenizer check using the exact `llama_2_7b_hf` tokenizer and the actual `stage1_summary.json` outputs:
+
+- `expand_only`
+  - seed words: all `56`
+  - prompt token length:
+    - mean ≈ `285.2`
+    - min = `266`
+    - max = `304`
+- `expand_private`
+  - seed words: all `56`
+  - prompt token length:
+    - mean ≈ `262.1`
+    - min = `239`
+    - max = `280`
+
+But the single-run config currently sets:
+
+- `bootstrap.max_model_len = 256`
+- `bootstrap.max_tokens = 32`
+
+So `expand_only` is definitively over budget, and `expand_private` is partially over budget.
+
 ## Hypotheses
 
 ### H1. Hidden runtime/model-state drift on the server changed outputs even though code/config files are identical (ROOT HYPOTHESIS)
@@ -328,6 +377,28 @@ because the new baselines were feeding raw public/private documents directly int
   - none found
 - Test:
   - cap the baseline seed text length to match the already-working Stage1 seed scale, and give single-run expand baselines a more appropriate A6000 bootstrap config
+
+### H8. `expand_only` writes an empty corpus because its bootstrap prompts exceed the configured `max_model_len`, leaving no effective room for generation (ROOT HYPOTHESIS for the new `expand_only` failure)
+
+- Supports:
+  - exported downstream corpus is empty
+  - server tokenizer check shows `expand_only` prompt tokens are always above `256`
+  - Stage2 prompt builder concatenates 3 seed texts plus scaffolding before generation
+- Conflicts:
+  - none found
+- Test:
+  - reduce the expand-baseline seed budget further until prompt token lengths comfortably fit beneath the single-run `max_model_len`
+
+### H9. `expand_private` small-eval OOM is caused by the standalone Stage2 vLLM engine not being explicitly released before downstream eval begins (ROOT HYPOTHESIS for the new `expand_private` failure)
+
+- Supports:
+  - `expand_private` already produced `28` non-empty synthetic texts, so generation itself succeeded
+  - the OOM message shows the process already holds about `44 GiB`, which is inconsistent with GPT-2-scale eval alone
+  - the standalone Stage2 path currently calls `generate_bootstrapped_samples_vllm(...)` from PrE-Text, which does not explicitly release its local `LLM` object
+- Conflicts:
+  - none found
+- Test:
+  - implement a local standalone vLLM bootstrap path in `paper_new_selector.pretext_bridge` that creates the `LLM`, generates outputs, and explicitly releases GPU memory before returning
 
 ## Experiments
 
@@ -472,9 +543,40 @@ because the new baselines were feeding raw public/private documents directly int
   - confirms `H7`
   - indicates the new baselines need seed-shape normalization, not just GPU selection fixes
 
+### E11. Rerun the internal single-run expand baselines on the server after the first local seed-cap/config adjustments
+
+- Change:
+  - reran `eo_jobs_single_run` and `ep_forums_single_run` on the actual A6000 (`CUDA_VISIBLE_DEVICES=0`)
+- Result:
+  - `expand_only`
+    - no longer fails at Stage2 startup
+    - but exports an empty synthetic corpus
+  - `expand_private`
+    - produces 28 synthetic texts
+    - then fails in `eval_small` with CUDA OOM
+- Conclusion:
+  - the original shared-session bug is gone
+  - the two internal baselines now fail for different reasons
+
+### E12. Measure actual server-side tokenizer lengths for the expand-baseline bootstrap prompts
+
+- Change:
+  - read actual `stage1_summary.json` outputs and tokenized prompts with the server's local `llama_2_7b_hf` tokenizer
+- Result:
+  - `expand_only` prompts are always over `256` tokens
+  - `expand_private` prompts are frequently near or above `256` tokens
+- Conclusion:
+  - confirms `H8`
+  - strengthens `H7`
+
 ## Root Cause
 
 `expand_only` and `expand_private` were written as Stage2-expanding baselines but their Stage1 paths never create a shared generator backend, while the pipeline unconditionally required one; `WASP` and `DPGA-TextSyn` already had export/eval adapters but lacked any dataset-aware script that materialized the exact source artifact paths declared by the four-dataset single-run YAMLs.
+
+For the next layer of failures after that fix:
+
+- `expand_only` still produced an empty corpus because its public-seed bootstrap prompts exceeded the configured single-run `max_model_len`, so the standalone Stage2 vLLM path had no practical generation budget.
+- `expand_private` then failed in `eval_small` because the standalone Stage2 vLLM engine was not explicitly released before downstream eval began, leaving the process with large-model GPU memory still resident.
 
 ## Fix
 
@@ -487,13 +589,17 @@ because the new baselines were feeding raw public/private documents directly int
 - `paper-new-round19/paper_new_selector/stage1_runner.py`
   - default the expand-baseline seed text cap to `56` words, matching the scale seen in completed `PrE-Text` Stage1 seeds
 - `paper-new-round19/configs/experiments/single_run_baseline_screening/_base_single_run_expand_only.yaml`
-  - override single-run internal baseline bootstrap to:
-    - `max_tokens: 32`
-    - `max_model_len: 256`
-    - `gpu_memory_utilization: 0.65`
-    - `seed_text_max_words: 56`
+  - keep the Stage2 vLLM bootstrap parameters aligned with `PrE-Text / paper-new` defaults
+  - only add `seed_text_max_words: 40` to normalize the expand-baseline seed shape
 - `paper-new-round19/configs/experiments/single_run_baseline_screening/_base_single_run_expand_private.yaml`
-  - apply the same single-run internal baseline bootstrap overrides
+  - keep the Stage2 vLLM bootstrap parameters aligned with `PrE-Text / paper-new` defaults
+  - only add `seed_text_max_words: 40`
+- `paper-new-round19/paper_new_selector/pretext_bridge.py`
+  - replace the imported standalone Stage2 vLLM call with a local wrapper that:
+    - runs the same `vllm + local model` generation path
+    - explicitly releases the temporary `LLM` runtime in `finally`
+- `paper-new-round19/tests/test_pretext_bridge.py`
+  - add regression coverage that the standalone Stage2 vLLM helper releases runtime memory
 - `paper-new-round19/tests/test_pipeline_smoke.py`
   - add regression coverage for the no-shared-session Stage2 path
 - `WASP/src/prepare_paper_new_artifacts.py`
