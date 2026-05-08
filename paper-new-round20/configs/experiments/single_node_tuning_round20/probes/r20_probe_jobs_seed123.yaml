@@ -1,0 +1,16 @@
+inherits:
+  - ../_base_selector_tuning_round20.yaml
+  - ../../single_node_tuning_round19/_data_jobs.yaml
+
+meta:
+  experiment_id: r20_probe_jobs_seed123
+  seed: 123
+
+paths:
+  output_root: paper-new-round20/outputs/r20_probes/r20_probe_jobs_seed123
+
+selector:
+  seed_budget_rule:
+    policies:
+      uncertain:
+        arbitration_enabled: false
