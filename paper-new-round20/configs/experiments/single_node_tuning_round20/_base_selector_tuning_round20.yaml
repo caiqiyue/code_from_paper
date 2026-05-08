@@ -10,12 +10,12 @@ paths:
 
 llm:
   generator:
-    gpu_memory_utilization: 0.22
-    startup_required_free_gb: 20
+    gpu_memory_utilization: 0.28
+    startup_required_free_gb: 2
 
 bootstrap:
   gpu_memory_utilization: 0.18
-  startup_required_free_gb: 20
+  startup_required_free_gb: 2
 
 selector:
   seed_budget_rule:

@@ -864,6 +864,40 @@
   - Stage 1 `gpu_memory_utilization == 0.22`
   - bootstrap `gpu_memory_utilization == 0.18`
 
+## 2026-05-08 Round20 Probe Retune After Six Natural Probes All Failed
+
+### Observations
+
+- After the first retune (`Stage1 gpu_memory_utilization=0.22`, `startup_required_free_gb=20`), all 6 natural probe runs still failed.
+- Most failures had the same pattern:
+  - free memory comfortably above threshold
+  - `# GPU blocks: 0`
+  - `No available memory for the cache blocks`
+- One retry (`jobs_seed456`) then failed a second time because free memory dropped below the raised startup gate:
+  - `free=18.23 GiB required=20.00 GiB`
+
+### Root Cause
+
+- The first retune fixed neither side of the problem cleanly:
+  - `gpu_memory_utilization=0.22` was still too low for reliable Stage 1 cache-block construction on this server/runtime
+  - `startup_required_free_gb=20` was too high for retry behavior under normal shared-GPU fluctuation
+
+### Fix
+
+- Retuned round20 probe/compare profile again:
+  - `llm.generator.gpu_memory_utilization: 0.22 -> 0.28`
+  - `llm.generator.startup_required_free_gb: 20 -> 2`
+  - `bootstrap.startup_required_free_gb: 20 -> 2`
+- Kept bootstrap `gpu_memory_utilization` at `0.18`.
+
+### Verification
+
+- Updated config regression expectations to:
+  - Stage 1 `gpu_memory_utilization == 0.28`
+  - Stage 1 `startup_required_free_gb == 2`
+  - bootstrap `gpu_memory_utilization == 0.18`
+  - bootstrap `startup_required_free_gb == 2`
+
 ## 2026-05-07 Round19 Repeat15 Summary Crash After Successful First Run
 
 ### Observations
