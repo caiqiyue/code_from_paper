@@ -1,0 +1,20 @@
+inherits:
+  - ../_base_selector_tuning_round19.yaml
+  - ../_data_congressional.yaml
+
+meta:
+  experiment_id: r19_guard_congressional
+
+paths:
+  output_root: paper-new-round19/outputs/r19_guard_congressional
+
+data:
+  train_limit: 128
+  eval_limit: 128
+  initialization_limit: 512
+
+bootstrap:
+  num_prompts: 40
+
+eval:
+  small_epochs: 4

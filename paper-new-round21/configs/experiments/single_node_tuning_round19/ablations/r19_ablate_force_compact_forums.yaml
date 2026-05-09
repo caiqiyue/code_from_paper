@@ -1,0 +1,16 @@
+inherits:
+  - ../_base_selector_tuning_round19.yaml
+  - ../_data_forums.yaml
+
+meta:
+  experiment_id: r19_ablate_force_compact_forums
+
+paths:
+  output_root: paper-new-round19/outputs/r19_ablate_force_compact_forums
+
+selector:
+  seed_budget_rule:
+    router:
+      tau_center: 9999.0
+      delta_router: 0.0
+

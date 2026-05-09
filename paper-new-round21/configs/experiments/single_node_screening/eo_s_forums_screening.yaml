@@ -1,0 +1,9 @@
+inherits:
+  - ./_base_expand_only_screening.yaml
+  - ../single_node_tuning_round19/_data_forums.yaml
+
+meta:
+  experiment_id: eo_s_forums_screening
+
+paths:
+  output_root: paper-new-round19/outputs/eo_s_forums_screening

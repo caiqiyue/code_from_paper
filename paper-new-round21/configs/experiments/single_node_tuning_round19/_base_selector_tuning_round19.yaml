@@ -1,0 +1,65 @@
+inherits:
+  - ../single_node_screening/_base_selector_screening.yaml
+
+meta:
+  stage: single_node_tuning_round19
+  seed: 42
+
+paths:
+  output_root: paper-new-round19/outputs/r19_default
+
+selector:
+  seed_top_k: 20
+  hard_negative_top_k: 6
+  seed_budget_rule:
+    enabled: true
+    mode: hierarchical_shape_routing
+    candidate_seed_top_k: [18, 19, 20, 21, 22]
+    router:
+      tail_threshold: 350
+      short_threshold: 120
+      tau_center: 0.0
+      delta_router: 0.35
+      screening_reference:
+        median_len:
+          mean: 150.0
+          std: 50.0
+        p75_len:
+          mean: 335.0
+          std: 90.0
+        iqr_len:
+          mean: 180.0
+          std: 60.0
+    policies:
+      broad_tail:
+        candidate_seed_top_k: [21, 22]
+        coverage_p25_ratio: 0.98
+        coverage_mean_ratio: 0.998
+        epsilon: 0.002
+      compact_structured:
+        candidate_seed_top_k: [18, 19, 20]
+        coverage_p25_ratio: 0.98
+        utility:
+          support_weight: 1.0
+          genericity_weight: 0.5
+          redundancy_weight: 0.3
+          budget_weight: 0.1
+        epsilon: 0.01
+      uncertain:
+        fallback_mode: self_calibrated_constrained
+        coverage_constraint:
+          mode: tail_family_relative
+          metrics:
+            - name: coverage_p25
+              relative_ratio: 0.98
+              required: true
+              weight: 0.7
+            - name: coverage_mean
+              relative_ratio: 0.998
+              required: true
+              weight: 0.3
+            - name: coverage_min
+              relative_ratio: 0.995
+              required: false
+              weight: 0.0
+

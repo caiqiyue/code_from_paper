@@ -1,0 +1,6 @@
+﻿inherits:
+  - ./_base_selector_tuning_round2.yaml
+
+selector:
+  density_lambda: 0.45
+  novelty_lambda: 0.35

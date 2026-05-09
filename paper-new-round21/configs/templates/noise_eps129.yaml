@@ -1,0 +1,11 @@
+privacy:
+  enabled: true
+  mode: selector_support_gaussian
+  epsilon: 1.29
+  delta: 3e-6
+  enforce_budget: false
+
+stage1:
+  sigma: 11.3
+  delta: 3e-6
+  privacy_disabled: false

@@ -1,0 +1,9 @@
+inherits:
+  - ./_base_single_run_c4.yaml
+  - ../single_node_tuning_round19/_data_congressional.yaml
+
+meta:
+  experiment_id: c4_congressional_single_run
+
+paths:
+  output_root: paper-new-round19/outputs/single_run_baseline_screening/c4/congressional

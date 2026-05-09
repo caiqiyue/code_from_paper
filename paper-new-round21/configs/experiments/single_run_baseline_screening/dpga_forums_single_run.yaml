@@ -1,0 +1,14 @@
+inherits:
+  - ./_base_single_run_dpga.yaml
+  - ../single_node_tuning_round19/_data_forums.yaml
+
+meta:
+  experiment_id: dpga_forums_single_run
+
+paths:
+  output_root: paper-new-round19/outputs/single_run_baseline_screening/dpga/forums
+
+external_baseline:
+  source_artifact_path: DPGA-TextSyn/outputs/paper_new_screening/forums/epoch_all.json
+  source_dataset_name: forums
+  summary_output_path: paper-new-round19/outputs/single_run_baseline_screening/dpga/forums/stage1_summary.json

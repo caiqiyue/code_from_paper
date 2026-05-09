@@ -1,0 +1,5 @@
+paths:
+  datasets_root: thesis_platform/datasets
+  models_root: thesis_platform/open_model
+  pretext_root: PrE-Text
+  output_root: paper-new/outputs

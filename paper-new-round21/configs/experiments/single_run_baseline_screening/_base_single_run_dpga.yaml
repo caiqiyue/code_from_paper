@@ -1,0 +1,21 @@
+inherits:
+  - ./_base_single_run_common.yaml
+
+pipeline:
+  stage1_mode: dpga_external
+
+external_baseline:
+  baseline_name: DPGA-TextSyn
+  source_kind: epoch_all_json
+  source_repo_root: DPGA-TextSyn
+  generator_entry: DPGA-TextSyn/main/generate_paper_new_artifacts.py
+  prepare_entry: DPGA-TextSyn/main/prepare_paper_new_artifacts.py
+  adapter_entry: DPGA-TextSyn/main/run_paper_new_screening.py
+  eval_entry: paper-new-round19/paper_new_selector/run_external_baseline_single_run.py
+  expected_budget: 100
+  generation:
+    population_size: 16
+    generations: 4
+    offspring_per_parent: 2
+    initial_pool_limit: 128
+    private_reference_count: 12

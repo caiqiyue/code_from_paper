@@ -1,0 +1,5 @@
+inherits:
+  - ./_base_selector_screening.yaml
+
+pipeline:
+  stage1_mode: c4_only
