@@ -1,0 +1,18 @@
+inherits:
+  - ../_base_selector_tuning_round21.yaml
+  - ../../single_node_tuning_round19/_data_forums.yaml
+
+meta:
+  experiment_id: r21_probe_forums_tau140_seed42
+  seed: 42
+
+paths:
+  output_root: paper-new-round21/outputs/r21_probes/r21_probe_forums_tau140_seed42
+
+selector:
+  seed_budget_rule:
+    router:
+      tau_center: 1.40
+    policies:
+      uncertain:
+        arbitration_enabled: false
