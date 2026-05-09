@@ -1,0 +1,18 @@
+﻿inherits:
+  - ../_base_selector_tuning_round21.yaml
+  - ../../single_node_tuning_round19/_data_congressional.yaml
+
+meta:
+  experiment_id: r21m_congressional_tau_m450_seed789_arbitration
+  seed: 789
+
+paths:
+  output_root: paper-new-round21/outputs/r21_mechanism_repeat15/r21m_congressional_tau_m450_seed789_arbitration
+
+selector:
+  seed_budget_rule:
+    router:
+      tau_center: -4.5
+    policies:
+      uncertain:
+        arbitration_enabled: true

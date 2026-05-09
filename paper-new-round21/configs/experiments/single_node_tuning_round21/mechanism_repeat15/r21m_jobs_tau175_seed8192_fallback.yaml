@@ -1,0 +1,18 @@
+﻿inherits:
+  - ../_base_selector_tuning_round21.yaml
+  - ../../single_node_tuning_round19/_data_jobs.yaml
+
+meta:
+  experiment_id: r21m_jobs_tau175_seed8192_fallback
+  seed: 8192
+
+paths:
+  output_root: paper-new-round21/outputs/r21_mechanism_repeat15/r21m_jobs_tau175_seed8192_fallback
+
+selector:
+  seed_budget_rule:
+    router:
+      tau_center: 1.75
+    policies:
+      uncertain:
+        arbitration_enabled: false
