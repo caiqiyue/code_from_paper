@@ -1,5 +1,5 @@
 ﻿inherits:
-  - ../_base_selector_tuning_round21.yaml
+  - ../_base_selector_tuning_round21_mechanism.yaml
   - ../../single_node_tuning_round19/_data_microblog.yaml
 
 meta:
@@ -16,3 +16,4 @@ selector:
     policies:
       uncertain:
         arbitration_enabled: false
+
