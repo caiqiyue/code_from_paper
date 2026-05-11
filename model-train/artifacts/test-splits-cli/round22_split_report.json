@@ -1,0 +1,28 @@
+{
+  "context_count": 4,
+  "final_test_count": 4,
+  "dev_context_count": 0,
+  "fold_count": 2,
+  "per_dataset": {
+    "congressional": {
+      "total_contexts": 1,
+      "final_test_contexts": 1,
+      "dev_contexts": 0
+    },
+    "forums": {
+      "total_contexts": 1,
+      "final_test_contexts": 1,
+      "dev_contexts": 0
+    },
+    "jobs": {
+      "total_contexts": 1,
+      "final_test_contexts": 1,
+      "dev_contexts": 0
+    },
+    "microblog": {
+      "total_contexts": 1,
+      "final_test_contexts": 1,
+      "dev_contexts": 0
+    }
+  }
+}

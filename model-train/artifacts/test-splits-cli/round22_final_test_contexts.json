@@ -1,0 +1,16 @@
+{
+  "random_seed": 7,
+  "context_table_path": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\model-train\\artifacts\\test-datasets\\round22_context_table.jsonl",
+  "final_test_context_ids": [
+    "congressional_seed42",
+    "forums_seed42",
+    "jobs_seed42",
+    "microblog_seed42"
+  ],
+  "counts_by_dataset": {
+    "jobs": 1,
+    "forums": 1,
+    "congressional": 1,
+    "microblog": 1
+  }
+}

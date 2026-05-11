@@ -1,0 +1,16 @@
+{
+  "random_seed": 7,
+  "fold_count": 2,
+  "folds": [
+    {
+      "fold_index": 0,
+      "validation_context_ids": [],
+      "training_context_ids": []
+    },
+    {
+      "fold_index": 1,
+      "validation_context_ids": [],
+      "training_context_ids": []
+    }
+  ]
+}

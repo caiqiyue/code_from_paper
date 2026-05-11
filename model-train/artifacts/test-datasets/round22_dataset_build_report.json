@@ -1,0 +1,23 @@
+{
+  "summary_jsonl": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\model-train\\tests\\fixtures\\round22_synthetic_summary.jsonl",
+  "schema_yaml": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round22\\configs\\experiments\\bandit_data_collection\\round22_bandit_record_schema.yaml",
+  "action_sample_count": 20,
+  "context_count": 4,
+  "expected_action_count_per_context": 5,
+  "reward_lambda": 0.002,
+  "reward_tolerance": 1e-09,
+  "datasets": {
+    "congressional": 1,
+    "forums": 1,
+    "jobs": 1,
+    "microblog": 1
+  },
+  "outputs": {
+    "action_jsonl": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\model-train\\artifacts\\test-datasets\\round22_action_samples.jsonl",
+    "action_csv": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\model-train\\artifacts\\test-datasets\\round22_action_samples.csv",
+    "context_jsonl": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\model-train\\artifacts\\test-datasets\\round22_context_table.jsonl",
+    "context_csv": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\model-train\\artifacts\\test-datasets\\round22_context_table.csv",
+    "action_parquet_written": false,
+    "context_parquet_written": false
+  }
+}

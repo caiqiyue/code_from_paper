@@ -1,0 +1,5 @@
+context_id,dataset_name,meta_seed,shape_score,private_mean_length,private_p75_length,private_length_iqr,support_mean_at_k20,coverage_mean_at_k20,coverage_p25_at_k20,genericity_mean_at_k20,reward_k18,reward_k19,reward_k20,reward_k21,reward_k22,best_top1_k18,best_top1_k19,best_top1_k20,best_top1_k21,best_top1_k22,oracle_best_k,oracle_best_reward
+congressional_seed42,congressional,42,-4.5,85.0,110.0,35.0,0.72,0.68,0.64,0.18,0.295,0.2935,0.291,0.2895,0.288,0.295,0.294,0.292,0.291,0.29,18,0.295
+forums_seed42,forums,42,3.0,220.0,380.0,120.0,0.52,0.8,0.76,0.28,0.27,0.2675,0.265,0.2635,0.262,0.27,0.268,0.266,0.265,0.264,18,0.27
+jobs_seed42,jobs,42,0.2,100.0,150.0,60.0,0.6,0.7,0.65,0.2,0.25,0.2545,0.252,0.2475,0.245,0.25,0.255,0.253,0.249,0.247,19,0.2545
+microblog_seed42,microblog,42,3.2,190.0,340.0,95.0,0.55,0.74,0.7,0.24,0.276,0.2775,0.276,0.2725,0.271,0.276,0.278,0.277,0.274,0.273,19,0.2775
