@@ -1,0 +1,20 @@
+﻿inherits:
+  - ../../../../paper-new-round19/configs/experiments/single_node_tuning_round19/_base_selector_tuning_round19.yaml
+
+meta:
+  stage: round22_bandit_data_collection
+  seed: 42
+
+paths:
+  output_root: paper-new-round22/outputs/bandit_data_collection/default
+
+round22_bandit_schema:
+  path: round22_bandit_record_schema.yaml
+  state_reference_budget: 20
+  reward_lambda: 0.002
+  reward_formula: best_top1_minus_lambda_times_normalized_budget_cost
+
+selector:
+  seed_budget_rule:
+    enabled: false
+    mode: hierarchical_shape_routing

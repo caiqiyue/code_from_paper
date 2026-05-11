@@ -1,0 +1,22 @@
+﻿inherits:
+  - ../_base_selector_tuning_round22_bandit.yaml
+  - ../_data_forums.yaml
+
+meta:
+  experiment_id: r22dc_forums_seed456_k18
+  seed: 456
+
+paths:
+  output_root: paper-new-round22/outputs/bandit_data_collection/forums/seed456/k18
+
+selector:
+  seed_top_k: 18
+
+round22_bandit:
+  collection_phase: natural_context_sweep_v1
+  context_family: natural
+  source_env: round19_stable_pipeline
+  action_budget: 18
+  normalized_budget_cost: 0
+  reward_metric: best_top1
+  reference_budget: 20

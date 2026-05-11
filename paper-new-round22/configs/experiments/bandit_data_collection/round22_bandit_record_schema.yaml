@@ -1,0 +1,41 @@
+schema_version: round22_bandit_v1
+reward_lambda: 0.002
+
+provenance_fields:
+  - experiment_id
+  - dataset_name
+  - meta_seed
+  - context_family
+  - source_env
+  - action_budget
+  - normalized_budget_cost
+  - config_path
+  - output_root
+
+state_fields:
+  - shape_score
+  - private_mean_length
+  - private_p75_length
+  - private_length_iqr
+  - support_mean_at_k20
+  - coverage_mean_at_k20
+  - coverage_p25_at_k20
+  - genericity_mean_at_k20
+
+reward_fields:
+  - best_top1
+  - best_top3
+  - best_top5
+  - best_top10
+  - synthetic_train_count
+  - eval_count
+
+derived_fields:
+  - reward
+
+derived_field_definitions:
+  reward: best_top1 - 0.002 * normalized_budget_cost
+
+notes:
+  - This schema defines the required post-run extraction contract for the round22 contextual bandit dataset.
+  - State fields may be read directly from outputs or computed offline from the same stage1 statistics using the round19/round21 feature definitions.

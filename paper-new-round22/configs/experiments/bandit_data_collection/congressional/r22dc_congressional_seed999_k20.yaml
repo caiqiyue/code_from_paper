@@ -1,0 +1,22 @@
+﻿inherits:
+  - ../_base_selector_tuning_round22_bandit.yaml
+  - ../_data_congressional.yaml
+
+meta:
+  experiment_id: r22dc_congressional_seed999_k20
+  seed: 999
+
+paths:
+  output_root: paper-new-round22/outputs/bandit_data_collection/congressional/seed999/k20
+
+selector:
+  seed_top_k: 20
+
+round22_bandit:
+  collection_phase: natural_context_sweep_v1
+  context_family: natural
+  source_env: round19_stable_pipeline
+  action_budget: 20
+  normalized_budget_cost: 0.5
+  reward_metric: best_top1
+  reference_budget: 20
