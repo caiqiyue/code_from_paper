@@ -138,13 +138,27 @@ def load_manifest(manifest_path: Path) -> list[ExperimentSpec]:
                     meta_seed=int(row["seed"]),
                     action_budget=int(row["action_budget"]),
                     normalized_budget_cost=float(row["normalized_budget_cost"]),
-                    config_path=Path(row["config_path"]).resolve(),
+                    config_path=normalize_manifest_config_path(str(row["config_path"])),
                     output_root=str(row["output_root"]),
                     context_family="natural",
                     source_env="round19_stable_pipeline",
                 )
             )
     return specs
+
+
+def normalize_manifest_config_path(raw_path: str) -> Path:
+    normalized = raw_path.replace("\\", "/")
+    marker = "/paper-new-round22/"
+    if marker in normalized:
+        relative = normalized.split(marker, 1)[1]
+        candidate = (ROUND22_ROOT / relative).resolve()
+        if candidate.exists():
+            return candidate
+    candidate = Path(raw_path)
+    if candidate.exists():
+        return candidate.resolve()
+    raise FileNotFoundError(f"Could not normalize manifest config path: {raw_path}")
 
 
 def build_seed_order(specs: list[ExperimentSpec]) -> list[int]:
