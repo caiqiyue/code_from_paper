@@ -72,11 +72,14 @@ def build_splits(
     for row in cv_contexts:
         dev_by_dataset[str(row["dataset_name"])].append(row)
 
+    fold_offset = 0
     for dataset_name, dataset_rows in sorted(dev_by_dataset.items()):
         shuffled = list(dataset_rows)
         rng.shuffle(shuffled)
         for index, row in enumerate(shuffled):
-            folds[index % fold_count]["validation_context_ids"].append(str(row["context_id"]))
+            target_fold = (fold_offset + index) % fold_count
+            folds[target_fold]["validation_context_ids"].append(str(row["context_id"]))
+        fold_offset = (fold_offset + len(shuffled)) % fold_count
 
     all_dev_ids = {str(row["context_id"]) for row in cv_contexts}
     for fold in folds:

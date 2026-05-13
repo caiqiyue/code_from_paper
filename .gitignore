@@ -76,3 +76,6 @@ PrivateKT/
 RewardDS/
 TracIn/
 
+# Local model training data
+model-train/
+

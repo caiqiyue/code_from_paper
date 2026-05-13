@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "exported_at": "2026-05-13T14:56:48.605236+00:00",
+  "training_data_version": "round22_full500_v2",
+  "reward_lambda": 0.002,
+  "lightgbm_params": {
+    "objective": "regression",
+    "metric": "mae",
+    "boosting_type": "gbdt",
+    "num_leaves": 15,
+    "learning_rate": 0.03,
+    "n_estimators": 65,
+    "min_child_samples": 10,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "verbose": -1,
+    "random_state": 42
+  },
+  "training_seeds": [],
+  "model_train_git_commit": "80e4f28436f1b30374bd5d56d4b232bb96449ff6",
+  "model_train_git_branch": "paper-2-genereic",
+  "source_model_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\model-train\\models\\full-500-v2",
+  "bundle_dir": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round22\\artifacts\\learned_budget_policy\\round22_lgbm_full500_v2"
+}

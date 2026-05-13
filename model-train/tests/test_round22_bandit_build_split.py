@@ -109,6 +109,28 @@ class Round22BanditBuildSplitTests(unittest.TestCase):
         final_test = json.loads((output_dir / "round22_final_test_contexts.json").read_text(encoding="utf-8"))
         self.assertEqual(len(final_test["final_test_context_ids"]), 4)
 
+    def test_split_distributes_singleton_datasets_across_folds(self) -> None:
+        build_dataset(
+            summary_jsonl=self.summary,
+            schema_yaml=self.schema,
+            output_dir=self.tmpdir / "datasets",
+        )
+        report = build_splits(
+            context_table_path=self.tmpdir / "datasets" / "round22_context_table.jsonl",
+            output_dir=self.tmpdir / "singleton_splits",
+            random_seed=42,
+            fold_count=3,
+            final_test_counts={
+                "jobs": 1,
+                "forums": 0,
+                "congressional": 0,
+                "microblog": 0,
+            },
+        )
+        self.assertEqual(report["dev_context_count"], 3)
+        folds = json.loads((self.tmpdir / "singleton_splits" / "round22_cv_folds.json").read_text(encoding="utf-8"))["folds"]
+        self.assertEqual([len(fold["validation_context_ids"]) for fold in folds], [1, 1, 1])
+
 
 if __name__ == "__main__":
     unittest.main()
