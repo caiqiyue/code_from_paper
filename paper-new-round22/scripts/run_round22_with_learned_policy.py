@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""Run a single round22 experiment with learned budget policy.
-
-This wrapper keeps round19 runtime intact and only replaces the budget decision:
-1. Run a reference k=20 Stage1 pass
-2. Extract the 8 runtime features required by the learned policy
-3. Load the LightGBM bundle and predict the best budget in {18,19,20,21,22}
-4. Write a temporary override config that pins selector.seed_top_k to the predicted budget
-5. Call round19 runtime with the override config
-6. Write a sidecar JSON for audit/debugging
-"""
+"""Run a single round22 experiment with learned budget policy."""
 from __future__ import annotations
 
 import argparse
@@ -16,7 +7,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -25,19 +15,8 @@ import yaml
 PAPER_NEW_ROUND22_ROOT = Path(__file__).resolve().parents[1]
 PAPER_NEW_ROUND19_ROOT = (PAPER_NEW_ROUND22_ROOT / "../paper-new-round19").resolve()
 
-if str(PAPER_NEW_ROUND19_ROOT) not in sys.path:
-    sys.path.insert(0, str(PAPER_NEW_ROUND19_ROOT))
-
-from paper_new_selector.runtime_cleanup import release_runtime_memory
-from paper_new_selector.stage1_runner import run_stage1_with_runtime
-from paper_new_selector.thesis_bridge import build_embedder_from_config, load_text_samples
-
 from round22_context_features import (
-    _percentile_nearest_rank,
     build_feature_vector,
-    compute_coverage_metrics,
-    compute_shape_descriptor,
-    compute_shape_score,
     validate_feature_schema,
 )
 from round22_learned_budget_inference import run_inference
@@ -91,97 +70,40 @@ def run_round19_selector_subprocess(
     )
 
 
-def run_reference_k20_and_extract_features(
-    original_config_path: str | Path,
+def run_reference_k20_feature_subprocess(
+    *,
+    config_path: str | Path,
     output_root: str | Path,
+    timeout_seconds: int = 7200,
 ) -> dict[str, Any]:
-    """Run a k=20 reference Stage1 pass and compute learned-policy features."""
-    orig_cfg = load_yaml_with_inherits(original_config_path)
-    orig_cfg["selector"]["seed_top_k"] = 20
-    orig_cfg["selector"]["seed_budget_rule"]["enabled"] = False
-
-    router_cfg = dict(orig_cfg.get("selector", {}).get("seed_budget_rule", {}).get("router", {}))
-    tail_threshold = int(router_cfg.get("tail_threshold", 350))
-    short_threshold = int(router_cfg.get("short_threshold", 120))
-
-    ref_output_root = Path(output_root) / "_k20_reference"
-    orig_cfg["paths"]["output_root"] = str(ref_output_root)
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as tmp:
-        yaml.dump(orig_cfg, tmp)
-        ref_config_path = tmp.name
-
-    generator_handle = None
-    embedder = None
-    try:
-        stage1_summary, runtime = run_stage1_with_runtime(ref_config_path, validate_only=False)
-        generator_handle = runtime.get("generator_handle")
-        embedder = runtime.get("embedder") or build_embedder_from_config(ref_config_path)
-
-        sample_bundle = load_text_samples(ref_config_path)
-        private_texts = [sample.render_text() for sample in sample_bundle["train_samples"]]
-        private_lengths = [len(text.split()) for text in private_texts]
-        private_vectors = [list(map(float, vector)) for vector in embedder.embed_texts(private_texts)]
-
-        decision = dict(stage1_summary.get("decision", {}))
-        candidate_records = list(decision.get("candidate_records", []))
-        selected_indices = {int(index) for index in decision.get("selected_indices", [])}
-        selected_records = [
-            record
-            for record in candidate_records
-            if int(record.get("index", -1)) in selected_indices
-        ]
-        selected_vectors = [list(map(float, record["vector"])) for record in selected_records]
-
-        support_mean_at_k20 = (
-            float(sum(float(record["private_support"]) for record in selected_records) / len(selected_records))
-            if selected_records
-            else 0.0
+    result_json = Path(output_root) / "_k20_reference_features.json"
+    helper_script = PAPER_NEW_ROUND22_ROOT / "scripts" / "round22_reference_stage1_features.py"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(helper_script),
+            "--config",
+            str(config_path),
+            "--output-root",
+            str(output_root),
+            "--result-json",
+            str(result_json),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(PAPER_NEW_ROUND22_ROOT),
+        env=build_round19_subprocess_env(),
+        timeout=timeout_seconds,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "reference k=20 Stage1 feature subprocess failed:\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
         )
-        genericity_mean_at_k20 = (
-            float(sum(float(record["genericity_penalty"]) for record in selected_records) / len(selected_records))
-            if selected_records
-            else 0.0
-        )
-        coverage_mean_at_k20, coverage_p25_at_k20 = compute_coverage_metrics(
-            private_vectors=private_vectors,
-            selected_vectors=selected_vectors,
-        )
-
-        descriptor = compute_shape_descriptor(
-            private_lengths,
-            tail_threshold=tail_threshold,
-            short_threshold=short_threshold,
-        )
-        shape_score = compute_shape_score(descriptor, router_cfg)
-        mean_length = float(sum(private_lengths) / len(private_lengths)) if private_lengths else 0.0
-        p75_length = float(_percentile_nearest_rank(private_lengths, 75)) if private_lengths else 0.0
-        q1 = float(_percentile_nearest_rank(private_lengths, 25)) if private_lengths else 0.0
-        q3 = float(_percentile_nearest_rank(private_lengths, 75)) if private_lengths else 0.0
-        length_iqr = q3 - q1
-
-        return {
-            "context_features": [
-                shape_score,
-                mean_length,
-                p75_length,
-                length_iqr,
-                support_mean_at_k20,
-                coverage_mean_at_k20,
-                coverage_p25_at_k20,
-                genericity_mean_at_k20,
-            ],
-            "dataset_name": str(orig_cfg.get("meta", {}).get("dataset_name", "")),
-            "reference_budget": 20,
-            "reference_output_root": str(ref_output_root),
-            "selected_count": len(selected_records),
-        }
-    finally:
-        release_runtime_memory(
-            getattr(generator_handle, "text_backend", None),
-            embedder,
-        )
-        Path(ref_config_path).unlink(missing_ok=True)
+    if not result_json.exists():
+        raise FileNotFoundError(f"Expected reference feature JSON at {result_json}")
+    return json.loads(result_json.read_text(encoding="utf-8"))
 
 
 def generate_override_config(
@@ -258,7 +180,10 @@ def main() -> int:
     args = parser.parse_args()
 
     print("[learned] Running k=20 reference Stage1 for feature extraction...")
-    reference_info = run_reference_k20_and_extract_features(args.config, args.output_root)
+    reference_info = run_reference_k20_feature_subprocess(
+        config_path=args.config,
+        output_root=args.output_root,
+    )
     reference_info["model_dir"] = str(Path(args.model_dir).resolve())
 
     schema = validate_feature_schema(Path(args.model_dir) / "feature_schema.json")

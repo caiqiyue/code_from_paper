@@ -74,11 +74,17 @@ def test_generate_override_config_disables_budget_rule_and_pins_seed_top_k():
         assert str(merged["meta"]["learned_budget_runtime"]["model_dir"]).endswith("bundle")
 
 
+def test_reference_helper_script_exists():
+    helper = Path(__file__).parent / "round22_reference_stage1_features.py"
+    assert helper.exists()
+
+
 if __name__ == "__main__":
     tests = [
         ("env.adds_round19_root", test_build_round19_subprocess_env_adds_round19_root),
         ("env.cuda_order", test_build_round19_subprocess_env_sets_cuda_order_when_needed),
         ("override_config", test_generate_override_config_disables_budget_rule_and_pins_seed_top_k),
+        ("reference_helper_exists", test_reference_helper_script_exists),
     ]
     failures = 0
     for name, fn in tests:
