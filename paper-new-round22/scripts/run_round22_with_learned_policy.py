@@ -124,6 +124,9 @@ def generate_override_config(
                 "model_dir": str(Path(model_dir).resolve()),
             }
         },
+        "paths": {
+            "output_root": str(Path(output_root).resolve()),
+        },
         "selector": {
             "seed_top_k": int(predicted_k),
             "seed_budget_rule": {
@@ -148,6 +151,7 @@ def write_learned_runtime_sidecar(
     feature_vector: list[float],
     reference_info: dict[str, Any],
     override_config_path: Path,
+    runtime_artifacts: dict[str, Any] | None = None,
 ) -> Path:
     sidecar = {
         "budget_policy_type": "learned",
@@ -166,10 +170,48 @@ def write_learned_runtime_sidecar(
         },
         "override_config_path": str(override_config_path),
     }
+    if runtime_artifacts:
+        sidecar["runtime_artifacts"] = runtime_artifacts
 
     path = Path(output_root) / f"{experiment_id}_learned_budget_policy_runtime.json"
     path.write_text(json.dumps(sidecar, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+def collect_runtime_artifacts(output_root: str | Path) -> dict[str, Any]:
+    runtime_root = Path(output_root).resolve()
+    stage1_summary = runtime_root / "stage1_summary.json"
+    budget_calibration = runtime_root / "stage1_budget_calibration.json"
+    eval_dir = runtime_root / "eval"
+    eval_summary_candidates = [
+        eval_dir / "downstream_eval_summary.json",
+        eval_dir / "summary.json",
+    ]
+    eval_summary = next((path for path in eval_summary_candidates if path.exists()), None)
+
+    if not stage1_summary.exists():
+        raise FileNotFoundError(f"Expected runtime stage1 summary at {stage1_summary}")
+    if eval_summary is None:
+        raise FileNotFoundError(
+            "Expected runtime eval summary under "
+            f"{eval_dir}; checked: {', '.join(str(path) for path in eval_summary_candidates)}"
+        )
+
+    artifacts: dict[str, Any] = {
+        "runtime_output_root": str(runtime_root),
+        "stage1_summary_path": str(stage1_summary),
+        "eval_summary_path": str(eval_summary),
+    }
+    if budget_calibration.exists():
+        artifacts["budget_calibration_path"] = str(budget_calibration)
+
+    try:
+        eval_payload = json.loads(eval_summary.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        eval_payload = None
+    if isinstance(eval_payload, dict):
+        artifacts["eval_summary"] = eval_payload
+    return artifacts
 
 
 def main() -> int:
@@ -206,16 +248,6 @@ def main() -> int:
         args.output_root,
     )
 
-    print("[learned] Writing sidecar summary...")
-    sidecar_path = write_learned_runtime_sidecar(
-        args.output_root,
-        experiment_id,
-        inference_result,
-        feature_vector,
-        reference_info,
-        override_path,
-    )
-
     print(f"[learned] Calling round19 runtime with {override_path} ...")
     result = run_round19_selector_subprocess(config_path=override_path, timeout_seconds=7200)
     if result.returncode != 0:
@@ -224,6 +256,17 @@ def main() -> int:
         return int(result.returncode)
 
     print(result.stdout, end="")
+    runtime_artifacts = collect_runtime_artifacts(args.output_root)
+    print("[learned] Writing sidecar summary...")
+    sidecar_path = write_learned_runtime_sidecar(
+        args.output_root,
+        experiment_id,
+        inference_result,
+        feature_vector,
+        reference_info,
+        override_path,
+        runtime_artifacts=runtime_artifacts,
+    )
     print(f"[learned] Done. Sidecar: {sidecar_path}")
     return 0
 

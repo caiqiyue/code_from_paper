@@ -1,0 +1,22 @@
+inherits:
+  - ../../bandit_data_collection/_base_selector_tuning_round22_bandit.yaml
+  - ../../bandit_data_collection/_data_forums.yaml
+
+meta:
+  experiment_id: r22_qc_forums_seed2020
+  seed: 2020
+
+paths:
+  output_root: paper-new-round22/outputs/quick_compare_repeat30/forums/seed2020
+
+selector:
+  seed_top_k: 20
+
+round22_bandit:
+  collection_phase: learned_policy_quick_compare_repeat30
+  context_family: natural
+  source_env: learned_policy_quick_compare_repeat30
+  action_budget: 20
+  normalized_budget_cost: 0.5
+  reward_metric: best_top1
+  reference_budget: 20

@@ -1,0 +1,5 @@
+experiment_id	dataset	seed	config_path	output_root
+r22_real_jobs_seed42	jobs	42	configs/experiments/single_node_tuning_round22_bandit/real_smoke/r22_real_jobs_seed42.yaml	paper-new-round22/outputs/real_smoke/jobs/seed42
+r22_real_congressional_seed42	congressional	42	configs/experiments/single_node_tuning_round22_bandit/real_smoke/r22_real_congressional_seed42.yaml	paper-new-round22/outputs/real_smoke/congressional/seed42
+r22_real_forums_seed42	forums	42	configs/experiments/single_node_tuning_round22_bandit/real_smoke/r22_real_forums_seed42.yaml	paper-new-round22/outputs/real_smoke/forums/seed42
+r22_real_microblog_seed42	microblog	42	configs/experiments/single_node_tuning_round22_bandit/real_smoke/r22_real_microblog_seed42.yaml	paper-new-round22/outputs/real_smoke/microblog/seed42

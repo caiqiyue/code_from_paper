@@ -1,0 +1,10 @@
+inherits:
+  - ../_base_selector_tuning_round19.yaml
+  - ../_data_forums.yaml
+
+meta:
+  experiment_id: r19_qc_forums_seed3141
+  seed: 3141
+
+paths:
+  output_root: paper-new-round19/outputs/quick_compare_repeat30/forums/seed3141

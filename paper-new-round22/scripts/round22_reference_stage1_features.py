@@ -130,7 +130,12 @@ def compute_reference_features(
                 coverage_p25_at_k20,
                 genericity_mean_at_k20,
             ],
-            "dataset_name": str(orig_cfg.get("meta", {}).get("dataset_name", "")),
+            "dataset_name": str(
+                orig_cfg.get("data", {}).get(
+                    "dataset_name",
+                    orig_cfg.get("meta", {}).get("dataset_name", ""),
+                )
+            ),
             "reference_budget": 20,
             "reference_output_root": str(ref_output_root),
             "selected_count": len(selected_records),

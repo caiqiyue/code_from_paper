@@ -91,3 +91,76 @@
   - 当前目标是优先保证 `GPU blocks` 充足和生成稳定性
   - 在 A6000 空卡条件下，`0.35` 是此前已经多次跑通的熟悉运行窗口
   - 先保留 `max_model_len = 512`
+
+## 2026-05-13 Learned Runtime Output Root Mismatch
+
+### Observations
+
+- The learned-policy wrapper writes reference artifacts and sidecar files under the CLI `--output-root`, for example:
+  - `_k20_reference_features.json`
+  - `*_learned_override.yaml`
+  - `*_learned_budget_policy_runtime.json`
+- The current `generate_override_config(...)` implementation only overrides:
+  - `meta.learned_budget_runtime`
+  - `selector.seed_top_k`
+  - `selector.seed_budget_rule.enabled`
+- It does **not** override `paths.output_root`.
+- Therefore, when the wrapper is invoked with a base config like `r22dc_jobs_seed42_k20.yaml`, the final round19 runtime still inherits the original config output root such as:
+  - `paper-new-round22/outputs/bandit_data_collection/jobs/seed42/k20`
+  rather than the wrapper runtime root such as:
+  - `.../outputs/learned_policy_smoke/r22_jobs_seed42`
+- This explains the observed symptom:
+  - learned-policy metadata exists under the wrapper output root,
+  - but no downstream eval artifacts appear there,
+  - even if the round19 subprocess may have succeeded.
+- The current sidecar also does not verify or record:
+  - actual runtime `stage1_summary.json`
+  - actual runtime downstream eval summary path
+
+### Hypotheses
+
+#### H1: The final round19 runtime actually ran, but wrote results to the original config output root because `paths.output_root` was not overridden (ROOT HYPOTHESIS)
+- Supports:
+  - Code inspection confirms `generate_override_config(...)` does not set `paths.output_root`.
+  - User observed reference/sidecar files under learned-policy output root but no final runtime artifacts there.
+  - Wrapper prints `Done` only after subprocess return code `0`, so a zero-exit subprocess with outputs elsewhere would create exactly this symptom.
+- Conflicts:
+  - If the subprocess actually failed with nonzero exit, this hypothesis alone would not explain the missing artifacts.
+- Test:
+  - Add a unit test that asserts override config rewrites `paths.output_root` to the wrapper runtime root.
+  - After fix, require wrapper to verify expected runtime artifact files after subprocess success.
+
+#### H2: The final round19 runtime subprocess still failed before writing outputs, and the missing files are due to a hidden runtime error
+- Supports:
+  - The user observed no downstream eval output at the expected wrapper location.
+- Conflicts:
+  - Current wrapper would return nonzero and print stderr on a subprocess failure; the observed "Done" symptom is more consistent with return code `0`.
+- Test:
+  - Persist runtime stdout/stderr or verify required artifact files after success; if missing, treat as failure.
+
+#### H3: The wrapper output root is correct, but the expected artifact names/locations were wrong
+- Supports:
+  - The user looked for a `k=18` subdirectory, while the current wrapper does not create per-budget subdirectories for final runtime.
+- Conflicts:
+  - Even without a per-budget subdir, a successful runtime should still produce `stage1_summary.json` and `eval/...` under some deterministic location.
+- Test:
+  - Explicitly define and verify the final runtime artifact locations in the wrapper.
+
+### Experiments
+
+#### E1: Inspect override generation logic
+- Change: No production fix. Code inspection only.
+- Expected confirm: If `paths.output_root` is not rewritten, the output-root mismatch theory is valid.
+- Result: Confirmed.
+
+### Root Cause
+
+- The learned-policy wrapper generated a valid override config for budget prediction, but it **did not redirect `paths.output_root` to the wrapper runtime root**. As a result, the final round19 runtime could write outputs to the original base-config location instead of the learned-policy output directory, making the experiment appear incomplete even when the subprocess itself may have succeeded.
+
+### Fix Direction
+
+- Update override generation so the final round19 runtime always writes to the wrapper-managed runtime root.
+- After subprocess success, explicitly verify the presence of:
+  - `stage1_summary.json`
+  - `eval/downstream_eval_summary.json` (or equivalent eval summary artifact if produced)
+- Write the verified runtime artifact paths back into the learned runtime sidecar for later inspection.
