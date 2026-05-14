@@ -15,6 +15,13 @@ from .baseline_modes import (
     extract_texts,
 )
 from .budget_calibration import (
+    build_round23_budget_table_rows,
+    combine_budget_metrics,
+    compute_budget_cost,
+    compute_selected_coverage_score,
+    compute_selected_genericity_score,
+    compute_selected_redundancy_score,
+    compute_selected_support_score,
     resolve_seed_top_k_by_hierarchical_routing,
     resolve_seed_top_k_by_self_calibration,
 )
@@ -591,14 +598,71 @@ def run_stage1_with_runtime(
                 seed_top_k=resolved_seed_top_k,
                 hard_negative_top_k=int(selector_cfg["hard_negative_top_k"]),
             )
+            selected_indices = list(decision.selected_indices)
+            selected_vectors = [candidate_vectors[index] for index in selected_indices]
+            support_mean = compute_selected_support_score(
+                selected_indices=selected_indices,
+                private_support=private_support,
+            )
+            genericity_mean = compute_selected_genericity_score(
+                selected_indices=selected_indices,
+                genericity_penalty=genericity_penalty,
+            )
+            redundancy_mean = compute_selected_redundancy_score(
+                selected_vectors=selected_vectors,
+            )
+            coverage_stats = compute_selected_coverage_score(
+                private_vectors=private_vectors,
+                selected_vectors=selected_vectors,
+            )
+            raw_metrics_by_budget = {
+                int(resolved_seed_top_k): {
+                    "selected_count": len(selected_indices),
+                    "selected_indices": selected_indices,
+                    "support_score": float(support_mean),
+                    "support_mean": float(support_mean),
+                    "genericity_score": float(genericity_mean),
+                    "redundancy_score": float(redundancy_mean),
+                    "coverage_mean": float(coverage_stats["coverage_mean"]),
+                    "coverage_p25": float(coverage_stats["coverage_p25"]),
+                    "coverage_min": float(coverage_stats["coverage_min"]),
+                    "budget_cost": float(
+                        compute_budget_cost(
+                            seed_top_k=int(resolved_seed_top_k),
+                            candidate_seed_top_k=[int(resolved_seed_top_k)],
+                        )
+                    ),
+                }
+            }
+            enriched_metrics = combine_budget_metrics(
+                metrics_by_budget=raw_metrics_by_budget,
+                calibration_cfg={
+                    "utility": {
+                        "support_weight": 1.0,
+                        "genericity_weight": 0.5,
+                        "redundancy_weight": 0.3,
+                        "coverage_weight": 0.4,
+                        "budget_weight": 0.1,
+                    }
+                },
+            )
             seed_budget_summary = {
                 "configured_seed_top_k": int(selector_cfg["seed_top_k"]),
                 "resolved_seed_top_k": resolved_seed_top_k,
+                "candidate_seed_top_k": [int(resolved_seed_top_k)],
                 "rule": rule_cfg,
                 "mode": rule_mode if bool(rule_cfg.get("enabled", False)) else "disabled",
                 "private_length_mean": private_length_stats["mean"],
                 "private_length_median": private_length_stats["median"],
                 "private_length_p75": private_length_stats["p75"],
+                "budget_table_rows": build_round23_budget_table_rows(
+                    candidate_seed_top_k=[int(resolved_seed_top_k)],
+                    decisions_by_budget={int(resolved_seed_top_k): decision},
+                    metrics_by_budget=enriched_metrics,
+                    candidate_texts=candidate_texts,
+                    private_support=private_support,
+                    genericity_penalty=genericity_penalty,
+                ),
             }
 
         reject_scores = [
