@@ -1,0 +1,25 @@
+{
+  "controller_version": "round23_mock_smoke_v1",
+  "learner_family": "mock_linear",
+  "training_data_version": "mock",
+  "reference_budget": 20,
+  "action_space": [
+    -2,
+    -1,
+    0,
+    1,
+    2
+  ],
+  "reward_formula": "mock_reward",
+  "feature_names": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20",
+    "redundancy_mean_at_k20"
+  ]
+}

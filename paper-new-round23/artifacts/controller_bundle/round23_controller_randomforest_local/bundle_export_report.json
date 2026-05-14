@@ -1,0 +1,13 @@
+{
+  "bundle_version": "round23_controller_randomforest_local",
+  "bundle_root": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round23\\artifacts\\controller_bundle\\round23_controller_randomforest_local",
+  "model_family": "randomforest",
+  "training_data_version": "round22_full500_round23_controller_local_v1",
+  "exported_models": {
+    "-2": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round23\\artifacts\\controller_bundle\\round23_controller_randomforest_local\\model_dk_neg2.pkl",
+    "-1": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round23\\artifacts\\controller_bundle\\round23_controller_randomforest_local\\model_dk_neg1.pkl",
+    "0": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round23\\artifacts\\controller_bundle\\round23_controller_randomforest_local\\model_dk_0.pkl",
+    "1": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round23\\artifacts\\controller_bundle\\round23_controller_randomforest_local\\model_dk_pos1.pkl",
+    "2": "D:\\学习记录\\导师项目\\研究\\caiqiyue_file\\paper-new-round23\\artifacts\\controller_bundle\\round23_controller_randomforest_local\\model_dk_pos2.pkl"
+  }
+}

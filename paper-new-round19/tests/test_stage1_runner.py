@@ -800,6 +800,128 @@ class Stage1RunnerReleaseTests(unittest.TestCase):
         self.assertEqual(summary["seed_budget"]["mode"], "self_calibrated")
         self.assertEqual(summary["seed_budget"]["resolved_seed_top_k"], 19)
 
+    def test_stage1_runner_adds_collection_contract_when_enabled(self):
+        fake_backend = _FakeTextBackend()
+        fake_embedder = _FakeEmbedder()
+        config = {
+            "pipeline": {"stage1_mode": "selector_seed_search"},
+            "generator": {
+                "initial_prompt": "prompt",
+                "candidate_count": 2,
+                "max_rounds": 1,
+                "exemplars_per_prompt": 1,
+            },
+            "meta": {"seed": 42},
+            "data": {"dataset_name": "jobs"},
+            "collection": {
+                "enabled": True,
+                "schema_version": "round23_collection_v1",
+            },
+            "selector": {
+                "private_knn_k": 1,
+                "density_lambda": 0.0,
+                "novelty_lambda": 0.0,
+                "length_lambda": 0.0,
+                "length_floor": 1,
+                "length_ceiling": 100,
+                "rank_weights": [1.0],
+                "top_q": 1,
+                "reference_top_k": 1,
+                "lambda_generic": 0.2,
+                "lambda_redundancy": 0.3,
+                "seed_top_k": 20,
+                "hard_negative_top_k": 1,
+                "seed_budget_rule": {
+                    "enabled": True,
+                    "mode": "self_calibrated",
+                    "candidate_seed_top_k": [18, 19, 20],
+                },
+            },
+            "privacy": {"enabled": False, "delta": 1e-5},
+            "stage1": {"sigma": 0.0, "delta": 1e-5},
+        }
+        sample_bundle = {
+            "train_samples": [
+                _FakeSample("private alpha short"),
+                _FakeSample("private beta text with extra tokens"),
+                _FakeSample("private gamma text with even more extra tokens now"),
+            ],
+            "eval_samples": [_FakeSample("eval alpha")],
+            "init_samples": [_FakeSample("seed alpha"), _FakeSample("seed beta")],
+        }
+        decision = SimpleNamespace(
+            selected_indices=[0],
+            hard_negative_indices=[1],
+            hard_negative_reason={1: "boundary_negative"},
+            accept_scores=[0.9, 0.2],
+            to_dict=lambda: {"selected_indices": [0], "hard_negative_indices": [1]},
+        )
+
+        with _round_context_patch(), patch(
+            "paper_new_selector.stage1_runner.load_yaml_config",
+            return_value=config,
+        ), patch(
+            "paper_new_selector.stage1_runner.load_text_samples",
+            return_value=sample_bundle,
+        ), patch(
+            "paper_new_selector.stage1_runner.build_candidate_generator",
+            return_value=SimpleNamespace(
+                generator=_FakeGenerator(),
+                text_backend=fake_backend,
+                contract={"llm_backend": "vllm"},
+            ),
+        ), patch(
+            "paper_new_selector.stage1_runner.build_embedder_from_config",
+            return_value=fake_embedder,
+        ), patch(
+            "paper_new_selector.stage1_runner.build_private_importance_weights",
+            return_value=[1.0, 1.0, 1.0],
+        ), patch(
+            "paper_new_selector.stage1_runner.compute_private_support",
+            return_value=[0.9, 0.2],
+        ), patch(
+            "paper_new_selector.stage1_runner.apply_gaussian_privacy_noise",
+            side_effect=lambda scores, **_: scores,
+        ), patch(
+            "paper_new_selector.stage1_runner.compute_genericity_penalties",
+            return_value=[0.1, 0.3],
+        ), patch(
+            "paper_new_selector.stage1_runner.resolve_seed_top_k_by_self_calibration",
+            return_value={
+                "decision": decision,
+                "seed_budget_summary": {
+                    "configured_seed_top_k": 20,
+                    "resolved_seed_top_k": 19,
+                    "mode": "self_calibrated",
+                    "candidate_seed_top_k": [18, 19, 20],
+                    "per_budget_metrics": {},
+                    "budget_table_rows": [
+                        {"budget_k": 18, "selected_count": 1},
+                        {"budget_k": 19, "selected_count": 1},
+                    ],
+                    "selected_utility": 0.8,
+                    "runner_up_seed_top_k": 20,
+                    "runner_up_utility": 0.79,
+                    "utility_gap": 0.01,
+                    "tiebreak_applied": False,
+                    "tiebreak_reason": "argmax_utility",
+                    "rule": {"enabled": True, "mode": "self_calibrated"},
+                },
+            },
+        ), patch(
+            "paper_new_selector.stage1_runner.build_boundary_state",
+            return_value={"negative_pattern_stats": {"count": 1}},
+        ):
+            summary = run_stage1("dummy.yaml", validate_only=False)
+
+        self.assertEqual(summary["context_summary"]["dataset_name"], "jobs")
+        self.assertEqual(summary["context_summary"]["meta_seed"], 42)
+        self.assertEqual(summary["context_summary"]["private_sample_count"], 3)
+        self.assertEqual(summary["budget_collection"]["enabled"], True)
+        self.assertEqual(summary["budget_collection"]["schema_version"], "round23_collection_v1")
+        self.assertEqual(summary["budget_collection"]["candidate_seed_top_k"], [18, 19, 20])
+        self.assertEqual(len(summary["budget_collection"]["per_budget_rows"]), 2)
+
     def test_stage1_runner_uses_self_calibrated_constrained_seed_budget_path(self):
         fake_backend = _FakeTextBackend()
         fake_embedder = _FakeEmbedder()

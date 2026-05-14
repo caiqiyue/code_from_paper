@@ -26,7 +26,7 @@ ROUND19_BASE_CONFIG = (
 if str(ROUND19_ROOT) not in sys.path:
     sys.path.insert(0, str(ROUND19_ROOT))
 
-from common import BUDGETS, as_float, as_int, read_jsonl  # noqa: E402
+from common import BUDGETS, as_float, as_int, context_id, read_jsonl  # noqa: E402
 from paper_new_selector.budget_calibration import compute_budget_cost  # type: ignore  # noqa: E402
 from paper_new_selector.hierarchical_budget import resolve_hierarchical_budget  # type: ignore  # noqa: E402
 from paper_new_selector.redundancy import cosine_similarity  # type: ignore  # noqa: E402
@@ -254,7 +254,10 @@ def build_round19_replay_policy_from_action_samples(
     rows = read_jsonl(action_samples_path)
     grouped: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        context_key = str(row["context_id"])
+        context_key = str(
+            row.get("context_id")
+            or context_id(str(row["dataset_name"]), as_int(row["meta_seed"]))
+        )
         if context_ids is not None and context_key not in context_ids:
             continue
         grouped.setdefault(context_key, []).append(row)

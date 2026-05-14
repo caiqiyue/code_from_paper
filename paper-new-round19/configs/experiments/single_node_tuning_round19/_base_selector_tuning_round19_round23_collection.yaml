@@ -1,0 +1,11 @@
+inherits:
+  - ./_base_selector_tuning_round19.yaml
+
+collection:
+  enabled: true
+  schema_version: round23_collection_v1
+  write_context_summary: true
+  write_budget_table: true
+  write_final_result_summary: true
+  write_round_table: false
+  write_runtime_table: false

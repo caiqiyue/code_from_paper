@@ -1,7 +1,9 @@
 import unittest
+from types import SimpleNamespace
 
 from paper_new_selector.budget_calibration import (
     _select_budget_with_tiebreak,
+    build_round23_budget_table_rows,
     combine_budget_metrics,
     combine_feasible_budget_metrics,
     compute_relative_coverage_threshold,
@@ -21,6 +23,58 @@ from paper_new_selector.budget_calibration import (
 
 
 class BudgetCalibrationTests(unittest.TestCase):
+    def test_build_round23_budget_table_rows_maps_budget_metrics_to_collection_rows(self):
+        rows = build_round23_budget_table_rows(
+            candidate_seed_top_k=[18, 20],
+            decisions_by_budget={
+                18: SimpleNamespace(selected_indices=[0], to_dict=lambda: {"selected_indices": [0]}),
+                20: SimpleNamespace(selected_indices=[0, 2], to_dict=lambda: {"selected_indices": [0, 2]}),
+            },
+            metrics_by_budget={
+                18: {
+                    "selected_count": 1,
+                    "selected_indices": [0],
+                    "support_score": 0.91,
+                    "support_mean": 0.91,
+                    "genericity_score": 0.11,
+                    "redundancy_score": 0.0,
+                    "coverage_mean": 0.63,
+                    "coverage_p25": 0.44,
+                    "coverage_min": 0.21,
+                    "budget_cost": 0.0,
+                    "normalized_metrics": {"support_score": 1.0},
+                    "coverage_gain": 0.63,
+                    "utility": 0.9,
+                },
+                20: {
+                    "selected_count": 2,
+                    "selected_indices": [0, 2],
+                    "support_score": 0.87,
+                    "support_mean": 0.87,
+                    "genericity_score": 0.16,
+                    "redundancy_score": 0.08,
+                    "coverage_mean": 0.72,
+                    "coverage_p25": 0.55,
+                    "coverage_min": 0.30,
+                    "budget_cost": 1.0,
+                    "normalized_metrics": {"support_score": 0.0},
+                    "coverage_gain": 0.09,
+                    "utility": 0.7,
+                },
+            },
+            candidate_texts=["alpha text", "beta text", "gamma text"],
+            private_support=[0.91, 0.52, 0.83],
+            genericity_penalty=[0.11, 0.22, 0.21],
+        )
+
+        self.assertEqual([row["budget_k"] for row in rows], [18, 20])
+        self.assertEqual(rows[0]["selected_texts"], ["alpha text"])
+        self.assertEqual(rows[1]["selected_texts"], ["alpha text", "gamma text"])
+        self.assertEqual(rows[1]["support_mean_k"], 0.87)
+        self.assertEqual(rows[1]["genericity_mean_k"], 0.16)
+        self.assertEqual(rows[1]["normalized_metrics"], {"support_score": 0.0})
+        self.assertEqual(rows[1]["decision"], {"selected_indices": [0, 2]})
+
     def test_compute_selected_coverage_score_reports_aggregate_stats(self):
         result = compute_selected_coverage_score(
             private_vectors=[[1.0, 0.0], [0.0, 1.0]],

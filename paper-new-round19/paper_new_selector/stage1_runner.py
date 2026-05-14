@@ -22,6 +22,7 @@ from .generator_bridge import build_candidate_generator
 from .genericity import compute_genericity_penalties
 from .importance import build_private_importance_weights
 from .runtime_cleanup import release_runtime_memory
+from .shape_descriptor import compute_shape_descriptor
 from .selector import greedy_select_candidates
 from .support import apply_gaussian_privacy_noise, compute_private_support
 from .thesis_bridge import (
@@ -110,6 +111,82 @@ def compute_private_length_stats(private_lengths: list[int]) -> dict[str, float]
         "mean": float(statistics.mean(private_lengths)),
         "median": float(statistics.median(private_lengths)),
         "p75": _percentile_nearest_rank(private_lengths, 75),
+    }
+
+
+def _normalize_collection_config(config: dict[str, Any]) -> dict[str, Any]:
+    raw_cfg = dict(config.get("collection", {}))
+    return {
+        "enabled": bool(raw_cfg.get("enabled", False)),
+        "schema_version": str(
+            raw_cfg.get("schema_version", "round23_collection_v1")
+        ),
+        "write_context_summary": bool(raw_cfg.get("write_context_summary", True)),
+        "write_budget_table": bool(raw_cfg.get("write_budget_table", True)),
+        "write_final_result_summary": bool(
+            raw_cfg.get("write_final_result_summary", True)
+        ),
+        "write_round_table": bool(raw_cfg.get("write_round_table", False)),
+        "write_runtime_table": bool(raw_cfg.get("write_runtime_table", False)),
+    }
+
+
+def _build_context_summary(
+    *,
+    config: dict[str, Any],
+    selector_cfg: dict[str, Any],
+    private_lengths: list[int],
+    private_length_stats: dict[str, float],
+    seed_budget_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    rule_cfg = dict(selector_cfg.get("seed_budget_rule", {}))
+    router_cfg = dict(rule_cfg.get("router", {}))
+    descriptor = compute_shape_descriptor(
+        private_lengths,
+        tail_threshold=int(router_cfg.get("tail_threshold", 350)),
+        short_threshold=int(router_cfg.get("short_threshold", 120)),
+    )
+    summary = {
+        "dataset_name": str(config.get("data", {}).get("dataset_name", "")),
+        "meta_seed": int(config.get("meta", {}).get("seed", 42)),
+        "private_sample_count": len(private_lengths),
+        "private_mean_length": float(private_length_stats.get("mean", 0.0)),
+        "private_p75_length": float(private_length_stats.get("p75", 0.0)),
+        "private_length_iqr": float(descriptor.iqr_len),
+        "median_len": float(descriptor.median_len),
+        "tail_ratio": float(descriptor.tail_ratio),
+        "short_ratio": float(descriptor.short_ratio),
+        "shape_score": None,
+        "shape_regime": None,
+    }
+    if seed_budget_summary is not None:
+        if seed_budget_summary.get("shape_score") is not None:
+            summary["shape_score"] = float(seed_budget_summary["shape_score"])
+        if seed_budget_summary.get("regime") is not None:
+            summary["shape_regime"] = str(seed_budget_summary["regime"])
+    return summary
+
+
+def _build_budget_collection_summary(
+    *,
+    collection_cfg: dict[str, Any],
+    seed_budget_summary: dict[str, Any],
+) -> dict[str, Any] | None:
+    if not bool(collection_cfg.get("enabled", False)):
+        return None
+    return {
+        "enabled": True,
+        "schema_version": str(collection_cfg["schema_version"]),
+        "candidate_seed_top_k": [
+            int(value)
+            for value in seed_budget_summary.get("candidate_seed_top_k", [])
+        ],
+        "resolved_seed_top_k": (
+            int(seed_budget_summary["resolved_seed_top_k"])
+            if seed_budget_summary.get("resolved_seed_top_k") is not None
+            else None
+        ),
+        "per_budget_rows": list(seed_budget_summary.get("budget_table_rows", [])),
     }
 
 
@@ -235,10 +312,13 @@ def run_stage1_with_runtime(
     stage1_mode = str(config["pipeline"]["stage1_mode"]).strip().lower()
     seed = int(config.get("meta", {}).get("seed", 42))
     selector_cfg = dict(config.get("selector", {}))
+    collection_cfg = _normalize_collection_config(config)
     bootstrap_budget = int(config.get("bootstrap", {}).get("num_prompts", 100))
     seed_text_max_words = config.get("bootstrap", {}).get("seed_text_max_words")
     init_texts = extract_texts(sample_bundle["init_samples"])
     private_texts = extract_texts(sample_bundle["train_samples"])
+    private_lengths = [len(text.split()) for text in private_texts]
+    private_length_stats = compute_private_length_stats(private_lengths)
 
     if stage1_mode == "c4_only":
         return (
@@ -295,12 +375,30 @@ def run_stage1_with_runtime(
     generator_handle = build_candidate_generator(config_path)
     embedder: Any | None = None
     if validate_only:
+        context_summary = _build_context_summary(
+            config=config,
+            selector_cfg=selector_cfg,
+            private_lengths=private_lengths,
+            private_length_stats=private_length_stats,
+        )
         return (
             {
                 "mode": str(config["pipeline"]["stage1_mode"]),
                 "train_count": len(sample_bundle["train_samples"]),
                 "eval_count": len(sample_bundle["eval_samples"]),
                 "init_count": len(sample_bundle["init_samples"]),
+                "context_summary": context_summary,
+                "budget_collection": (
+                    {
+                        "enabled": True,
+                        "schema_version": str(collection_cfg["schema_version"]),
+                        "candidate_seed_top_k": [],
+                        "resolved_seed_top_k": None,
+                        "per_budget_rows": [],
+                    }
+                    if collection_cfg["enabled"]
+                    else None
+                ),
                 "generator_contract": dict(generator_handle.contract),
                 "shared_session": (
                     generator_handle.shared_session.to_dict()
@@ -378,7 +476,6 @@ def run_stage1_with_runtime(
         private_vectors = _vectorize(embedder, private_texts)
         candidate_vectors = _vectorize(embedder, candidate_texts)
         reference_vectors = _vectorize(embedder, init_texts)
-        private_lengths = [len(text.split()) for text in private_texts]
 
         selector_cfg = config["selector"]
         stage1_cfg = dict(config.get("stage1", {}))
@@ -425,7 +522,6 @@ def run_stage1_with_runtime(
                 if _src_key in selector_cfg:
                     selector_cfg[_tgt_key] = float(selector_cfg[_src_key])
         candidate_lengths = [len(text.split()) for text in candidate_texts]
-        private_length_stats = compute_private_length_stats(private_lengths)
         genericity_penalty = compute_genericity_penalties(
             candidate_vectors=candidate_vectors,
             reference_vectors=reference_vectors,
@@ -518,7 +614,14 @@ def run_stage1_with_runtime(
         hard_negative_texts = [
             candidate_texts[index] for index in decision.hard_negative_indices
         ]
-        return {
+        context_summary = _build_context_summary(
+            config=config,
+            selector_cfg=selector_cfg,
+            private_lengths=private_lengths,
+            private_length_stats=private_length_stats,
+            seed_budget_summary=seed_budget_summary,
+        )
+        summary = {
             "mode": str(config["pipeline"]["stage1_mode"]),
             "selected_indices": decision.selected_indices,
             "hard_negative_indices": decision.hard_negative_indices,
@@ -532,6 +635,7 @@ def run_stage1_with_runtime(
                 "sigma": privacy_sigma,
                 "delta": float(stage1_cfg.get("delta", privacy_cfg.get("delta", 0.0))),
             },
+            "context_summary": context_summary,
             "seed_budget": seed_budget_summary,
             "decision": decision.to_dict(),
             "shared_session": (
@@ -539,7 +643,14 @@ def run_stage1_with_runtime(
                 if getattr(generator_handle, "shared_session", None) is not None
                 else None
             ),
-        }, {
+        }
+        budget_collection = _build_budget_collection_summary(
+            collection_cfg=collection_cfg,
+            seed_budget_summary=seed_budget_summary,
+        )
+        if budget_collection is not None:
+            summary["budget_collection"] = budget_collection
+        return summary, {
             "generator_handle": generator_handle,
             "shared_session": getattr(generator_handle, "shared_session", None),
             "embedder": embedder,

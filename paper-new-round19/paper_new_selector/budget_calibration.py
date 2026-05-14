@@ -172,6 +172,64 @@ def combine_budget_metrics(
     return enriched
 
 
+def build_round23_budget_table_rows(
+    *,
+    candidate_seed_top_k: list[int],
+    decisions_by_budget: dict[int, Any],
+    metrics_by_budget: dict[int, dict[str, Any]],
+    candidate_texts: list[str],
+    private_support: list[float] | None = None,
+    genericity_penalty: list[float] | None = None,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for budget in sorted(int(value) for value in candidate_seed_top_k):
+        metrics = dict(metrics_by_budget.get(int(budget), {}))
+        selected_indices = [
+            int(index) for index in metrics.get("selected_indices", [])
+            if 0 <= int(index) < len(candidate_texts)
+        ]
+        selected_texts = [candidate_texts[index] for index in selected_indices]
+        decision = decisions_by_budget.get(int(budget))
+        row = {
+            "budget_k": int(budget),
+            "selected_count": int(metrics.get("selected_count", len(selected_indices))),
+            "selected_indices": selected_indices,
+            "selected_texts": selected_texts,
+            "selected_seed_lengths": [len(text.split()) for text in selected_texts],
+            "support_mean_k": float(metrics.get("support_mean", metrics.get("support_score", 0.0))),
+            "genericity_mean_k": float(metrics.get("genericity_score", 0.0)),
+            "redundancy_mean_k": float(metrics.get("redundancy_score", 0.0)),
+            "coverage_mean_k": float(metrics.get("coverage_mean", 0.0)),
+            "coverage_p25_k": float(metrics.get("coverage_p25", 0.0)),
+            "coverage_min_k": float(metrics.get("coverage_min", 0.0)),
+            "budget_cost": float(metrics.get("budget_cost", 0.0)),
+            "normalized_metrics": dict(metrics.get("normalized_metrics", {})),
+            "utility": float(metrics.get("utility", 0.0)),
+            "coverage_gain": float(metrics.get("coverage_gain", 0.0)),
+            "decision": (
+                decision.to_dict()
+                if hasattr(decision, "to_dict")
+                else dict(decision)
+                if isinstance(decision, dict)
+                else None
+            ),
+        }
+        if private_support is not None:
+            row["selected_support_values"] = [
+                float(private_support[index])
+                for index in selected_indices
+                if 0 <= int(index) < len(private_support)
+            ]
+        if genericity_penalty is not None:
+            row["selected_genericity_values"] = [
+                float(genericity_penalty[index])
+                for index in selected_indices
+                if 0 <= int(index) < len(genericity_penalty)
+            ]
+        rows.append(row)
+    return rows
+
+
 def compute_relative_coverage_threshold(
     *, best_coverage_p25: float, relative_ratio: float
 ) -> float:
@@ -1078,6 +1136,14 @@ def resolve_seed_top_k_by_hierarchical_routing(
         enriched_metrics=enriched_metrics,
         selected=selected,
     )
+    seed_budget_summary["budget_table_rows"] = build_round23_budget_table_rows(
+        candidate_seed_top_k=candidate_seed_top_k,
+        decisions_by_budget=decisions_by_budget,
+        metrics_by_budget=enriched_metrics,
+        candidate_texts=candidate_texts,
+        private_support=private_support,
+        genericity_penalty=genericity_penalty,
+    )
     return {
         "decision": decision,
         "seed_budget_summary": seed_budget_summary,
@@ -1127,6 +1193,14 @@ def resolve_seed_top_k_by_self_calibration(
         candidate_seed_top_k=candidate_seed_top_k,
         enriched_metrics=enriched_metrics,
         selected=selected,
+    )
+    seed_budget_summary["budget_table_rows"] = build_round23_budget_table_rows(
+        candidate_seed_top_k=candidate_seed_top_k,
+        decisions_by_budget=decisions_by_budget,
+        metrics_by_budget=enriched_metrics,
+        candidate_texts=candidate_texts,
+        private_support=private_support,
+        genericity_penalty=genericity_penalty,
     )
 
     return {

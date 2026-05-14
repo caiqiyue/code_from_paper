@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "feature_names": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20",
+    "redundancy_mean_at_k20"
+  ],
+  "include_dataset_onehot": true,
+  "onehot_order": [
+    "jobs",
+    "congressional",
+    "forums",
+    "microblog"
+  ],
+  "total_features": 13
+}

@@ -1,0 +1,13 @@
+﻿inherits:
+  - ../_base_selector_tuning_round19_round23_collection_fixed_budget.yaml
+  - ../_data_jobs.yaml
+
+meta:
+  experiment_id: r19_r23c_jobs_seed789_k18
+  seed: 789
+
+paths:
+  output_root: paper-new-round19/outputs/round23_collection_repeat40/jobs/seed789/k18
+
+selector:
+  seed_top_k: 18

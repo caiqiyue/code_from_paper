@@ -13,6 +13,7 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_TRAIN_ROOT = Path(__file__).resolve().parent
 ROUND22_ROOT = PROJECT_ROOT / "paper-new-round22"
+ROUND23_ROOT = PROJECT_ROOT / "paper-new-round23"
 
 DEFAULT_SUMMARY_JSONL = ROUND22_ROOT / "logs" / "round22_bandit_full_summary.jsonl"
 DEFAULT_SUMMARY_TSV = ROUND22_ROOT / "logs" / "round22_bandit_full_summary.tsv"
@@ -28,8 +29,14 @@ DEFAULT_SPLIT_DIR = MODEL_TRAIN_ROOT / "artifacts" / "splits"
 DEFAULT_MODEL_DIR = MODEL_TRAIN_ROOT / "artifacts" / "models"
 DEFAULT_REPORT_DIR = MODEL_TRAIN_ROOT / "artifacts" / "reports"
 DEFAULT_DIAGNOSTIC_DIR = MODEL_TRAIN_ROOT / "artifacts" / "diagnostics"
+DEFAULT_ROUND23_DATASET_DIR = MODEL_TRAIN_ROOT / "artifacts" / "round23_datasets"
+DEFAULT_ROUND23_SPLIT_DIR = MODEL_TRAIN_ROOT / "artifacts" / "round23_splits"
+DEFAULT_ROUND23_MODEL_DIR = MODEL_TRAIN_ROOT / "artifacts" / "round23_models"
+DEFAULT_ROUND23_REPORT_DIR = MODEL_TRAIN_ROOT / "artifacts" / "round23_reports"
 
 BUDGETS = [18, 19, 20, 21, 22]
+REFERENCE_BUDGET = 20
+DELTA_ACTIONS = [-2, -1, 0, 1, 2]
 DATASET_ORDER = ["jobs", "congressional", "forums", "microblog"]
 ROUND22_REWARD_LAMBDA = 0.002
 
@@ -132,6 +139,52 @@ def compute_reward(best_top1: float, normalized_budget_cost: float, reward_lambd
     return float(best_top1) - float(reward_lambda) * float(normalized_budget_cost)
 
 
+def resolve_canonical_project_root() -> Path:
+    resolved = PROJECT_ROOT.resolve()
+    parts = list(resolved.parts)
+    if ".worktrees" in parts:
+        worktree_index = parts.index(".worktrees")
+        return Path(*parts[:worktree_index])
+    return resolved
+
+
+CANONICAL_PROJECT_ROOT = resolve_canonical_project_root()
+CANONICAL_MODEL_TRAIN_ROOT = CANONICAL_PROJECT_ROOT / "model-train"
+CANONICAL_ROUND22_ROOT = CANONICAL_PROJECT_ROOT / "paper-new-round22"
+CANONICAL_ROUND23_ROOT = CANONICAL_PROJECT_ROOT / "paper-new-round23"
+
+
+def controller_target_budget(delta_k: int, reference_budget: int = REFERENCE_BUDGET) -> int:
+    return int(reference_budget) + int(delta_k)
+
+
+def normalized_delta_cost(delta_k: int, *, max_abs_delta: int = 2) -> float:
+    if max_abs_delta <= 0:
+        return 0.0
+    return abs(int(delta_k)) / float(max_abs_delta)
+
+
+def compute_round23_controller_reward(
+    *,
+    best_top1_k0: float,
+    best_top1_k1: float,
+    coverage_p25_k0: float,
+    coverage_p25_k1: float,
+    support_mean_k0: float,
+    support_mean_k1: float,
+    delta_k: int,
+    top1_weight: float = 1.0,
+    coverage_weight: float = 0.25,
+    support_penalty_weight: float = 0.20,
+    movement_cost_weight: float = 0.02,
+) -> float:
+    return (
+        float(top1_weight) * (float(best_top1_k1) - float(best_top1_k0))
+        + float(coverage_weight) * (float(coverage_p25_k1) - float(coverage_p25_k0))
+        - float(support_penalty_weight) * max(0.0, float(support_mean_k0) - float(support_mean_k1))
+        - float(movement_cost_weight) * abs(int(delta_k))
+    )
+
+
 def normalize_record_key(dataset_name: Any, meta_seed: Any) -> tuple[str, int]:
     return str(dataset_name), int(meta_seed)
-

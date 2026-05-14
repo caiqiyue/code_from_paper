@@ -1,0 +1,46 @@
+{
+  "controller_version": "round23_controller_randomforest_local",
+  "bundle_version": "round23_controller_randomforest_local",
+  "learner_family": "randomforest",
+  "model_family": "randomforest",
+  "training_data_version": "round22_full500_round23_controller_local_v1",
+  "reference_budget": 20,
+  "action_space": [
+    -2,
+    -1,
+    0,
+    1,
+    2
+  ],
+  "delta_actions": [
+    -2,
+    -1,
+    0,
+    1,
+    2
+  ],
+  "reward_formula": "1.0*(best_top1_k1-best_top1_k0)+0.25*(coverage_p25_k1-coverage_p25_k0)-0.20*max(0,support_mean_k0-support_mean_k1)-0.02*abs(delta_k)",
+  "export_destination_convention": "paper-new-round23/artifacts/controller_bundle/<bundle_version>/",
+  "feature_names": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20",
+    "redundancy_mean_at_k20"
+  ],
+  "expected_feature_order": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20",
+    "redundancy_mean_at_k20"
+  ]
+}

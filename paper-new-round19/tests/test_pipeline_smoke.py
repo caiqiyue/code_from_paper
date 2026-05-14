@@ -140,6 +140,76 @@ class PipelineSmokeTests(unittest.TestCase):
         self.assertIn("stage1_summary.json", written_names)
         self.assertIn("stage1_budget_calibration.json", written_names)
 
+    def test_pipeline_writes_collection_artifacts_when_enabled(self):
+        config_path = self._write_temp_config(
+            "configs/single_node_jobs_selector.yaml",
+            {
+                "collection": {
+                    "enabled": True,
+                    "schema_version": "round23_collection_v1",
+                }
+            },
+        )
+        with patch(
+            "paper_new_selector.pipeline.run_stage1_with_runtime",
+            return_value=(
+                {
+                    "generator_contract": {"llm_backend": "vllm"},
+                    "selected_texts": ["seed one"],
+                    "seed_budget": {
+                        "mode": "self_calibrated",
+                        "resolved_seed_top_k": 19,
+                    },
+                    "context_summary": {
+                        "dataset_name": "jobs",
+                        "meta_seed": 42,
+                    },
+                    "budget_collection": {
+                        "enabled": True,
+                        "schema_version": "round23_collection_v1",
+                        "candidate_seed_top_k": [18, 19, 20],
+                        "per_budget_rows": [
+                            {"budget_k": 18, "selected_count": 1},
+                            {"budget_k": 19, "selected_count": 1},
+                        ],
+                    },
+                },
+                {
+                    "generator_handle": type("Handle", (), {"text_backend": object()})(),
+                    "shared_session": {"backend": type("B", (), {"generate_batch": lambda self, prompts, **_: [f'generated::{p}' for p in prompts]})()},
+                    "embedder": object(),
+                },
+            ),
+        ), patch(
+            "paper_new_selector.pipeline.prepare_bootstrap_runtime",
+            return_value={
+                "bootstrap_cfg": {"num_prompts": 1, "generator_backend": "vllm"},
+                "model_path": "local-llama",
+                "build_bootstrap_prompts": lambda seed_texts, *, num_prompts, seed: ["prompt"],
+                "generate_bootstrapped_samples": lambda prompt_list, _model_path, _bootstrap_cfg: prompt_list,
+                "generate_with_shared_session": lambda prompt_list, *, shared_session, bootstrap_cfg: ["generated::prompt"],
+            },
+        ), patch(
+            "paper_new_selector.pipeline.prepare_eval_runtime",
+            return_value={"enabled": False, "mode": "pretext_small"},
+        ), patch(
+            "paper_new_selector.pipeline.write_json",
+        ) as write_json, patch(
+            "paper_new_selector.pipeline.write_jsonl",
+        ) as write_jsonl, patch(
+            "paper_new_selector.pipeline.release_runtime_memory",
+        ):
+            summary = run_pipeline(config_path, validate_only=False)
+
+        written_json_paths = [call.args[0] for call in write_json.call_args_list]
+        written_json_names = [path.name for path in written_json_paths]
+        self.assertIn("context_summary.json", written_json_names)
+        self.assertIn("final_result_summary.json", written_json_names)
+        write_jsonl.assert_called_once()
+        self.assertEqual(write_jsonl.call_args.args[0].name, "budget_table.jsonl")
+        self.assertEqual(write_jsonl.call_args.args[1][0]["budget_k"], 18)
+        self.assertEqual(summary["stage2"]["generated_count"], 1)
+
     def test_pipeline_falls_back_to_standalone_stage2_generation_without_shared_session(self):
         with patch(
             "paper_new_selector.pipeline.run_stage1_with_runtime",

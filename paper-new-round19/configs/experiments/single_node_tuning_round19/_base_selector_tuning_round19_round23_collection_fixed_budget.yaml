@@ -1,0 +1,6 @@
+inherits:
+  - ./_base_selector_tuning_round19_round23_collection.yaml
+
+selector:
+  seed_budget_rule:
+    enabled: false
