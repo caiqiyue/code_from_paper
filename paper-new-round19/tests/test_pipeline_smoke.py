@@ -210,6 +210,93 @@ class PipelineSmokeTests(unittest.TestCase):
         self.assertEqual(write_jsonl.call_args.args[1][0]["budget_k"], 18)
         self.assertEqual(summary["stage2"]["generated_count"], 1)
 
+    def test_pipeline_final_result_summary_reads_nested_eval_metrics(self):
+        config_path = self._write_temp_config(
+            "configs/single_node_jobs_selector.yaml",
+            {
+                "collection": {
+                    "enabled": True,
+                    "schema_version": "round23_collection_v1",
+                }
+            },
+        )
+        captured_final_result: dict | None = None
+
+        def _capture_json(path, payload):
+            nonlocal captured_final_result
+            if path.name == "final_result_summary.json":
+                captured_final_result = payload
+
+        with patch(
+            "paper_new_selector.pipeline.run_stage1_with_runtime",
+            return_value=(
+                {
+                    "generator_contract": {"llm_backend": "vllm"},
+                    "selected_texts": ["seed one"],
+                    "seed_budget": {
+                        "mode": "hierarchical_shape_routing",
+                        "resolved_seed_top_k": 22,
+                        "candidate_seed_top_k": [18, 19, 20, 21, 22],
+                    },
+                    "context_summary": {
+                        "dataset_name": "jobs",
+                        "meta_seed": 42,
+                    },
+                    "budget_collection": {
+                        "enabled": True,
+                        "schema_version": "round23_collection_v1",
+                        "candidate_seed_top_k": [18, 19, 20, 21, 22],
+                        "per_budget_rows": [{"budget_k": 20, "selected_count": 1}],
+                    },
+                },
+                {
+                    "generator_handle": type("Handle", (), {"text_backend": object()})(),
+                    "shared_session": {"backend": type("B", (), {"generate_batch": lambda self, prompts, **_: [f'generated::{p}' for p in prompts]})()},
+                    "embedder": object(),
+                },
+            ),
+        ), patch(
+            "paper_new_selector.pipeline.prepare_bootstrap_runtime",
+            return_value={
+                "bootstrap_cfg": {"num_prompts": 1, "generator_backend": "vllm"},
+                "model_path": "local-llama",
+                "build_bootstrap_prompts": lambda seed_texts, *, num_prompts, seed: ["prompt"],
+                "generate_bootstrapped_samples": lambda prompt_list, _model_path, _bootstrap_cfg: prompt_list,
+                "generate_with_shared_session": lambda prompt_list, *, shared_session, bootstrap_cfg: ["generated::prompt"],
+            },
+        ), patch(
+            "paper_new_selector.pipeline.prepare_eval_runtime",
+            return_value={"enabled": True, "mode": "pretext_small"},
+        ), patch(
+            "paper_new_selector.pipeline.run_eval",
+            return_value={
+                "enabled": True,
+                "mode": "pretext_small",
+                "status": "completed",
+                "metrics": {
+                    "best_top1": 0.27,
+                    "best_top3": 0.42,
+                    "best_top5": 0.49,
+                    "best_top10": 0.57,
+                },
+            },
+        ), patch(
+            "paper_new_selector.pipeline.write_json",
+            side_effect=_capture_json,
+        ), patch(
+            "paper_new_selector.pipeline.write_jsonl",
+        ), patch(
+            "paper_new_selector.pipeline.release_runtime_memory",
+        ):
+            run_pipeline(config_path, validate_only=False)
+
+        self.assertIsNotNone(captured_final_result)
+        assert captured_final_result is not None
+        self.assertEqual(captured_final_result["best_top1"], 0.27)
+        self.assertEqual(captured_final_result["best_top3"], 0.42)
+        self.assertEqual(captured_final_result["best_top5"], 0.49)
+        self.assertEqual(captured_final_result["best_top10"], 0.57)
+
     def test_pipeline_falls_back_to_standalone_stage2_generation_without_shared_session(self):
         with patch(
             "paper_new_selector.pipeline.run_stage1_with_runtime",

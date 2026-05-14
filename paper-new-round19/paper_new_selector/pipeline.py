@@ -34,6 +34,15 @@ def _normalize_collection_config(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _extract_eval_metric(eval_summary: dict[str, Any], name: str) -> Any:
+    if name in eval_summary:
+        return eval_summary.get(name)
+    metrics = eval_summary.get("metrics")
+    if isinstance(metrics, dict):
+        return metrics.get(name)
+    return None
+
+
 def _build_final_result_summary(
     *,
     config: dict[str, Any],
@@ -59,10 +68,10 @@ def _build_final_result_summary(
         "eval_enabled": bool(eval_summary.get("enabled", False)),
         "eval_mode": eval_summary.get("mode"),
         "eval_status": eval_summary.get("status"),
-        "best_top1": eval_summary.get("best_top1"),
-        "best_top3": eval_summary.get("best_top3"),
-        "best_top5": eval_summary.get("best_top5"),
-        "best_top10": eval_summary.get("best_top10"),
+        "best_top1": _extract_eval_metric(eval_summary, "best_top1"),
+        "best_top3": _extract_eval_metric(eval_summary, "best_top3"),
+        "best_top5": _extract_eval_metric(eval_summary, "best_top5"),
+        "best_top10": _extract_eval_metric(eval_summary, "best_top10"),
     }
 
 
