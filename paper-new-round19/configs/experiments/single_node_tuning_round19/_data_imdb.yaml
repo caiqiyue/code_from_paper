@@ -1,0 +1,5 @@
+data:
+  dataset_name: imdb
+  train_path: thesis_platform/datasets/pretext_imdb/formatted/imdb_train.json
+  eval_path: thesis_platform/datasets/pretext_imdb/formatted/imdb_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
