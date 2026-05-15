@@ -9,3 +9,15 @@ collection:
   write_final_result_summary: true
   write_round_table: false
   write_runtime_table: false
+
+llm:
+  generator:
+    max_model_len: 512
+    gpu_memory_utilization: 0.35
+    startup_required_free_gb: 2
+
+bootstrap:
+  generator_backend: vllm
+  max_model_len: 512
+  gpu_memory_utilization: 0.35
+  startup_required_free_gb: 2

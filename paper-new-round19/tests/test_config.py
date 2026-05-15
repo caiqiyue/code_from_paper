@@ -218,6 +218,18 @@ class PaperNewSelectorConfigTests(unittest.TestCase):
         )
         self.assertEqual(config["meta"]["stage"], "single_node_tuning_round3")
         self.assertEqual(config["selector"]["reference_top_k"], 6)
+
+    def test_round23_collection_base_pins_vllm_contract_to_stable_full500_values(self):
+        config = load_yaml_config(
+            "configs/experiments/single_node_tuning_round19/_base_selector_tuning_round19_round23_collection_fixed_budget.yaml"
+        )
+        self.assertEqual(config["llm"]["generator"]["max_model_len"], 512)
+        self.assertEqual(config["llm"]["generator"]["gpu_memory_utilization"], 0.35)
+        self.assertEqual(config["llm"]["generator"]["startup_required_free_gb"], 2)
+        self.assertEqual(config["bootstrap"]["generator_backend"], "vllm")
+        self.assertEqual(config["bootstrap"]["max_model_len"], 512)
+        self.assertEqual(config["bootstrap"]["gpu_memory_utilization"], 0.35)
+        self.assertEqual(config["bootstrap"]["startup_required_free_gb"], 2)
         self.assertEqual(config["selector"]["reference_rank_weights"], [1.0, 0.8, 0.6, 0.4, 0.25, 0.1])
         self.assertEqual(config["data"]["train_limit"], 256)
         self.assertEqual(config["eval"]["small_epochs"], 6)
