@@ -81,6 +81,10 @@ def test_generate_configs_creates_unseen_manifest_and_six_dataset_stubs():
                 smoke_rows = list(csv.DictReader(handle, delimiter="\t"))
             assert len(smoke_rows) == 4
             assert {row["seed"] for row in smoke_rows} == {"42"}
+            assert not Path(smoke_rows[0]["config_path"]).is_absolute()
+            assert smoke_rows[0]["config_path"].startswith(
+                "configs/experiments/single_node_tuning_round23_dynamic/"
+            )
         finally:
             config_gen.CONFIG_ROOT = original_root
             config_gen.BASE_FILE = original_base
@@ -215,6 +219,7 @@ def test_runner_retries_failed_item_without_stopping_following_items():
         original_load_manifest = runner.load_manifest
         original_run_single_experiment = runner.run_single_experiment
         original_parse_args = runner.parse_args
+        original_wait_for_vllm_capacity = runner.wait_for_vllm_capacity
         try:
             runner.ROUND23_ROOT = root
             runner.load_manifest = lambda manifest_path: specs
@@ -225,7 +230,7 @@ def test_runner_retries_failed_item_without_stopping_following_items():
                 per_spec_attempts[spec.experiment_id] += 1
                 attempts.append((spec.experiment_id, per_spec_attempts[spec.experiment_id]))
                 if spec.experiment_id == "exp_fail":
-                    return 1, "", "synthetic failure", 0.01
+                    return 1, "", "No available memory for the cache blocks", 0.01
                 sidecar_root = root / runner.normalize_output_root(spec.output_root)
                 sidecar_root.mkdir(parents=True, exist_ok=True)
                 sidecar_path = sidecar_root / f"{spec.experiment_id}_dynamic_controller_runtime.json"
@@ -253,9 +258,15 @@ def test_runner_retries_failed_item_without_stopping_following_items():
                 timeout_seconds=1,
                 max_attempts=2,
                 retry_delay_seconds=0.0,
+                target_gpu_name_token="RTX A6000",
+                min_free_gb_for_vllm=0.0,
+                gpu_wait_poll_seconds=0.0,
+                gpu_wait_timeout_seconds=1.0,
+                reset_summary=False,
                 dry_run=False,
                 limit=0,
             )
+            runner.wait_for_vllm_capacity = lambda *args, **kwargs: None
 
             exit_code = runner.main()
 
@@ -283,6 +294,7 @@ def test_runner_retries_failed_item_without_stopping_following_items():
             runner.load_manifest = original_load_manifest
             runner.run_single_experiment = original_run_single_experiment
             runner.parse_args = original_parse_args
+            runner.wait_for_vllm_capacity = original_wait_for_vllm_capacity
 
 
 if __name__ == "__main__":

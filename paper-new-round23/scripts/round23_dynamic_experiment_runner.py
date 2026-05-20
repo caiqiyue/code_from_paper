@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import subprocess
 import sys
 import time
@@ -22,6 +23,15 @@ from round23_runtime_utils import (
 
 ROUND23_ROOT = Path(__file__).resolve().parents[1]
 RUN_SCRIPT = ROUND23_ROOT / "scripts" / "run_round23_with_dynamic_controller.py"
+DEFAULT_TARGET_GPU_NAME_TOKEN = "RTX A6000"
+DEFAULT_MIN_FREE_GB_FOR_VLLM = 24.0
+DEFAULT_GPU_WAIT_POLL_SECONDS = 30
+DEFAULT_GPU_WAIT_TIMEOUT_SECONDS = 6 * 60 * 60
+RETRYABLE_RESOURCE_FAILURE_MARKERS = (
+    "No available memory for the cache blocks",
+    "vllm_runtime_gpu_oom",
+    "CUDA out of memory",
+)
 MODE_PATHS = {
     "real_smoke": {
         "manifest_relpath": "real_smoke/round23_real_smoke_manifest.tsv",
@@ -102,6 +112,13 @@ def resolve_model_dir(model_dir: str | Path | None) -> Path:
     return resolved
 
 
+def resolve_config_path(raw_config_path: str | Path) -> Path:
+    path = Path(str(raw_config_path))
+    if path.is_absolute():
+        return path.resolve()
+    return (ROUND23_ROOT / path).resolve()
+
+
 def load_manifest(manifest_path: Path) -> list[ExperimentSpec]:
     specs: list[ExperimentSpec] = []
     with manifest_path.open("r", encoding="utf-8-sig", newline="") as handle:
@@ -112,11 +129,70 @@ def load_manifest(manifest_path: Path) -> list[ExperimentSpec]:
                     experiment_id=str(row["experiment_id"]),
                     dataset_name=str(row["dataset"]),
                     meta_seed=int(row["seed"]),
-                    config_path=Path(str(row["config_path"])).resolve(),
+                    config_path=resolve_config_path(str(row["config_path"])),
                     output_root=str(row["output_root"]),
                 )
             )
     return specs
+
+
+def parse_nvidia_smi_memory_report(report_text: str, *, target_name_token: str) -> tuple[str, float]:
+    for raw_line in report_text.splitlines():
+        parts = [part.strip() for part in raw_line.split(",")]
+        if len(parts) != 3:
+            continue
+        index, name, free_mib = parts
+        if target_name_token in name:
+            return index, float(free_mib) / 1024.0
+    raise RuntimeError(f"Could not find GPU with token {target_name_token!r} in nvidia-smi output.")
+
+
+def query_target_gpu_free_gb(*, target_name_token: str) -> tuple[str, float]:
+    completed = subprocess.run(
+        [
+            "nvidia-smi",
+            "--query-gpu=index,name,memory.free",
+            "--format=csv,noheader,nounits",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return parse_nvidia_smi_memory_report(completed.stdout, target_name_token=target_name_token)
+
+
+def wait_for_vllm_capacity(
+    log_handle,
+    *,
+    target_name_token: str,
+    minimum_free_gb: float,
+    poll_seconds: float,
+    timeout_seconds: float,
+) -> None:
+    deadline = time.time() + timeout_seconds
+    while True:
+        gpu_index, free_gb = query_target_gpu_free_gb(target_name_token=target_name_token)
+        if free_gb >= minimum_free_gb:
+            log_handle.write(
+                f"{datetime.now().isoformat()} GPU_READY target={target_name_token} "
+                f"index={gpu_index} free_gb={free_gb:.2f} threshold={minimum_free_gb:.2f}\n"
+            )
+            log_handle.flush()
+            return
+        if time.time() >= deadline:
+            raise TimeoutError(
+                f"A6000 free memory stayed below {minimum_free_gb:.2f} GiB for {timeout_seconds:.0f} seconds."
+            )
+        log_handle.write(
+            f"{datetime.now().isoformat()} GPU_WAIT target={target_name_token} "
+            f"index={gpu_index} free_gb={free_gb:.2f} threshold={minimum_free_gb:.2f}\n"
+        )
+        log_handle.flush()
+        time.sleep(poll_seconds)
+
+
+def is_retryable_resource_failure(text: str) -> bool:
+    return any(marker in text for marker in RETRYABLE_RESOURCE_FAILURE_MARKERS)
 
 
 def initialize_tsv(path: Path, fieldnames: list[str]) -> None:
@@ -269,6 +345,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=int, default=7200)
     parser.add_argument("--max-attempts", type=int, default=2)
     parser.add_argument("--retry-delay-seconds", type=float, default=10.0)
+    parser.add_argument("--target-gpu-name-token", default=DEFAULT_TARGET_GPU_NAME_TOKEN)
+    parser.add_argument("--min-free-gb-for-vllm", type=float, default=DEFAULT_MIN_FREE_GB_FOR_VLLM)
+    parser.add_argument("--gpu-wait-poll-seconds", type=float, default=DEFAULT_GPU_WAIT_POLL_SECONDS)
+    parser.add_argument("--gpu-wait-timeout-seconds", type=float, default=DEFAULT_GPU_WAIT_TIMEOUT_SECONDS)
+    parser.add_argument("--reset-summary", action="store_true", help="Remove existing mode summary/log rows before running.")
     parser.add_argument("--dry-run", action="store_true", help="Print planned experiments without executing them")
     parser.add_argument("--limit", type=int, default=0, help="Optional limit on pending experiments")
     return parser.parse_args()
@@ -293,6 +374,10 @@ def main() -> int:
     master_log = logs_root / f"{mode_paths['log_stem']}_master.log"
     summary_tsv = logs_root / f"{mode_paths['log_stem']}_summary.tsv"
     summary_jsonl = logs_root / f"{mode_paths['log_stem']}_summary.jsonl"
+    if args.reset_summary and not args.dry_run:
+        summary_tsv.unlink(missing_ok=True)
+        summary_jsonl.unlink(missing_ok=True)
+        master_log.unlink(missing_ok=True)
     fields = [
         "mode",
         "dataset_split",
@@ -355,6 +440,13 @@ def main() -> int:
             for attempt in range(1, args.max_attempts + 1):
                 master.write(f"{datetime.now().isoformat()} START {spec.experiment_id} attempt={attempt}\n")
                 master.flush()
+                wait_for_vllm_capacity(
+                    master,
+                    target_name_token=args.target_gpu_name_token,
+                    minimum_free_gb=args.min_free_gb_for_vllm,
+                    poll_seconds=args.gpu_wait_poll_seconds,
+                    timeout_seconds=args.gpu_wait_timeout_seconds,
+                )
                 code, _, stderr, duration = run_single_experiment(
                     spec,
                     model_dir=model_dir,
@@ -381,6 +473,12 @@ def main() -> int:
                     success = True
                     break
                 if attempt < args.max_attempts:
+                    log_text = ""
+                    log_path = per_exp_log_dir / f"{spec.experiment_id}.log"
+                    if log_path.exists():
+                        log_text = log_path.read_text(encoding="utf-8", errors="replace")
+                    if not is_retryable_resource_failure(stderr + "\n" + log_text):
+                        break
                     master.write(
                         f"{datetime.now().isoformat()} RETRY {spec.experiment_id} stderr={stderr[:400]}\n"
                     )

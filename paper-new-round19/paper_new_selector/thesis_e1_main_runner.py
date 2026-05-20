@@ -3,9 +3,12 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +39,15 @@ E1_MODE_CONFIG_DIRS = {
     "thesis_main_seen_repeat15": "thesis_e1_main_seen_repeat15",
     "thesis_main_seen_repeat30": "thesis_e1_main_seen_repeat30",
 }
+E1_DEFAULT_TARGET_GPU_NAME_TOKEN = "RTX A6000"
+E1_DEFAULT_MIN_FREE_GB_FOR_VLLM = 24.0
+E1_DEFAULT_GPU_WAIT_POLL_SECONDS = 30
+E1_DEFAULT_GPU_WAIT_TIMEOUT_SECONDS = 6 * 60 * 60
+E1_RETRYABLE_RESOURCE_FAILURE_MARKERS = (
+    "No available memory for the cache blocks",
+    "vllm_runtime_gpu_oom",
+    "CUDA out of memory",
+)
 E1_METHODS: dict[str, dict[str, str | None]] = {
     "pretext": {
         "display_name": "PrE-Text",
@@ -281,6 +293,65 @@ def _write_manifest(project_root: Path, mode: str, specs: list[E1BaselineSpec]) 
     return manifest
 
 
+def parse_nvidia_smi_memory_report(report_text: str, *, target_name_token: str) -> tuple[str, float]:
+    for raw_line in report_text.splitlines():
+        parts = [part.strip() for part in raw_line.split(",")]
+        if len(parts) != 3:
+            continue
+        index, name, free_mib = parts
+        if target_name_token in name:
+            return index, float(free_mib) / 1024.0
+    raise RuntimeError(f"Could not find GPU with token {target_name_token!r} in nvidia-smi output.")
+
+
+def query_target_gpu_free_gb(*, target_name_token: str) -> tuple[str, float]:
+    completed = subprocess.run(
+        [
+            "nvidia-smi",
+            "--query-gpu=index,name,memory.free",
+            "--format=csv,noheader,nounits",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return parse_nvidia_smi_memory_report(completed.stdout, target_name_token=target_name_token)
+
+
+def wait_for_vllm_capacity(
+    log_path: Path,
+    *,
+    target_name_token: str,
+    minimum_free_gb: float,
+    poll_seconds: float,
+    timeout_seconds: float,
+) -> None:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.time() + timeout_seconds
+    while True:
+        gpu_index, free_gb = query_target_gpu_free_gb(target_name_token=target_name_token)
+        with log_path.open("a", encoding="utf-8") as handle:
+            if free_gb >= minimum_free_gb:
+                handle.write(
+                    f"{datetime.now().isoformat()} GPU_READY target={target_name_token} "
+                    f"index={gpu_index} free_gb={free_gb:.2f} threshold={minimum_free_gb:.2f}\n"
+                )
+                return
+            handle.write(
+                f"{datetime.now().isoformat()} GPU_WAIT target={target_name_token} "
+                f"index={gpu_index} free_gb={free_gb:.2f} threshold={minimum_free_gb:.2f}\n"
+            )
+        if time.time() >= deadline:
+            raise TimeoutError(
+                f"A6000 free memory stayed below {minimum_free_gb:.2f} GiB for {timeout_seconds:.0f} seconds."
+            )
+        time.sleep(poll_seconds)
+
+
+def is_retryable_resource_failure(text: str) -> bool:
+    return any(marker in text for marker in E1_RETRYABLE_RESOURCE_FAILURE_MARKERS)
+
+
 def materialize_e1_configs(project_root: str | Path | None = None, *, mode: str = "thesis_main_seen_pilot") -> list[Path]:
     root = Path(project_root).resolve() if project_root is not None else resolve_project_root()
     specs = build_e1_run_specs(mode)
@@ -379,19 +450,43 @@ def _append_tsv(path: Path, row: dict[str, Any]) -> None:
         writer.writerow(row)
 
 
+def completed_experiment_ids(summary_tsv: Path) -> set[str]:
+    if not summary_tsv.exists():
+        return set()
+    with summary_tsv.open("r", encoding="utf-8-sig", newline="") as handle:
+        return {
+            str(row["experiment_id"])
+            for row in csv.DictReader(handle, delimiter="\t")
+            if str(row.get("status", "")).lower() == "success"
+        }
+
+
 def run_e1_batch(
     project_root: str | Path | None = None,
     *,
     mode: str = "thesis_main_seen_pilot",
     dry_run: bool = True,
     limit: int = 0,
+    max_attempts: int = 2,
+    retry_delay_seconds: float = 10.0,
+    target_gpu_name_token: str = E1_DEFAULT_TARGET_GPU_NAME_TOKEN,
+    min_free_gb_for_vllm: float = E1_DEFAULT_MIN_FREE_GB_FOR_VLLM,
+    gpu_wait_poll_seconds: float = E1_DEFAULT_GPU_WAIT_POLL_SECONDS,
+    gpu_wait_timeout_seconds: float = E1_DEFAULT_GPU_WAIT_TIMEOUT_SECONDS,
+    reset_summary: bool = False,
 ) -> dict[str, Any]:
     root = Path(project_root).resolve() if project_root is not None else resolve_project_root()
     materialize_e1_configs(root, mode=mode)
     specs = load_manifest(root, mode)
+    summary_tsv = root / "logs" / f"{_mode_config_dir(mode)}_summary.tsv"
+    master_log = root / "logs" / f"{_mode_config_dir(mode)}_master.log"
+    if reset_summary and not dry_run:
+        summary_tsv.unlink(missing_ok=True)
+        master_log.unlink(missing_ok=True)
+    done = completed_experiment_ids(summary_tsv)
+    specs = [spec for spec in specs if spec.experiment_id not in done]
     if limit > 0:
         specs = specs[:limit]
-    summary_tsv = root / "logs" / f"{_mode_config_dir(mode)}_summary.tsv"
     if dry_run:
         return {
             "mode": mode,
@@ -404,24 +499,53 @@ def run_e1_batch(
     failures = 0
     for spec in specs:
         config_path = root / spec.relative_config_path
-        completed = subprocess.run(
-            build_e1_command(spec, config_path),
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        status = "success" if completed.returncode == 0 else "failed"
-        failures += int(completed.returncode != 0)
-        _append_tsv(
-            summary_tsv,
-            build_summary_row(
-                spec,
-                project_root=root,
-                status=status,
-                error_excerpt=(completed.stderr or completed.stdout)[:400].replace("\n", "\\n"),
-            ),
-        )
+        success = False
+        last_error = ""
+        for attempt in range(1, max_attempts + 1):
+            with master_log.open("a", encoding="utf-8") as handle:
+                handle.write(f"{datetime.now().isoformat()} START {spec.experiment_id} attempt={attempt}\n")
+            wait_for_vllm_capacity(
+                master_log,
+                target_name_token=target_gpu_name_token,
+                minimum_free_gb=min_free_gb_for_vllm,
+                poll_seconds=gpu_wait_poll_seconds,
+                timeout_seconds=gpu_wait_timeout_seconds,
+            )
+            child_env = dict(os.environ)
+            child_env["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+            child_env["CUDA_VISIBLE_DEVICES"] = child_env.get("CUDA_VISIBLE_DEVICES", "1")
+            completed = subprocess.run(
+                build_e1_command(spec, config_path),
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=child_env,
+            )
+            last_error = (completed.stderr or completed.stdout)
+            status = "success" if completed.returncode == 0 else "failed"
+            _append_tsv(
+                summary_tsv,
+                build_summary_row(
+                    spec,
+                    project_root=root,
+                    status=status,
+                    error_excerpt=last_error[:400].replace("\n", "\\n"),
+                ),
+            )
+            with master_log.open("a", encoding="utf-8") as handle:
+                handle.write(
+                    f"{datetime.now().isoformat()} END {spec.experiment_id} "
+                    f"status={status} returncode={completed.returncode}\n"
+                )
+            if completed.returncode == 0:
+                success = True
+                break
+            if attempt >= max_attempts or not is_retryable_resource_failure(last_error):
+                break
+            if retry_delay_seconds > 0:
+                time.sleep(retry_delay_seconds)
+        failures += int(not success)
     return {"mode": mode, "status": "failed" if failures else "success", "failures": failures}
 
 
@@ -431,6 +555,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", default=True)
     parser.add_argument("--execute", action="store_true", help="Actually run subprocesses; default is dry-run.")
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--max-attempts", type=int, default=2)
+    parser.add_argument("--retry-delay-seconds", type=float, default=10.0)
+    parser.add_argument("--target-gpu-name-token", default=E1_DEFAULT_TARGET_GPU_NAME_TOKEN)
+    parser.add_argument("--min-free-gb-for-vllm", type=float, default=E1_DEFAULT_MIN_FREE_GB_FOR_VLLM)
+    parser.add_argument("--gpu-wait-poll-seconds", type=float, default=E1_DEFAULT_GPU_WAIT_POLL_SECONDS)
+    parser.add_argument("--gpu-wait-timeout-seconds", type=float, default=E1_DEFAULT_GPU_WAIT_TIMEOUT_SECONDS)
+    parser.add_argument("--reset-summary", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -440,6 +571,13 @@ def main(argv: list[str] | None = None) -> int:
         mode=args.mode,
         dry_run=not args.execute,
         limit=args.limit,
+        max_attempts=args.max_attempts,
+        retry_delay_seconds=args.retry_delay_seconds,
+        target_gpu_name_token=args.target_gpu_name_token,
+        min_free_gb_for_vllm=args.min_free_gb_for_vllm,
+        gpu_wait_poll_seconds=args.gpu_wait_poll_seconds,
+        gpu_wait_timeout_seconds=args.gpu_wait_timeout_seconds,
+        reset_summary=args.reset_summary,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("status", "success") == "success" else 1

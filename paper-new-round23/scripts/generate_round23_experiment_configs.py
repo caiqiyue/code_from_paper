@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_ROOT = ROOT / "configs" / "experiments" / "single_node_tuning_round23_dynamic"
 BASE_FILE = CONFIG_ROOT / "_base_selector_tuning_round23_dynamic.yaml"
+CONFIG_MANIFEST_ROOT = Path("configs") / "experiments" / "single_node_tuning_round23_dynamic"
 DEFAULT_CONTROLLER_SCOPE = "all6"
 DEFAULT_CONTROLLER_BUNDLE = "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset"
 SEEDS_SMOKE = [42]
@@ -211,7 +212,7 @@ def create_mode_configs(mode: str) -> None:
                     "experiment_id": experiment_id,
                     "dataset": dataset,
                     "seed": int(seed),
-                    "config_path": str(config_path.resolve()),
+                    "config_path": (CONFIG_MANIFEST_ROOT / str(spec["subdir"]) / config_path.name).as_posix(),
                     "output_root": output_root,
                     "method": "round23",
                     "controller_scope": DEFAULT_CONTROLLER_SCOPE,
