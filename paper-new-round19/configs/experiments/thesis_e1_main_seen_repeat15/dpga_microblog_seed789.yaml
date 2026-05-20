@@ -1,0 +1,21 @@
+inherits:
+- ../single_run_baseline_screening/dpga_microblog_single_run.yaml
+meta:
+  experiment_id: dpga_microblog_seed789
+  seed: 789
+  dataset_name: microblog
+  stage: thesis_main_seen_repeat15
+  method: dpga
+  method_display_name: DPGA-TextSyn
+  implementation_key: dpga
+  pretext_template_key: ''
+  mapping_status: external_adapter
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/dpga/microblog/seed789
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_seen_repeat15
+external_baseline:
+  source_artifact_path: DPGA-TextSyn/outputs/paper_new_screening/thesis_e1_main/microblog/seed789/epoch_all.json
+  source_dataset_name: microblog
+  summary_output_path: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/dpga/microblog/seed789/stage1_summary.json

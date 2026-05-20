@@ -7,6 +7,8 @@ import pickle
 from pathlib import Path
 from typing import Any
 
+from round23_context_features import validate_feature_schema
+
 
 ACTIONS = [-2, -1, 0, 1, 2]
 ACTION_TO_STEM = {
@@ -47,11 +49,7 @@ class ControllerBundle:
         path = self.bundle_dir / "feature_schema.json"
         if not path.exists():
             raise FileNotFoundError(f"feature_schema.json not found at {path}")
-        schema = json.loads(path.read_text(encoding="utf-8"))
-        for field in ("version", "feature_names", "total_features"):
-            if field not in schema:
-                raise ValueError(f"feature_schema.json missing required field: {field}")
-        return schema
+        return validate_feature_schema(path)
 
     def _load_metadata(self) -> dict[str, Any]:
         path = self.bundle_dir / "metadata.json"
@@ -92,7 +90,27 @@ class ControllerBundle:
                 payload = json.loads(self._find_model_file(stem).read_text(encoding="utf-8"))
                 models[delta_k] = _MockLinearModel(payload)
             return models
-        if self.learner_family in {"randomforest", "mlp"}:
+        if self.learner_family == "catboost":
+            from catboost import CatBoostRegressor
+
+            models: dict[int, Any] = {}
+            for delta_k, stem in ACTION_TO_STEM.items():
+                model = CatBoostRegressor()
+                model.load_model(str(self._find_model_file(stem)))
+                models[delta_k] = model
+            return models
+        if self.learner_family in {
+            "randomforest",
+            "extratrees",
+            "mlp",
+            "linear_baseline",
+            "gradientboosting",
+            "histgradientboosting",
+            "adaboost",
+            "svr",
+            "knn",
+            "elasticnet",
+        }:
             models: dict[int, Any] = {}
             for delta_k, stem in ACTION_TO_STEM.items():
                 with self._find_model_file(stem).open("rb") as handle:
@@ -117,7 +135,19 @@ class ControllerBundle:
                 predictions[delta_k] = float(model.predict(matrix)[0])
             elif self.learner_family == "mock_linear":
                 predictions[delta_k] = float(model.predict_one(feature_vector))
-            elif self.learner_family in {"randomforest", "mlp"}:
+            elif self.learner_family in {
+                "catboost",
+                "randomforest",
+                "extratrees",
+                "mlp",
+                "linear_baseline",
+                "gradientboosting",
+                "histgradientboosting",
+                "adaboost",
+                "svr",
+                "knn",
+                "elasticnet",
+            }:
                 predictions[delta_k] = float(model.predict([feature_vector])[0])
         return predictions
 
@@ -140,7 +170,7 @@ class ControllerBundle:
 def run_inference(bundle_dir: str | Path, feature_vector: list[float], reference_budget: int = 20) -> dict[str, Any]:
     bundle = ControllerBundle(bundle_dir)
     result = bundle.predict_action(feature_vector, reference_budget=reference_budget)
-    result["feature_schema_version"] = bundle.schema["version"]
+    result["feature_schema_version"] = bundle.schema["feature_version"]
     result["model_metadata"] = bundle.metadata
     result["total_features"] = bundle.schema["total_features"]
     return result

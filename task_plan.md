@@ -1,22 +1,34 @@
 # Task Plan
 
 ## Goal
-核实 `execute/new/单节点实验记录表.md` 中已完成实验的真实完成情况与结果数据，并审核 `old_automation` 后续队列 `SN-C6~C9 / SP-C6~C9` 的配置与路径是否正确。
+Assess whether the current `round19` / `round23` code, the `round19_round23_collection_repeat40` 1200-record experiment set, and the surrounding training/runtime flow are sufficient to support a minimal new `anchor robustness` experiment package.
+
+The review must answer:
+- whether `paper-new-round23` is structurally hardcoded to `k0=20`, and where
+- whether the 1200 collection records are sufficient for fixed-anchor analysis and/or controller training around `k0=19/20/21`
+- which minimal experiment path is easiest now: offline replay analysis, config-only runtime smoke/quick compare, or fresh collection
+- which experiments are already supported by code versus which need development
 
 ## Phases
 
-1. Verify completed experiments in `单节点实验记录表.md`. complete
-2. Audit `old_automation` queue additions for `SN-C6~C9 / SP-C6~C9`. complete
-3. Update docs or queue state only if verification passes. complete
-4. Report concrete findings with file references. complete
+1. Audit `round23` code/config/controller bundle for `k0=20` dependencies. in_progress
+2. Audit `round19_round23_collection_repeat40` manifests and record files for coverage and field completeness. pending
+3. Cross-check training/runtime scripts to see what can reuse the existing collection without code changes. pending
+4. Write the final readiness assessment with concrete file/dir evidence. pending
 
 ## Current Status
 
-- Phase 1: complete
-- Phase 2: complete
-- Phase 3: complete
-- Phase 4: complete
+- Phase 1: in_progress
+- Phase 2: pending
+- Phase 3: pending
+- Phase 4: pending
+
+## Risks To Track
+
+- The "1200 records" may refer to generated configs rather than materialized result rows.
+- `round23` may expose `reference_budget` as a CLI/config argument while still baking `k20` into feature schema and model artifacts.
+- Existing collection records may be sufficient for offline analysis but not for retraining the current controller bundle without schema changes.
 
 ## Errors Encountered
 
-- Path typo while reading `old_automation/README.md` and one remote probe path; corrected by re-running with the proper workspace path.
+- None yet for this audit.

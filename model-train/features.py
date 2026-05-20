@@ -47,6 +47,7 @@ def encode_feature_row(
     row: dict[str, Any],
     *,
     include_dataset_one_hot: bool = DEFAULT_INCLUDE_DATASET_ONE_HOT,
+    dataset_order: list[str] | None = None,
 ) -> tuple[list[str], list[float]]:
     validate_state_fields(row)
     feature_names = list(STATE_FEATURES)
@@ -54,7 +55,7 @@ def encode_feature_row(
 
     if include_dataset_one_hot:
         dataset_name = str(row["dataset_name"])
-        for dataset in DATASET_ORDER:
+        for dataset in list(dataset_order or DATASET_ORDER):
             feature_names.append(f"dataset_is_{dataset}")
             feature_values.append(1.0 if dataset_name == dataset else 0.0)
     return feature_names, feature_values
@@ -64,12 +65,21 @@ def extract_feature_matrix(
     rows: list[dict[str, Any]],
     *,
     include_dataset_one_hot: bool = DEFAULT_INCLUDE_DATASET_ONE_HOT,
+    dataset_order: list[str] | None = None,
 ) -> tuple[list[str], list[list[float]]]:
     if not rows:
         return [], []
-    feature_names, _ = encode_feature_row(rows[0], include_dataset_one_hot=include_dataset_one_hot)
+    feature_names, _ = encode_feature_row(
+        rows[0],
+        include_dataset_one_hot=include_dataset_one_hot,
+        dataset_order=dataset_order,
+    )
     matrix = [
-        encode_feature_row(row, include_dataset_one_hot=include_dataset_one_hot)[1]
+        encode_feature_row(
+            row,
+            include_dataset_one_hot=include_dataset_one_hot,
+            dataset_order=dataset_order,
+        )[1]
         for row in rows
     ]
     return feature_names, matrix
@@ -80,6 +90,7 @@ def encode_feature_row_with_fields(
     *,
     state_fields: list[str],
     include_dataset_one_hot: bool = DEFAULT_INCLUDE_DATASET_ONE_HOT,
+    dataset_order: list[str] | None = None,
 ) -> tuple[list[str], list[float]]:
     missing = [field for field in state_fields if field not in row]
     if missing:
@@ -89,7 +100,7 @@ def encode_feature_row_with_fields(
 
     if include_dataset_one_hot:
         dataset_name = str(row["dataset_name"])
-        for dataset in DATASET_ORDER:
+        for dataset in list(dataset_order or DATASET_ORDER):
             feature_names.append(f"dataset_is_{dataset}")
             feature_values.append(1.0 if dataset_name == dataset else 0.0)
     return feature_names, feature_values
@@ -100,6 +111,7 @@ def extract_feature_matrix_with_fields(
     *,
     state_fields: list[str],
     include_dataset_one_hot: bool = DEFAULT_INCLUDE_DATASET_ONE_HOT,
+    dataset_order: list[str] | None = None,
 ) -> tuple[list[str], list[list[float]]]:
     if not rows:
         return [], []
@@ -107,12 +119,14 @@ def extract_feature_matrix_with_fields(
         rows[0],
         state_fields=state_fields,
         include_dataset_one_hot=include_dataset_one_hot,
+        dataset_order=dataset_order,
     )
     matrix = [
         encode_feature_row_with_fields(
             row,
             state_fields=state_fields,
             include_dataset_one_hot=include_dataset_one_hot,
+            dataset_order=dataset_order,
         )[1]
         for row in rows
     ]

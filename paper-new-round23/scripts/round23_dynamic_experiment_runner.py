@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sequential runner for round23 dynamic-controller experiments."""
+"""Sequential runner for formal round23 dynamic-controller experiments."""
 from __future__ import annotations
 
 import argparse
@@ -13,9 +13,60 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from round23_runtime_utils import (
+    DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE,
+    DEFAULT_ROUND23_CONTROLLER_SCOPE,
+    extract_eval_metric,
+)
+
 
 ROUND23_ROOT = Path(__file__).resolve().parents[1]
 RUN_SCRIPT = ROUND23_ROOT / "scripts" / "run_round23_with_dynamic_controller.py"
+MODE_PATHS = {
+    "real_smoke": {
+        "manifest_relpath": "real_smoke/round23_real_smoke_manifest.tsv",
+        "log_stem": "round23_real_smoke",
+        "dataset_split": "seen",
+    },
+    "quick_compare": {
+        "manifest_relpath": "quick_compare_repeat30/round23_quick_compare_repeat30_manifest.tsv",
+        "log_stem": "round23_quick_compare_repeat30",
+        "dataset_split": "seen",
+    },
+    "unseen_dataset_final_eval": {
+        "manifest_relpath": (
+            "unseen_dataset_final_eval_repeat40/"
+            "round23_unseen_dataset_final_eval_repeat40_manifest.tsv"
+        ),
+        "log_stem": "round23_unseen_dataset_final_eval_repeat40",
+        "dataset_split": "unseen",
+    },
+    "thesis_main_seen_pilot": {
+        "manifest_relpath": "thesis_main_seen_pilot/round23_thesis_main_seen_pilot_manifest.tsv",
+        "log_stem": "round23_thesis_main_seen_pilot",
+        "dataset_split": "seen",
+    },
+    "thesis_main_seen_smoke": {
+        "manifest_relpath": "thesis_main_seen_smoke/round23_thesis_main_seen_smoke_manifest.tsv",
+        "log_stem": "round23_thesis_main_seen_smoke",
+        "dataset_split": "seen",
+    },
+    "thesis_main_seen_repeat10": {
+        "manifest_relpath": "thesis_main_seen_repeat10/round23_thesis_main_seen_repeat10_manifest.tsv",
+        "log_stem": "round23_thesis_main_seen_repeat10",
+        "dataset_split": "seen",
+    },
+    "thesis_main_seen_repeat15": {
+        "manifest_relpath": "thesis_main_seen_repeat15/round23_thesis_main_seen_repeat15_manifest.tsv",
+        "log_stem": "round23_thesis_main_seen_repeat15",
+        "dataset_split": "seen",
+    },
+    "thesis_main_seen_repeat30": {
+        "manifest_relpath": "thesis_main_seen_repeat30/round23_thesis_main_seen_repeat30_manifest.tsv",
+        "log_stem": "round23_thesis_main_seen_repeat30",
+        "dataset_split": "seen",
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -33,6 +84,22 @@ def normalize_output_root(raw_output_root: str) -> Path:
     if parts and parts[0] == ROUND23_ROOT.name:
         candidate = Path(*parts[1:])
     return candidate
+
+
+def resolve_mode_paths(mode: str) -> dict[str, str]:
+    if mode not in MODE_PATHS:
+        raise ValueError(f"Unsupported mode: {mode}")
+    return dict(MODE_PATHS[mode])
+
+
+def resolve_model_dir(model_dir: str | Path | None) -> Path:
+    resolved = Path(model_dir).resolve() if model_dir else DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE.resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(
+            "Round23 controller bundle not found. Provide --model-dir or create the default all6 bundle at: "
+            f"{resolved}"
+        )
+    return resolved
 
 
 def load_manifest(manifest_path: Path) -> list[ExperimentSpec]:
@@ -108,13 +175,13 @@ def run_single_experiment(
         str(RUN_SCRIPT),
         "--config",
         str(spec.config_path),
-        "--model-dir",
-        str(model_dir),
         "--output-root",
         str((ROUND23_ROOT / normalize_output_root(spec.output_root)).resolve()),
         "--timeout-seconds",
         str(timeout_seconds),
     ]
+    if model_dir:
+        command.extend(["--model-dir", str(model_dir)])
     result = subprocess.run(
         command,
         cwd=str(ROUND23_ROOT),
@@ -129,16 +196,23 @@ def run_single_experiment(
 def build_summary_row(
     spec: ExperimentSpec,
     *,
+    mode: str,
+    dataset_split: str,
     status: str,
     attempt: int,
     duration_seconds: float,
+    error_excerpt: str = "",
 ) -> dict[str, Any]:
     normalized_output_root = normalize_output_root(spec.output_root)
     sidecar_path = (
         ROUND23_ROOT / normalized_output_root / f"{spec.experiment_id}_dynamic_controller_runtime.json"
     ).resolve()
     row: dict[str, Any] = {
+        "mode": mode,
+        "dataset_split": dataset_split,
         "experiment_id": spec.experiment_id,
+        "method": "round23",
+        "method_display_name": "round23",
         "dataset_name": spec.dataset_name,
         "meta_seed": spec.meta_seed,
         "status": status,
@@ -146,30 +220,55 @@ def build_summary_row(
         "duration_seconds": round(duration_seconds, 3),
         "predicted_delta_k": "",
         "predicted_target_budget": "",
+        "controller_scope": "",
+        "bundle_version": "",
+        "learner_family": "",
+        "model_family": "",
+        "feature_version": "",
+        "target_mode": "",
+        "target_field": "",
+        "reference_budget": "",
         "best_top1": "",
+        "best_top3": "",
+        "best_top5": "",
+        "best_top10": "",
         "config_path": str(spec.config_path),
         "output_root": str(normalized_output_root),
         "sidecar_path": str(sidecar_path),
+        "error_excerpt": error_excerpt,
     }
     if sidecar_path.exists():
         payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
         row["predicted_delta_k"] = payload.get("predicted_delta_k", "")
         row["predicted_target_budget"] = payload.get("predicted_target_budget", "")
-        eval_summary = (
-            payload.get("runtime_artifacts", {}).get("eval_summary")
-            or {}
-        )
-        if "best_top1" in eval_summary:
-            row["best_top1"] = eval_summary["best_top1"]
+        for key in (
+            "controller_scope",
+            "bundle_version",
+            "learner_family",
+            "model_family",
+            "feature_version",
+            "target_mode",
+            "target_field",
+            "reference_budget",
+        ):
+            row[key] = payload.get(key, "")
+        eval_summary = payload.get("runtime_artifacts", {}).get("eval_summary") or {}
+        for metric in ("best_top1", "best_top3", "best_top5", "best_top10"):
+            row[metric] = extract_eval_metric(eval_summary, metric)
     return row
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run round23 dynamic-controller experiments sequentially")
-    parser.add_argument("--mode", choices=["real_smoke", "quick_compare"], required=True)
-    parser.add_argument("--model-dir", required=True, help="Path to round23 controller bundle")
+    parser.add_argument(
+        "--mode",
+        choices=sorted(MODE_PATHS.keys()),
+        required=True,
+    )
+    parser.add_argument("--model-dir", default=None, help="Path to round23 controller bundle")
     parser.add_argument("--timeout-seconds", type=int, default=7200)
     parser.add_argument("--max-attempts", type=int, default=2)
+    parser.add_argument("--retry-delay-seconds", type=float, default=10.0)
     parser.add_argument("--dry-run", action="store_true", help="Print planned experiments without executing them")
     parser.add_argument("--limit", type=int, default=0, help="Optional limit on pending experiments")
     return parser.parse_args()
@@ -177,20 +276,29 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    mode_paths = resolve_mode_paths(args.mode)
+    model_dir = resolve_model_dir(args.model_dir)
     manifest = (
-        ROUND23_ROOT / "configs" / "experiments" / "single_node_tuning_round23_dynamic" /
-        ("real_smoke/round23_real_smoke_manifest.tsv" if args.mode == "real_smoke" else "quick_compare_repeat30/round23_quick_compare_repeat30_manifest.tsv")
+        ROUND23_ROOT
+        / "configs"
+        / "experiments"
+        / "single_node_tuning_round23_dynamic"
+        / mode_paths["manifest_relpath"]
     )
     specs = load_manifest(manifest)
     logs_root = ROUND23_ROOT / "logs"
     logs_root.mkdir(parents=True, exist_ok=True)
-    per_exp_log_dir = logs_root / f"round23_{args.mode}_logs"
+    per_exp_log_dir = logs_root / f"{mode_paths['log_stem']}_logs"
     per_exp_log_dir.mkdir(parents=True, exist_ok=True)
-    master_log = logs_root / f"round23_{args.mode}_master.log"
-    summary_tsv = logs_root / f"round23_{args.mode}_summary.tsv"
-    summary_jsonl = logs_root / f"round23_{args.mode}_summary.jsonl"
+    master_log = logs_root / f"{mode_paths['log_stem']}_master.log"
+    summary_tsv = logs_root / f"{mode_paths['log_stem']}_summary.tsv"
+    summary_jsonl = logs_root / f"{mode_paths['log_stem']}_summary.jsonl"
     fields = [
+        "mode",
+        "dataset_split",
         "experiment_id",
+        "method",
+        "method_display_name",
         "dataset_name",
         "meta_seed",
         "status",
@@ -198,10 +306,22 @@ def main() -> int:
         "duration_seconds",
         "predicted_delta_k",
         "predicted_target_budget",
+        "controller_scope",
+        "bundle_version",
+        "learner_family",
+        "model_family",
+        "feature_version",
+        "target_mode",
+        "target_field",
+        "reference_budget",
         "best_top1",
+        "best_top3",
+        "best_top5",
+        "best_top10",
         "config_path",
         "output_root",
         "sidecar_path",
+        "error_excerpt",
     ]
     initialize_tsv(summary_tsv, fields)
     done = completed_ids(summary_tsv, summary_jsonl)
@@ -210,18 +330,25 @@ def main() -> int:
         pending = pending[: args.limit]
 
     if args.dry_run:
-        print(json.dumps(
-            {
-                "mode": args.mode,
-                "pending_count": len(pending),
-                "first_experiments": [spec.experiment_id for spec in pending[:10]],
-                "model_dir": str(Path(args.model_dir).resolve()),
-            },
-            ensure_ascii=False,
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {
+                    "mode": args.mode,
+                    "dataset_split": mode_paths["dataset_split"],
+                    "pending_count": len(pending),
+                    "manifest": str(manifest.resolve()),
+                    "summary_tsv": str(summary_tsv.resolve()),
+                    "first_experiments": [spec.experiment_id for spec in pending[:10]],
+                    "model_dir": str(model_dir),
+                    "controller_scope": DEFAULT_ROUND23_CONTROLLER_SCOPE,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
 
+    failed_experiment_ids: list[str] = []
     with master_log.open("a", encoding="utf-8") as master:
         for spec in pending:
             success = False
@@ -230,16 +357,19 @@ def main() -> int:
                 master.flush()
                 code, _, stderr, duration = run_single_experiment(
                     spec,
-                    model_dir=Path(args.model_dir).resolve(),
+                    model_dir=model_dir,
                     timeout_seconds=args.timeout_seconds,
                     log_dir=per_exp_log_dir,
                 )
                 status = "success" if code == 0 else "failed"
                 row = build_summary_row(
                     spec,
+                    mode=args.mode,
+                    dataset_split=mode_paths["dataset_split"],
                     status=status,
                     attempt=attempt,
                     duration_seconds=duration,
+                    error_excerpt=stderr[:400].replace("\n", "\\n"),
                 )
                 append_tsv_row(summary_tsv, fields, row)
                 append_jsonl_row(summary_jsonl, row)
@@ -251,13 +381,26 @@ def main() -> int:
                     success = True
                     break
                 if attempt < args.max_attempts:
-                    master.write(f"{datetime.now().isoformat()} RETRY {spec.experiment_id} stderr={stderr[:400]}\n")
+                    master.write(
+                        f"{datetime.now().isoformat()} RETRY {spec.experiment_id} stderr={stderr[:400]}\n"
+                    )
                     master.flush()
-                    time.sleep(10)
+                    if args.retry_delay_seconds > 0:
+                        time.sleep(args.retry_delay_seconds)
             if not success:
-                master.write(f"{datetime.now().isoformat()} STOP_ON_FAILURE {spec.experiment_id}\n")
+                failed_experiment_ids.append(spec.experiment_id)
+                master.write(
+                    f"{datetime.now().isoformat()} FINAL_FAILURE {spec.experiment_id} "
+                    f"attempts={args.max_attempts}\n"
+                )
                 master.flush()
-                return 1
+        if failed_experiment_ids:
+            master.write(
+                f"{datetime.now().isoformat()} FAILED_EXPERIMENTS "
+                f"count={len(failed_experiment_ids)} ids={','.join(failed_experiment_ids)}\n"
+            )
+            master.flush()
+            return 1
     return 0
 
 

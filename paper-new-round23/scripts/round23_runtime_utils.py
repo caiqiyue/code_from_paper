@@ -13,6 +13,13 @@ import yaml
 
 PAPER_NEW_ROUND23_ROOT = Path(__file__).resolve().parents[1]
 PAPER_NEW_ROUND19_ROOT = (PAPER_NEW_ROUND23_ROOT / "../paper-new-round19").resolve()
+DEFAULT_ROUND23_CONTROLLER_SCOPE = "all6"
+DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE = (
+    PAPER_NEW_ROUND23_ROOT
+    / "artifacts"
+    / "controller_bundle"
+    / "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset"
+)
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -99,3 +106,39 @@ def collect_runtime_artifacts(output_root: str | Path) -> dict[str, Any]:
     if isinstance(eval_payload, dict):
         artifacts["eval_summary"] = eval_payload
     return artifacts
+
+
+def extract_eval_metric(eval_summary: dict[str, Any], metric_name: str) -> Any:
+    if metric_name in eval_summary:
+        return eval_summary.get(metric_name)
+    metrics = eval_summary.get("metrics")
+    if isinstance(metrics, dict):
+        return metrics.get(metric_name, "")
+    return ""
+
+
+def extract_controller_metadata(
+    model_metadata: dict[str, Any] | None,
+    *,
+    controller_scope: str = DEFAULT_ROUND23_CONTROLLER_SCOPE,
+) -> dict[str, Any]:
+    metadata = dict(model_metadata or {})
+    return {
+        "controller_scope": controller_scope,
+        "bundle_version": metadata.get(
+            "bundle_version",
+            metadata.get("controller_version", ""),
+        ),
+        "learner_family": metadata.get(
+            "learner_family",
+            metadata.get("model_family", ""),
+        ),
+        "model_family": metadata.get(
+            "model_family",
+            metadata.get("learner_family", ""),
+        ),
+        "feature_version": metadata.get("feature_version", ""),
+        "target_mode": metadata.get("target_mode", ""),
+        "target_field": metadata.get("target_field", ""),
+        "reference_budget": metadata.get("reference_budget", ""),
+    }

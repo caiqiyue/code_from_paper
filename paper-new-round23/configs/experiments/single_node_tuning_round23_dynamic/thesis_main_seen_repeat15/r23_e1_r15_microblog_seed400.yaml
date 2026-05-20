@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_microblog.yaml
+
+meta:
+  experiment_id: r23_e1_r15_microblog_seed400
+  seed: 400
+  dataset_name: microblog
+
+paths:
+  output_root: outputs/thesis_main_seen_repeat15/microblog/seed400
+
+selector:
+  seed_top_k: 20
+
+round23_controller:
+  source_env: thesis_main_seen_repeat15
+  context_family: natural
+  reference_budget: 20

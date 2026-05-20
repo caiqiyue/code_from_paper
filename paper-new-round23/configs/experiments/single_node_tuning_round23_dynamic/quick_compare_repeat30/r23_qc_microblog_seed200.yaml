@@ -5,6 +5,7 @@ inherits:
 meta:
   experiment_id: r23_qc_microblog_seed200
   seed: 200
+  dataset_name: microblog
 
 paths:
   output_root: outputs/quick_compare_repeat30/microblog/seed200

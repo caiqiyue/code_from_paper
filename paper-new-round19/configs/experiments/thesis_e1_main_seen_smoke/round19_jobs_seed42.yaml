@@ -1,0 +1,18 @@
+inherits:
+- ../single_node_tuning_round19/_base_selector_tuning_round19.yaml
+- ../single_node_tuning_round19/_data_jobs.yaml
+meta:
+  experiment_id: round19_jobs_seed42
+  seed: 42
+  dataset_name: jobs
+  stage: thesis_main_seen_smoke
+  method: round19
+  method_display_name: round19
+  implementation_key: round19
+  pretext_template_key: ''
+  mapping_status: canonical_round19
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_main_seen_smoke/round19/jobs/seed42
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_seen_smoke

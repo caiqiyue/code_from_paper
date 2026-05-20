@@ -39,6 +39,14 @@ REFERENCE_BUDGET = 20
 DELTA_ACTIONS = [-2, -1, 0, 1, 2]
 DATASET_ORDER = ["jobs", "congressional", "forums", "microblog"]
 ROUND22_REWARD_LAMBDA = 0.002
+ROUND23_LABEL_TARGET_MODES = ("top1_delta", "top1_value", "calibrated_reward")
+ROUND23_SHAPE_REFERENCE = {
+    "median_len": {"mean": 150.0, "std": 50.0},
+    "private_p75_length": {"mean": 335.0, "std": 90.0},
+    "private_length_iqr": {"mean": 180.0, "std": 60.0},
+}
+ROUND23_SHAPE_TAU_CENTER = 0.0
+ROUND23_SHAPE_DELTA_ROUTER = 0.35
 
 
 def ensure_dir(path: str | Path) -> Path:
@@ -184,6 +192,126 @@ def compute_round23_controller_reward(
         - float(support_penalty_weight) * max(0.0, float(support_mean_k0) - float(support_mean_k1))
         - float(movement_cost_weight) * abs(int(delta_k))
     )
+
+
+def _safe_float(value: Any, *, default: float = 0.0) -> float:
+    if value is None or value == "":
+        return float(default)
+    return float(value)
+
+
+def zscore(value: Any, *, mean: float, std: float) -> float:
+    if std == 0:
+        return 0.0
+    return (_safe_float(value) - float(mean)) / float(std)
+
+
+def compute_round23_shape_score_from_summary(context_summary: dict[str, Any]) -> float:
+    return (
+        zscore(
+            context_summary.get("median_len", context_summary.get("private_median_length", context_summary.get("private_mean_length"))),
+            mean=ROUND23_SHAPE_REFERENCE["median_len"]["mean"],
+            std=ROUND23_SHAPE_REFERENCE["median_len"]["std"],
+        )
+        + zscore(
+            context_summary.get("private_p75_length"),
+            mean=ROUND23_SHAPE_REFERENCE["private_p75_length"]["mean"],
+            std=ROUND23_SHAPE_REFERENCE["private_p75_length"]["std"],
+        )
+        + zscore(
+            context_summary.get("private_length_iqr"),
+            mean=ROUND23_SHAPE_REFERENCE["private_length_iqr"]["mean"],
+            std=ROUND23_SHAPE_REFERENCE["private_length_iqr"]["std"],
+        )
+        + _safe_float(context_summary.get("tail_ratio"))
+        - _safe_float(context_summary.get("short_ratio"))
+    )
+
+
+def resolve_round23_shape_regime(
+    shape_score: float,
+    *,
+    tau_center: float = ROUND23_SHAPE_TAU_CENTER,
+    delta_router: float = ROUND23_SHAPE_DELTA_ROUTER,
+) -> str:
+    score = float(shape_score)
+    if score >= float(tau_center) + float(delta_router):
+        return "broad_tail"
+    if score <= float(tau_center) - float(delta_router):
+        return "compact_structured"
+    return "uncertain"
+
+
+def compute_round23_calibrated_controller_reward(
+    *,
+    best_top1_k0: float,
+    best_top1_k1: float,
+    coverage_p25_k0: float,
+    coverage_p25_k1: float,
+    support_mean_k0: float,
+    support_mean_k1: float,
+    delta_k: int,
+    top1_weight: float = 1.0,
+    coverage_weight: float = 0.25,
+    support_penalty_weight: float = 0.0,
+    movement_cost_weight: float = 0.0005,
+) -> float:
+    return compute_round23_controller_reward(
+        best_top1_k0=best_top1_k0,
+        best_top1_k1=best_top1_k1,
+        coverage_p25_k0=coverage_p25_k0,
+        coverage_p25_k1=coverage_p25_k1,
+        support_mean_k0=support_mean_k0,
+        support_mean_k1=support_mean_k1,
+        delta_k=delta_k,
+        top1_weight=top1_weight,
+        coverage_weight=coverage_weight,
+        support_penalty_weight=support_penalty_weight,
+        movement_cost_weight=movement_cost_weight,
+    )
+
+
+def compute_round23_training_target(
+    *,
+    target_mode: str,
+    best_top1_k0: float,
+    best_top1_k1: float,
+    coverage_p25_k0: float,
+    coverage_p25_k1: float,
+    support_mean_k0: float,
+    support_mean_k1: float,
+    delta_k: int,
+) -> float:
+    normalized_mode = str(target_mode).strip().lower()
+    if normalized_mode == "top1_delta":
+        return float(best_top1_k1) - float(best_top1_k0)
+    if normalized_mode == "top1_value":
+        return float(best_top1_k1)
+    if normalized_mode == "calibrated_reward":
+        return compute_round23_calibrated_controller_reward(
+            best_top1_k0=best_top1_k0,
+            best_top1_k1=best_top1_k1,
+            coverage_p25_k0=coverage_p25_k0,
+            coverage_p25_k1=coverage_p25_k1,
+            support_mean_k0=support_mean_k0,
+            support_mean_k1=support_mean_k1,
+            delta_k=delta_k,
+        )
+    raise ValueError(f"Unsupported round23 target_mode: {target_mode}")
+
+
+def select_round23_oracle_delta(
+    *,
+    action_values: dict[int, float],
+    top1_by_delta: dict[int, float],
+    best_top1_k0: float,
+    tie_margin: float,
+) -> int:
+    best_delta = max(action_values, key=lambda delta_k: (float(action_values[delta_k]), -abs(int(delta_k)), -int(delta_k)))
+    best_top1_gain = float(top1_by_delta[int(best_delta)]) - float(best_top1_k0)
+    if int(best_delta) != 0 and best_top1_gain < float(tie_margin):
+        return 0
+    return int(best_delta)
 
 
 def normalize_record_key(dataset_name: Any, meta_seed: Any) -> tuple[str, int]:

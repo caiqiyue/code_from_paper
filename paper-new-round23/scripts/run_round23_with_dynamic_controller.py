@@ -14,9 +14,11 @@ import yaml
 from round23_context_features import build_feature_vector, validate_feature_schema
 from round23_controller_inference import run_inference
 from round23_runtime_utils import (
+    DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE,
     PAPER_NEW_ROUND23_ROOT,
     collect_runtime_artifacts,
     deep_merge,
+    extract_controller_metadata,
     load_yaml_with_inherits,
     run_round19_selector_subprocess,
     build_round19_subprocess_env,
@@ -60,6 +62,16 @@ def run_reference_k20_feature_subprocess(
     if not result_json.exists():
         raise FileNotFoundError(f"Expected reference feature JSON at {result_json}")
     return json.loads(result_json.read_text(encoding="utf-8"))
+
+
+def resolve_controller_model_dir(model_dir: str | Path | None) -> Path:
+    resolved = Path(model_dir).resolve() if model_dir else DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE.resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(
+            "Round23 controller bundle not found. Provide --model-dir or create the default all6 bundle at: "
+            f"{resolved}"
+        )
+    return resolved
 
 
 def generate_override_config(
@@ -111,8 +123,10 @@ def write_runtime_sidecar(
     runtime_artifacts: dict[str, Any],
     model_dir: str | Path,
 ) -> Path:
+    controller_metadata = extract_controller_metadata(inference_result.get("model_metadata", {}))
     sidecar = {
         "budget_policy_type": "dynamic_controller",
+        **controller_metadata,
         "reference_budget": int(reference_info["reference_budget"]),
         "predicted_delta_k": int(inference_result["predicted_delta_k"]),
         "predicted_target_budget": int(inference_result["predicted_target_budget"]),
@@ -140,11 +154,12 @@ def write_runtime_sidecar(
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run round23 with dynamic delta-k controller")
     parser.add_argument("--config", required=True, help="Path to original round23 experiment config YAML")
-    parser.add_argument("--model-dir", required=True, help="Path to controller bundle directory")
+    parser.add_argument("--model-dir", default=None, help="Path to controller bundle directory")
     parser.add_argument("--output-root", required=True, help="Output root directory for this run")
     parser.add_argument("--reference-budget", type=int, default=20, help="Reference round budget k0")
     parser.add_argument("--timeout-seconds", type=int, default=7200, help="Timeout for helper and final subprocesses")
     args = parser.parse_args()
+    model_dir = resolve_controller_model_dir(args.model_dir)
 
     print("[round23] Running reference Stage1-only round...")
     reference_info = run_reference_k20_feature_subprocess(
@@ -153,7 +168,7 @@ def main() -> int:
         timeout_seconds=args.timeout_seconds,
         reference_budget=args.reference_budget,
     )
-    schema = validate_feature_schema(Path(args.model_dir) / "feature_schema.json")
+    schema = validate_feature_schema(model_dir / "feature_schema.json")
     feature_vector = build_feature_vector(
         context_features=reference_info["context_features"],
         dataset_name=reference_info["dataset_name"],
@@ -161,7 +176,7 @@ def main() -> int:
     )
 
     print("[round23] Running controller inference...")
-    inference_result = run_inference(args.model_dir, feature_vector, reference_budget=args.reference_budget)
+    inference_result = run_inference(model_dir, feature_vector, reference_budget=args.reference_budget)
     predicted_delta_k = int(inference_result["predicted_delta_k"])
     predicted_target_budget = int(inference_result["predicted_target_budget"])
     print(f"[round23] Predicted Δk={predicted_delta_k}, target budget k1={predicted_target_budget}")
@@ -171,7 +186,7 @@ def main() -> int:
         original_config_path=args.config,
         predicted_target_budget=predicted_target_budget,
         predicted_delta_k=predicted_delta_k,
-        model_dir=args.model_dir,
+        model_dir=model_dir,
         output_root=args.output_root,
         reference_budget=args.reference_budget,
     )
@@ -193,7 +208,7 @@ def main() -> int:
         reference_info,
         override_path,
         runtime_artifacts,
-        args.model_dir,
+        model_dir,
     )
     print(f"[round23] Done. Sidecar: {sidecar_path}")
     return 0

@@ -5,10 +5,21 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 
-DATASET_ORDER = ["jobs", "congressional", "forums", "microblog"]
+DATASET_ORDER = ["jobs", "congressional", "forums", "microblog", "imdb", "openreview"]
+CONTEXT_FEATURE_NAME_ORDER = [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20",
+    "redundancy_mean_at_k20",
+]
 SHAPE_TAIL_THRESHOLD = 300
 SHAPE_SHORT_THRESHOLD = 100
 
@@ -167,23 +178,91 @@ def append_dataset_onehot(features: list[float], dataset_name: str) -> list[floa
 
 def validate_feature_schema(schema_path: str | Path) -> dict[str, Any]:
     schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
-    required = ["version", "feature_names", "include_dataset_onehot", "total_features"]
-    for field in required:
-        if field not in schema:
-            raise ValueError(f"feature_schema.json missing required field: {field}")
+    feature_version = schema.get("feature_version", schema.get("version"))
+    if not feature_version:
+        raise ValueError("feature_schema.json missing required field: feature_version/version")
+    if "feature_names" not in schema:
+        raise ValueError("feature_schema.json missing required field: feature_names")
+    if "include_dataset_onehot" not in schema:
+        raise ValueError("feature_schema.json missing required field: include_dataset_onehot")
+    if "total_features" not in schema:
+        raise ValueError("feature_schema.json missing required field: total_features")
+
+    feature_names = list(schema.get("feature_names", []))
+    unknown_feature_names = [
+        name for name in feature_names if name not in CONTEXT_FEATURE_NAME_ORDER
+    ]
+    if unknown_feature_names:
+        raise ValueError(
+            "feature_schema.json contains unsupported feature_names: "
+            + ", ".join(unknown_feature_names)
+        )
+
+    include_dataset_onehot = bool(schema.get("include_dataset_onehot", False))
+    onehot_order = list(schema.get("onehot_order", DATASET_ORDER if include_dataset_onehot else []))
+    if include_dataset_onehot and not onehot_order:
+        raise ValueError("feature_schema.json requires onehot_order when include_dataset_onehot=true")
+
+    expected_total_features = len(feature_names) + (len(onehot_order) if include_dataset_onehot else 0)
+    if int(schema["total_features"]) != expected_total_features:
+        raise ValueError(
+            "feature_schema total_features mismatch: "
+            f"expected {expected_total_features}, got {schema['total_features']}"
+        )
+
+    schema["feature_version"] = str(feature_version)
+    schema["version"] = str(schema.get("version", feature_version))
+    schema["feature_names"] = feature_names
+    schema["onehot_order"] = onehot_order
+    schema["include_dataset_onehot"] = include_dataset_onehot
+    schema["total_features"] = int(schema["total_features"])
     return schema
+
+
+def _coerce_context_feature_mapping(
+    context_features: list[float] | Mapping[str, float],
+) -> dict[str, float]:
+    if isinstance(context_features, Mapping):
+        return {
+            name: float(context_features[name])
+            for name in CONTEXT_FEATURE_NAME_ORDER
+            if name in context_features
+        }
+    if len(context_features) != len(CONTEXT_FEATURE_NAME_ORDER):
+        raise ValueError(
+            "context_features length "
+            f"{len(context_features)} != expected {len(CONTEXT_FEATURE_NAME_ORDER)}"
+        )
+    return {
+        name: float(value)
+        for name, value in zip(CONTEXT_FEATURE_NAME_ORDER, context_features)
+    }
 
 
 def build_feature_vector(
     *,
-    context_features: list[float],
+    context_features: list[float] | Mapping[str, float],
     dataset_name: str,
     schema: dict[str, Any],
 ) -> list[float]:
+    feature_mapping = _coerce_context_feature_mapping(context_features)
+    missing_feature_names = [
+        name for name in schema.get("feature_names", []) if name not in feature_mapping
+    ]
+    if missing_feature_names:
+        raise ValueError(
+            "context_features missing values for schema feature_names: "
+            + ", ".join(missing_feature_names)
+        )
+
+    vector = [float(feature_mapping[name]) for name in schema.get("feature_names", [])]
     if schema.get("include_dataset_onehot", False):
-        vector = append_dataset_onehot(context_features, dataset_name)
-    else:
-        vector = context_features
+        onehot_order = list(schema.get("onehot_order", []))
+        if dataset_name not in onehot_order:
+            raise ValueError(
+                f"dataset_name '{dataset_name}' not present in bundle onehot_order {onehot_order}"
+            )
+        vector.extend(1.0 if name == dataset_name else 0.0 for name in onehot_order)
     expected_len = int(schema.get("total_features", len(vector)))
     if len(vector) != expected_len:
         raise ValueError(

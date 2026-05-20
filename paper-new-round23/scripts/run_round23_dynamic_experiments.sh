@@ -4,7 +4,7 @@ set -euo pipefail
 MODE="${1:-}"
 MODEL_DIR="${2:-}"
 if [[ -z "$MODE" || -z "$MODEL_DIR" ]]; then
-  echo "usage: bash scripts/run_round23_dynamic_experiments.sh <real_smoke|quick_compare> <model-dir> [extra-runner-args...]"
+  echo "usage: bash scripts/run_round23_dynamic_experiments.sh <real_smoke|quick_compare|unseen_dataset_final_eval|thesis_main_seen_smoke|thesis_main_seen_repeat15> <model-dir> [extra-runner-args...]"
   exit 2
 fi
 

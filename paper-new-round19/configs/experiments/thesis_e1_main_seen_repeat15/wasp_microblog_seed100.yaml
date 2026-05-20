@@ -1,0 +1,21 @@
+inherits:
+- ../single_run_baseline_screening/wasp_microblog_single_run.yaml
+meta:
+  experiment_id: wasp_microblog_seed100
+  seed: 100
+  dataset_name: microblog
+  stage: thesis_main_seen_repeat15
+  method: wasp
+  method_display_name: WASP
+  implementation_key: wasp
+  pretext_template_key: ''
+  mapping_status: external_adapter
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/wasp/microblog/seed100
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_seen_repeat15
+external_baseline:
+  source_artifact_path: WASP/outputs/paper_new_screening/thesis_e1_main/microblog/seed100/train.jsonl
+  source_dataset_name: microblog
+  summary_output_path: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/wasp/microblog/seed100/stage1_summary.json

@@ -5,6 +5,7 @@ inherits:
 meta:
   experiment_id: r23_qc_jobs_seed1024
   seed: 1024
+  dataset_name: jobs
 
 paths:
   output_root: outputs/quick_compare_repeat30/jobs/seed1024

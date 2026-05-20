@@ -5,6 +5,7 @@ inherits:
 meta:
   experiment_id: r23_qc_congressional_seed200
   seed: 200
+  dataset_name: congressional
 
 paths:
   output_root: outputs/quick_compare_repeat30/congressional/seed200

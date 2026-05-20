@@ -5,6 +5,7 @@ inherits:
 meta:
   experiment_id: r23_qc_forums_seed2222
   seed: 2222
+  dataset_name: forums
 
 paths:
   output_root: outputs/quick_compare_repeat30/forums/seed2222

@@ -1,0 +1,21 @@
+inherits:
+- ../single_run_baseline_screening/dpga_forums_single_run.yaml
+meta:
+  experiment_id: dpga_forums_seed1024
+  seed: 1024
+  dataset_name: forums
+  stage: thesis_main_seen_repeat15
+  method: dpga
+  method_display_name: DPGA-TextSyn
+  implementation_key: dpga
+  pretext_template_key: ''
+  mapping_status: external_adapter
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/dpga/forums/seed1024
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_seen_repeat15
+external_baseline:
+  source_artifact_path: DPGA-TextSyn/outputs/paper_new_screening/thesis_e1_main/forums/seed1024/epoch_all.json
+  source_dataset_name: forums
+  summary_output_path: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/dpga/forums/seed1024/stage1_summary.json

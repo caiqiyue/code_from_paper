@@ -28,8 +28,14 @@ if str(ROUND19_ROOT) not in sys.path:
 
 from common import BUDGETS, as_float, as_int, context_id, read_jsonl  # noqa: E402
 from paper_new_selector.budget_calibration import compute_budget_cost  # type: ignore  # noqa: E402
-from paper_new_selector.hierarchical_budget import resolve_hierarchical_budget  # type: ignore  # noqa: E402
+from paper_new_selector.hierarchical_budget import (  # type: ignore  # noqa: E402
+    _select_broad_tail_budget,
+    _select_compact_budget,
+    resolve_hierarchical_budget,
+)
+from paper_new_selector.regime_router import route_budget_regime  # type: ignore  # noqa: E402
 from paper_new_selector.redundancy import cosine_similarity  # type: ignore  # noqa: E402
+from paper_new_selector.shape_descriptor import ShapeDescriptor  # type: ignore  # noqa: E402
 from paper_new_selector.thesis_bridge import build_embedder_from_config, load_text_samples  # type: ignore  # noqa: E402
 
 
@@ -244,6 +250,86 @@ def load_explicit_round19_replay(path: str | Path) -> ExplicitRound19ReplayPolic
         raise TypeError("Round19 replay mapping must be a JSON object {context_id: budget}")
     mapping = {str(key): int(value) for key, value in payload.items()}
     return ExplicitRound19ReplayPolicy(mapping, provenance=str(resolved.resolve()))
+
+
+def load_round19_replay_table(path: str | Path) -> ExplicitRound19ReplayPolicy:
+    mapping: dict[str, int] = {}
+    for row in read_jsonl(path):
+        mapping[str(row["context_id"])] = int(row["round19_predicted_budget"])
+    return ExplicitRound19ReplayPolicy(mapping, provenance=str(Path(path).resolve()))
+
+
+def resolve_round19_budget_from_collection_summary(
+    *,
+    context_summary: dict[str, Any],
+    metrics_by_budget: dict[int, dict[str, Any]],
+) -> dict[str, Any]:
+    private_lengths = context_summary.get("private_lengths") or context_summary.get("private_length_values")
+    rule_cfg = load_round19_rule_cfg()
+    if isinstance(private_lengths, list) and private_lengths:
+        return resolve_hierarchical_budget(
+            private_lengths=[int(value) for value in private_lengths],
+            metrics_by_budget=metrics_by_budget,
+            rule_cfg=rule_cfg,
+        )
+
+    router_cfg = dict(rule_cfg["router"])
+    descriptor = ShapeDescriptor(
+        median_len=float(context_summary.get("median_len", context_summary.get("private_median_length", 0.0))),
+        p75_len=float(context_summary.get("private_p75_length", context_summary.get("p75_len", 0.0))),
+        tail_ratio=float(context_summary.get("tail_ratio", 0.0)),
+        short_ratio=float(context_summary.get("short_ratio", 0.0)),
+        iqr_len=float(context_summary.get("private_length_iqr", context_summary.get("iqr_len", 0.0))),
+    )
+    route = route_budget_regime(descriptor, router_cfg)
+    policies_cfg = dict(rule_cfg["policies"])
+    if route.regime == "broad_tail":
+        subset = {
+            int(budget): dict(metrics_by_budget[int(budget)])
+            for budget in list(policies_cfg["broad_tail"]["candidate_seed_top_k"])
+            if int(budget) in metrics_by_budget
+        }
+        resolved = _select_broad_tail_budget(subset, dict(policies_cfg["broad_tail"]))
+    elif route.regime == "compact_structured":
+        subset = {
+            int(budget): dict(metrics_by_budget[int(budget)])
+            for budget in list(policies_cfg["compact_structured"]["candidate_seed_top_k"])
+            if int(budget) in metrics_by_budget
+        }
+        resolved = _select_compact_budget(subset, dict(policies_cfg["compact_structured"]))
+    else:
+        from paper_new_selector.budget_calibration import (  # type: ignore
+            select_budget_by_constrained_utility,
+            select_budget_with_recheck,
+        )
+
+        uncertain_cfg = dict(policies_cfg["uncertain"])
+        compact_utility = dict(policies_cfg["compact_structured"]["utility"])
+        fallback_mode = str(uncertain_cfg.get("fallback_mode", "self_calibrated_constrained"))
+        if fallback_mode == "self_calibrated":
+            resolved = select_budget_with_recheck(
+                metrics_by_budget=metrics_by_budget,
+                calibration_cfg={
+                    "utility": compact_utility,
+                    "tiebreak": {"epsilon": 0.01, "prefer_smaller_budget": True},
+                    "near_boundary_recheck": {"enabled": False},
+                },
+            )
+        else:
+            resolved = select_budget_by_constrained_utility(
+                metrics_by_budget=metrics_by_budget,
+                calibration_cfg={
+                    "coverage_constraint": dict(uncertain_cfg["coverage_constraint"]),
+                    "utility": compact_utility,
+                    "tiebreak": {"epsilon": 0.01, "prefer_smaller_budget": True},
+                    "constrained_recheck": {"enabled": False},
+                },
+            )
+            resolved["selection_stage"] = "uncertain_fallback_policy"
+    resolved["regime"] = route.regime
+    resolved["shape_score"] = float(route.shape_score)
+    resolved["descriptor"] = descriptor.to_dict()
+    return resolved
 
 
 def build_round19_replay_policy_from_action_samples(

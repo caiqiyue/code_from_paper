@@ -1,0 +1,21 @@
+inherits:
+- ../single_run_baseline_screening/wasp_forums_single_run.yaml
+meta:
+  experiment_id: wasp_forums_seed2048
+  seed: 2048
+  dataset_name: forums
+  stage: thesis_main_seen_repeat15
+  method: wasp
+  method_display_name: WASP
+  implementation_key: wasp
+  pretext_template_key: ''
+  mapping_status: external_adapter
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/wasp/forums/seed2048
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_seen_repeat15
+external_baseline:
+  source_artifact_path: WASP/outputs/paper_new_screening/thesis_e1_main/forums/seed2048/train.jsonl
+  source_dataset_name: forums
+  summary_output_path: paper-new-round19/outputs/thesis_e1_main_seen_repeat15/wasp/forums/seed2048/stage1_summary.json
