@@ -1,0 +1,18 @@
+inherits:
+- ../single_run_baseline_screening/_base_single_run_expand_private.yaml
+- ../single_node_tuning_round19/_data_twitter_emotion_binary.yaml
+meta:
+  experiment_id: pretext_twitter_emotion_binary_seed42
+  seed: 42
+  dataset_name: twitter_emotion_binary
+  stage: thesis_e2_extra_unseen_smoke
+  method: pretext
+  method_display_name: PrE-Text
+  implementation_key: expand_private
+  pretext_template_key: expand_private
+  mapping_status: needs_verification
+paths:
+  output_root: paper-new-round19/outputs/thesis_e2_extra_unseen_smoke/pretext/twitter_emotion_binary/seed42
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_e2_extra_unseen_smoke

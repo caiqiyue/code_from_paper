@@ -1,0 +1,18 @@
+inherits:
+- ../single_run_baseline_screening/_base_single_run_expand_private.yaml
+- ../single_node_tuning_round19/_data_rotten_tomatoes.yaml
+meta:
+  experiment_id: pretext_rotten_tomatoes_seed42
+  seed: 42
+  dataset_name: rotten_tomatoes
+  stage: thesis_e2_extra_unseen_smoke
+  method: pretext
+  method_display_name: PrE-Text
+  implementation_key: expand_private
+  pretext_template_key: expand_private
+  mapping_status: needs_verification
+paths:
+  output_root: paper-new-round19/outputs/thesis_e2_extra_unseen_smoke/pretext/rotten_tomatoes/seed42
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_e2_extra_unseen_smoke

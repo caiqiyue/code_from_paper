@@ -30,6 +30,18 @@ class ThesisE1MainRunnerTests(unittest.TestCase):
         self.assertEqual(len(repeat15_specs), 240)
         self.assertEqual({spec.seed for spec in smoke_specs}, {42})
 
+    def test_builds_e2_extra_unseen_specs_without_external_baselines(self) -> None:
+        smoke_specs = e1.build_e1_run_specs("thesis_e2_extra_unseen_smoke")
+        repeat15_specs = e1.build_e1_run_specs("thesis_e2_extra_unseen_repeat15")
+        self.assertEqual(len(smoke_specs), 6)
+        self.assertEqual(len(repeat15_specs), 90)
+        self.assertEqual({spec.method for spec in repeat15_specs}, {"pretext", "round19"})
+        self.assertEqual(
+            {spec.dataset for spec in repeat15_specs},
+            {"bioarxiv", "rotten_tomatoes", "twitter_emotion_binary"},
+        )
+        self.assertEqual({spec.seed for spec in smoke_specs}, {42})
+
     def test_materializes_manifest_with_registry_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -51,6 +63,23 @@ class ThesisE1MainRunnerTests(unittest.TestCase):
             with repeat15_manifest.open("r", encoding="utf-8") as handle:
                 repeat15_rows = list(csv.DictReader(handle, delimiter="\t"))
             self.assertEqual(len(repeat15_rows), 240)
+
+    def test_materializes_e2_extra_unseen_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            generated = e1.materialize_e1_configs(root, mode="thesis_e2_extra_unseen_repeat15")
+            self.assertEqual(len(generated), 90)
+            manifest = root / "configs" / "experiments" / "thesis_e2_extra_unseen_repeat15" / "thesis_e2_extra_unseen_repeat15_manifest.tsv"
+            with manifest.open("r", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle, delimiter="\t"))
+            self.assertEqual(len(rows), 90)
+            self.assertEqual({row["method"] for row in rows}, {"pretext", "round19"})
+            self.assertEqual(
+                {row["dataset"] for row in rows},
+                {"bioarxiv", "rotten_tomatoes", "twitter_emotion_binary"},
+            )
+            self.assertTrue((root / rows[0]["config_path"]).exists())
+            self.assertTrue(rows[0]["output_root"].startswith("paper-new-round19/outputs/thesis_e2_extra_unseen_repeat15/"))
 
     def test_dry_run_summary_shape_supports_e1_table_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

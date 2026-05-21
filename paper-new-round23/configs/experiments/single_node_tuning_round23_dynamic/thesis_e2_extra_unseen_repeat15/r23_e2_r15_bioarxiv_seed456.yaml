@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_bioarxiv.yaml
+
+meta:
+  experiment_id: r23_e2_r15_bioarxiv_seed456
+  seed: 456
+  dataset_name: bioarxiv
+
+paths:
+  output_root: outputs/thesis_e2_extra_unseen_repeat15/bioarxiv/seed456
+
+selector:
+  seed_top_k: 20
+
+round23_controller:
+  source_env: thesis_e2_extra_unseen_repeat15
+  context_family: natural
+  reference_budget: 20

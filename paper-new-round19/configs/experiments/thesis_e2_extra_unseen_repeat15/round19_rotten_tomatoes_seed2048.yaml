@@ -1,0 +1,18 @@
+inherits:
+- ../single_node_tuning_round19/_base_selector_tuning_round19.yaml
+- ../single_node_tuning_round19/_data_rotten_tomatoes.yaml
+meta:
+  experiment_id: round19_rotten_tomatoes_seed2048
+  seed: 2048
+  dataset_name: rotten_tomatoes
+  stage: thesis_e2_extra_unseen_repeat15
+  method: round19
+  method_display_name: round19
+  implementation_key: round19
+  pretext_template_key: ''
+  mapping_status: canonical_round19
+paths:
+  output_root: paper-new-round19/outputs/thesis_e2_extra_unseen_repeat15/round19/rotten_tomatoes/seed2048
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_e2_extra_unseen_repeat15

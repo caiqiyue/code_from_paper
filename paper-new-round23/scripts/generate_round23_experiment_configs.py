@@ -28,7 +28,8 @@ SEEDS_REPEAT40 = SEEDS_REPEAT30 + [
 SEEDS = list(SEEDS_REPEAT40)
 SEEN_DATASETS = ["jobs", "congressional", "forums", "microblog"]
 UNSEEN_DATASETS = ["imdb", "openreview"]
-ALL_DATASETS = SEEN_DATASETS + UNSEEN_DATASETS
+EXTRA_UNSEEN_DATASETS = ["bioarxiv", "rotten_tomatoes", "twitter_emotion_binary"]
+ALL_DATASETS = SEEN_DATASETS + UNSEEN_DATASETS + EXTRA_UNSEEN_DATASETS
 
 MODE_SPECS = {
     "real_smoke": {
@@ -102,6 +103,24 @@ MODE_SPECS = {
         "experiment_prefix": "r23_e1_r30",
         "source_env": "thesis_main_seen_repeat30",
         "output_root_prefix": "outputs/thesis_main_seen_repeat30",
+    },
+    "thesis_e2_extra_unseen_smoke": {
+        "subdir": "thesis_e2_extra_unseen_smoke",
+        "manifest_name": "round23_thesis_e2_extra_unseen_smoke_manifest.tsv",
+        "datasets": EXTRA_UNSEEN_DATASETS,
+        "seeds": SEEDS_SMOKE,
+        "experiment_prefix": "r23_e2_smoke",
+        "source_env": "thesis_e2_extra_unseen_smoke",
+        "output_root_prefix": "outputs/thesis_e2_extra_unseen_smoke",
+    },
+    "thesis_e2_extra_unseen_repeat15": {
+        "subdir": "thesis_e2_extra_unseen_repeat15",
+        "manifest_name": "round23_thesis_e2_extra_unseen_repeat15_manifest.tsv",
+        "datasets": EXTRA_UNSEEN_DATASETS,
+        "seeds": SEEDS_REPEAT15,
+        "experiment_prefix": "r23_e2_r15",
+        "source_env": "thesis_e2_extra_unseen_repeat15",
+        "output_root_prefix": "outputs/thesis_e2_extra_unseen_repeat15",
     },
 }
 

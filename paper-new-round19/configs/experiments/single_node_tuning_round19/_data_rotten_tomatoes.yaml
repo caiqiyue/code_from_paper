@@ -1,0 +1,5 @@
+data:
+  dataset_name: rotten_tomatoes
+  train_path: thesis_platform/datasets/rotten_tomatoes/formatted/rotten_tomatoes_train.json
+  eval_path: thesis_platform/datasets/rotten_tomatoes/formatted/rotten_tomatoes_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json

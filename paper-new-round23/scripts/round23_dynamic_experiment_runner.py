@@ -76,6 +76,22 @@ MODE_PATHS = {
         "log_stem": "round23_thesis_main_seen_repeat30",
         "dataset_split": "seen",
     },
+    "thesis_e2_extra_unseen_smoke": {
+        "manifest_relpath": (
+            "thesis_e2_extra_unseen_smoke/"
+            "round23_thesis_e2_extra_unseen_smoke_manifest.tsv"
+        ),
+        "log_stem": "round23_thesis_e2_extra_unseen_smoke",
+        "dataset_split": "extra_unseen",
+    },
+    "thesis_e2_extra_unseen_repeat15": {
+        "manifest_relpath": (
+            "thesis_e2_extra_unseen_repeat15/"
+            "round23_thesis_e2_extra_unseen_repeat15_manifest.tsv"
+        ),
+        "log_stem": "round23_thesis_e2_extra_unseen_repeat15",
+        "dataset_split": "extra_unseen",
+    },
 }
 
 

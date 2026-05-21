@@ -16,6 +16,7 @@ import yaml
 
 
 E1_SEEN_DATASETS = ("jobs", "congressional", "forums", "microblog")
+E2_EXTRA_UNSEEN_DATASETS = ("bioarxiv", "rotten_tomatoes", "twitter_emotion_binary")
 E1_SMOKE_SEEDS = [42]
 E1_PILOT_SEEDS = [42, 123, 456]
 E1_REPEAT10_SEEDS = [42, 123, 456, 789, 1024, 2048, 4096, 8192, 100, 200]
@@ -31,6 +32,8 @@ E1_MODE_SEEDS = {
     "thesis_main_seen_repeat10": E1_REPEAT10_SEEDS,
     "thesis_main_seen_repeat15": E1_REPEAT15_SEEDS,
     "thesis_main_seen_repeat30": E1_REPEAT30_SEEDS,
+    "thesis_e2_extra_unseen_smoke": E1_SMOKE_SEEDS,
+    "thesis_e2_extra_unseen_repeat15": E1_REPEAT15_SEEDS,
 }
 E1_MODE_CONFIG_DIRS = {
     "thesis_main_seen_smoke": "thesis_e1_main_seen_smoke",
@@ -38,6 +41,8 @@ E1_MODE_CONFIG_DIRS = {
     "thesis_main_seen_repeat10": "thesis_e1_main_seen_repeat10",
     "thesis_main_seen_repeat15": "thesis_e1_main_seen_repeat15",
     "thesis_main_seen_repeat30": "thesis_e1_main_seen_repeat30",
+    "thesis_e2_extra_unseen_smoke": "thesis_e2_extra_unseen_smoke",
+    "thesis_e2_extra_unseen_repeat15": "thesis_e2_extra_unseen_repeat15",
 }
 E1_DEFAULT_TARGET_GPU_NAME_TOKEN = "RTX A6000"
 E1_DEFAULT_MIN_FREE_GB_FOR_VLLM = 2.0
@@ -81,6 +86,7 @@ E1_METHODS: dict[str, dict[str, str | None]] = {
     },
 }
 E1_METHOD_ORDER = ("pretext", "round19", "wasp", "dpga")
+E2_METHOD_ORDER = ("pretext", "round19")
 E1_SUMMARY_FIELDS = [
     "experiment_id",
     "method",
@@ -135,6 +141,18 @@ def _mode_seeds(mode: str) -> list[int]:
     return list(E1_MODE_SEEDS[mode])
 
 
+def _mode_datasets(mode: str) -> tuple[str, ...]:
+    if mode.startswith("thesis_e2_extra_unseen"):
+        return E2_EXTRA_UNSEEN_DATASETS
+    return E1_SEEN_DATASETS
+
+
+def _mode_methods(mode: str) -> tuple[str, ...]:
+    if mode.startswith("thesis_e2_extra_unseen"):
+        return E2_METHOD_ORDER
+    return E1_METHOD_ORDER
+
+
 def _external_artifact(method: str, dataset: str, seed: int) -> Path | None:
     if method == "wasp":
         return Path("WASP") / "outputs" / "paper_new_screening" / "thesis_e1_main" / dataset / f"seed{seed}" / "train.jsonl"
@@ -164,9 +182,9 @@ def resolve_project_output_path(project_root: Path, configured_output_root: Path
 def build_e1_run_specs(mode: str) -> list[E1BaselineSpec]:
     specs: list[E1BaselineSpec] = []
     config_dir = Path("configs") / "experiments" / _mode_config_dir(mode)
-    for method in E1_METHOD_ORDER:
+    for method in _mode_methods(mode):
         method_cfg = E1_METHODS[method]
-        for dataset in E1_SEEN_DATASETS:
+        for dataset in _mode_datasets(mode):
             for seed in _mode_seeds(mode):
                 experiment_id = f"{method}_{dataset}_seed{seed}"
                 output_root = (
@@ -204,6 +222,11 @@ def _build_config(spec: E1BaselineSpec, mode: str) -> dict[str, Any]:
     if spec.method == "round19":
         inherits = [
             "../single_node_tuning_round19/_base_selector_tuning_round19.yaml",
+            f"../single_node_tuning_round19/_data_{spec.dataset}.yaml",
+        ]
+    elif mode.startswith("thesis_e2_extra_unseen") and spec.method == "pretext":
+        inherits = [
+            "../single_run_baseline_screening/_base_single_run_expand_private.yaml",
             f"../single_node_tuning_round19/_data_{spec.dataset}.yaml",
         ]
     else:
