@@ -361,6 +361,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=int, default=7200)
     parser.add_argument("--max-attempts", type=int, default=2)
     parser.add_argument("--retry-delay-seconds", type=float, default=10.0)
+    parser.add_argument(
+        "--retry-all-failures",
+        action="store_true",
+        help="Retry every failed experiment until --max-attempts, not only retryable resource failures.",
+    )
     parser.add_argument("--target-gpu-name-token", default=DEFAULT_TARGET_GPU_NAME_TOKEN)
     parser.add_argument("--min-free-gb-for-vllm", type=float, default=DEFAULT_MIN_FREE_GB_FOR_VLLM)
     parser.add_argument("--gpu-wait-poll-seconds", type=float, default=DEFAULT_GPU_WAIT_POLL_SECONDS)
@@ -493,7 +498,10 @@ def main() -> int:
                     log_path = per_exp_log_dir / f"{spec.experiment_id}.log"
                     if log_path.exists():
                         log_text = log_path.read_text(encoding="utf-8", errors="replace")
-                    if not is_retryable_resource_failure(stderr + "\n" + log_text):
+                    if (
+                        not args.retry_all_failures
+                        and not is_retryable_resource_failure(stderr + "\n" + log_text)
+                    ):
                         break
                     master.write(
                         f"{datetime.now().isoformat()} RETRY {spec.experiment_id} stderr={stderr[:400]}\n"

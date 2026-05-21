@@ -334,6 +334,7 @@ def test_runner_retries_failed_item_without_stopping_following_items():
                 timeout_seconds=1,
                 max_attempts=2,
                 retry_delay_seconds=0.0,
+                retry_all_failures=False,
                 target_gpu_name_token="RTX A6000",
                 min_free_gb_for_vllm=0.0,
                 gpu_wait_poll_seconds=0.0,
@@ -365,6 +366,94 @@ def test_runner_retries_failed_item_without_stopping_following_items():
                 "exp_success",
             ]
             assert rows[-1]["status"] == "success"
+        finally:
+            runner.ROUND23_ROOT = original_root
+            runner.load_manifest = original_load_manifest
+            runner.run_single_experiment = original_run_single_experiment
+            runner.parse_args = original_parse_args
+            runner.wait_for_vllm_capacity = original_wait_for_vllm_capacity
+
+
+def test_runner_retry_all_failures_attempts_three_times_and_continues():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        specs = [
+            runner.ExperimentSpec(
+                experiment_id="exp_nonretry_fail",
+                dataset_name="bioarxiv",
+                meta_seed=42,
+                config_path=root / "exp_nonretry_fail.yaml",
+                output_root="outputs/thesis_e2_extra_unseen_repeat15/bioarxiv/seed42",
+            ),
+            runner.ExperimentSpec(
+                experiment_id="exp_after_failure",
+                dataset_name="rotten_tomatoes",
+                meta_seed=42,
+                config_path=root / "exp_after_failure.yaml",
+                output_root="outputs/thesis_e2_extra_unseen_repeat15/rotten_tomatoes/seed42",
+            ),
+        ]
+        attempts: list[tuple[str, int]] = []
+        model_dir = root / "bundle"
+        model_dir.mkdir()
+
+        original_root = runner.ROUND23_ROOT
+        original_load_manifest = runner.load_manifest
+        original_run_single_experiment = runner.run_single_experiment
+        original_parse_args = runner.parse_args
+        original_wait_for_vllm_capacity = runner.wait_for_vllm_capacity
+        try:
+            runner.ROUND23_ROOT = root
+            runner.load_manifest = lambda manifest_path: specs
+            per_spec_attempts = {"exp_nonretry_fail": 0, "exp_after_failure": 0}
+
+            def fake_run_single_experiment(spec, *, model_dir, timeout_seconds, log_dir):
+                per_spec_attempts[spec.experiment_id] += 1
+                attempts.append((spec.experiment_id, per_spec_attempts[spec.experiment_id]))
+                if spec.experiment_id == "exp_nonretry_fail":
+                    return 1, "", "deterministic non-resource failure", 0.01
+                sidecar_root = root / runner.normalize_output_root(spec.output_root)
+                sidecar_root.mkdir(parents=True, exist_ok=True)
+                (sidecar_root / f"{spec.experiment_id}_dynamic_controller_runtime.json").write_text(
+                    json.dumps(
+                        {
+                            "predicted_delta_k": 0,
+                            "predicted_target_budget": 20,
+                            "runtime_artifacts": {"eval_summary": {"best_top1": 0.5}},
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+                return 0, "", "", 0.01
+
+            runner.run_single_experiment = fake_run_single_experiment
+            runner.parse_args = lambda: argparse.Namespace(
+                mode="thesis_e2_extra_unseen_repeat15",
+                model_dir=str(model_dir),
+                timeout_seconds=1,
+                max_attempts=3,
+                retry_delay_seconds=0.0,
+                retry_all_failures=True,
+                target_gpu_name_token="RTX A6000",
+                min_free_gb_for_vllm=2.0,
+                gpu_wait_poll_seconds=0.0,
+                gpu_wait_timeout_seconds=1.0,
+                reset_summary=True,
+                dry_run=False,
+                limit=0,
+            )
+            runner.wait_for_vllm_capacity = lambda *args, **kwargs: None
+
+            exit_code = runner.main()
+
+            assert exit_code == 1
+            assert attempts == [
+                ("exp_nonretry_fail", 1),
+                ("exp_nonretry_fail", 2),
+                ("exp_nonretry_fail", 3),
+                ("exp_after_failure", 1),
+            ]
         finally:
             runner.ROUND23_ROOT = original_root
             runner.load_manifest = original_load_manifest

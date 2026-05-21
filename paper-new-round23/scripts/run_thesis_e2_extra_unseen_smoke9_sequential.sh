@@ -16,6 +16,7 @@ shift 1
 
 COMMON_ARGS=(
   --max-attempts 3
+  --retry-all-failures
   --min-free-gb-for-vllm 2
 )
 

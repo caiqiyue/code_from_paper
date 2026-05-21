@@ -492,6 +492,7 @@ def run_e1_batch(
     limit: int = 0,
     max_attempts: int = 2,
     retry_delay_seconds: float = 10.0,
+    retry_all_failures: bool = False,
     target_gpu_name_token: str = E1_DEFAULT_TARGET_GPU_NAME_TOKEN,
     min_free_gb_for_vllm: float = E1_DEFAULT_MIN_FREE_GB_FOR_VLLM,
     gpu_wait_poll_seconds: float = E1_DEFAULT_GPU_WAIT_POLL_SECONDS,
@@ -503,6 +504,7 @@ def run_e1_batch(
     specs = load_manifest(root, mode)
     summary_tsv = root / "logs" / f"{_mode_config_dir(mode)}_summary.tsv"
     master_log = root / "logs" / f"{_mode_config_dir(mode)}_master.log"
+    master_log.parent.mkdir(parents=True, exist_ok=True)
     if reset_summary and not dry_run:
         summary_tsv.unlink(missing_ok=True)
         master_log.unlink(missing_ok=True)
@@ -564,7 +566,9 @@ def run_e1_batch(
             if completed.returncode == 0:
                 success = True
                 break
-            if attempt >= max_attempts or not is_retryable_resource_failure(last_error):
+            if attempt >= max_attempts or (
+                not retry_all_failures and not is_retryable_resource_failure(last_error)
+            ):
                 break
             if retry_delay_seconds > 0:
                 time.sleep(retry_delay_seconds)
@@ -580,6 +584,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--max-attempts", type=int, default=2)
     parser.add_argument("--retry-delay-seconds", type=float, default=10.0)
+    parser.add_argument(
+        "--retry-all-failures",
+        action="store_true",
+        help="Retry every failed experiment until --max-attempts, not only retryable resource failures.",
+    )
     parser.add_argument("--target-gpu-name-token", default=E1_DEFAULT_TARGET_GPU_NAME_TOKEN)
     parser.add_argument("--min-free-gb-for-vllm", type=float, default=E1_DEFAULT_MIN_FREE_GB_FOR_VLLM)
     parser.add_argument("--gpu-wait-poll-seconds", type=float, default=E1_DEFAULT_GPU_WAIT_POLL_SECONDS)
@@ -596,6 +605,7 @@ def main(argv: list[str] | None = None) -> int:
         limit=args.limit,
         max_attempts=args.max_attempts,
         retry_delay_seconds=args.retry_delay_seconds,
+        retry_all_failures=args.retry_all_failures,
         target_gpu_name_token=args.target_gpu_name_token,
         min_free_gb_for_vllm=args.min_free_gb_for_vllm,
         gpu_wait_poll_seconds=args.gpu_wait_poll_seconds,

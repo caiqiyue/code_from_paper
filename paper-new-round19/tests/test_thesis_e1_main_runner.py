@@ -115,6 +115,97 @@ class ThesisE1MainRunnerTests(unittest.TestCase):
             self.assertEqual(row["best_top1"], 0.1)
             self.assertEqual(row["best_top10"], 0.4)
 
+    def test_retry_all_failures_attempts_three_times_and_continues(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            attempts: list[tuple[str, int]] = []
+            original_materialize = e1.materialize_e1_configs
+            original_load_manifest = e1.load_manifest
+            original_wait = e1.wait_for_vllm_capacity
+            original_build_command = e1.build_e1_command
+            original_run = e1.subprocess.run
+            try:
+                specs = [
+                    e1.E1BaselineSpec(
+                        method="pretext",
+                        method_display_name="PrE-Text",
+                        dataset="bioarxiv",
+                        seed=42,
+                        experiment_id="pretext_bioarxiv_seed42",
+                        kind="selector_single_node",
+                        relative_config_path=Path("configs/experiments/e2/pretext_bioarxiv_seed42.yaml"),
+                        relative_output_root=Path("paper-new-round19/outputs/e2/pretext/bioarxiv/seed42"),
+                        source_artifact_path=None,
+                        implementation_key="expand_private",
+                        pretext_template_key="expand_private",
+                        mapping_status="needs_verification",
+                    ),
+                    e1.E1BaselineSpec(
+                        method="round19",
+                        method_display_name="round19",
+                        dataset="rotten_tomatoes",
+                        seed=42,
+                        experiment_id="round19_rotten_tomatoes_seed42",
+                        kind="selector_single_node",
+                        relative_config_path=Path("configs/experiments/e2/round19_rotten_tomatoes_seed42.yaml"),
+                        relative_output_root=Path("paper-new-round19/outputs/e2/round19/rotten_tomatoes/seed42"),
+                        source_artifact_path=None,
+                        implementation_key="round19",
+                        pretext_template_key="",
+                        mapping_status="canonical_round19",
+                    ),
+                ]
+                e1.materialize_e1_configs = lambda project_root, mode="thesis_main_seen_pilot": []
+                e1.load_manifest = lambda project_root, mode: specs
+                e1.wait_for_vllm_capacity = lambda *args, **kwargs: None
+                e1.build_e1_command = lambda spec, config_path: ["fake", spec.experiment_id]
+                per_spec_attempts = {"pretext_bioarxiv_seed42": 0, "round19_rotten_tomatoes_seed42": 0}
+
+                def fake_run(command, **kwargs):
+                    exp_id = command[-1]
+                    per_spec_attempts[exp_id] += 1
+                    attempts.append((exp_id, per_spec_attempts[exp_id]))
+                    return type(
+                        "Completed",
+                        (),
+                        {
+                            "returncode": 1 if exp_id == "pretext_bioarxiv_seed42" else 0,
+                            "stdout": "",
+                            "stderr": "deterministic non-resource failure"
+                            if exp_id == "pretext_bioarxiv_seed42"
+                            else "",
+                        },
+                    )()
+
+                e1.subprocess.run = fake_run
+                result = e1.run_e1_batch(
+                    root,
+                    mode="thesis_e2_extra_unseen_repeat15",
+                    dry_run=False,
+                    max_attempts=3,
+                    retry_delay_seconds=0.0,
+                    min_free_gb_for_vllm=2.0,
+                    retry_all_failures=True,
+                    reset_summary=True,
+                )
+
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(
+                    attempts,
+                    [
+                        ("pretext_bioarxiv_seed42", 1),
+                        ("pretext_bioarxiv_seed42", 2),
+                        ("pretext_bioarxiv_seed42", 3),
+                        ("round19_rotten_tomatoes_seed42", 1),
+                    ],
+                )
+            finally:
+                e1.materialize_e1_configs = original_materialize
+                e1.load_manifest = original_load_manifest
+                e1.wait_for_vllm_capacity = original_wait
+                e1.build_e1_command = original_build_command
+                e1.subprocess.run = original_run
+
 
 if __name__ == "__main__":
     unittest.main()
