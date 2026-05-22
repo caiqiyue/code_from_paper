@@ -1,0 +1,21 @@
+inherits:
+- ../single_run_baseline_screening/wasp_imdb_single_run.yaml
+meta:
+  experiment_id: wasp_imdb_seed500
+  seed: 500
+  dataset_name: imdb
+  stage: thesis_main_controller_dev_extra_repeat15
+  method: wasp
+  method_display_name: WASP
+  implementation_key: wasp
+  pretext_template_key: ''
+  mapping_status: external_adapter
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/wasp/imdb/seed500
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_controller_dev_extra_repeat15
+external_baseline:
+  source_artifact_path: WASP/outputs/paper_new_screening/thesis_e1_main/imdb/seed500/train.jsonl
+  source_dataset_name: imdb
+  summary_output_path: paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/wasp/imdb/seed500/stage1_summary.json

@@ -16,6 +16,7 @@ import yaml
 
 
 E1_SEEN_DATASETS = ("jobs", "congressional", "forums", "microblog")
+E1_CONTROLLER_DEV_EXTRA_DATASETS = ("imdb", "openreview")
 E2_EXTRA_UNSEEN_DATASETS = ("bioarxiv", "rotten_tomatoes", "twitter_emotion_binary")
 E1_SMOKE_SEEDS = [42]
 E1_PILOT_SEEDS = [42, 123, 456]
@@ -32,6 +33,7 @@ E1_MODE_SEEDS = {
     "thesis_main_seen_repeat10": E1_REPEAT10_SEEDS,
     "thesis_main_seen_repeat15": E1_REPEAT15_SEEDS,
     "thesis_main_seen_repeat30": E1_REPEAT30_SEEDS,
+    "thesis_main_controller_dev_extra_repeat15": E1_REPEAT15_SEEDS,
     "thesis_e2_extra_unseen_smoke": E1_SMOKE_SEEDS,
     "thesis_e2_extra_unseen_repeat15": E1_REPEAT15_SEEDS,
 }
@@ -41,6 +43,7 @@ E1_MODE_CONFIG_DIRS = {
     "thesis_main_seen_repeat10": "thesis_e1_main_seen_repeat10",
     "thesis_main_seen_repeat15": "thesis_e1_main_seen_repeat15",
     "thesis_main_seen_repeat30": "thesis_e1_main_seen_repeat30",
+    "thesis_main_controller_dev_extra_repeat15": "thesis_e1_controller_dev_extra_repeat15",
     "thesis_e2_extra_unseen_smoke": "thesis_e2_extra_unseen_smoke",
     "thesis_e2_extra_unseen_repeat15": "thesis_e2_extra_unseen_repeat15",
 }
@@ -142,6 +145,8 @@ def _mode_seeds(mode: str) -> list[int]:
 
 
 def _mode_datasets(mode: str) -> tuple[str, ...]:
+    if mode == "thesis_main_controller_dev_extra_repeat15":
+        return E1_CONTROLLER_DEV_EXTRA_DATASETS
     if mode.startswith("thesis_e2_extra_unseen"):
         return E2_EXTRA_UNSEEN_DATASETS
     return E1_SEEN_DATASETS

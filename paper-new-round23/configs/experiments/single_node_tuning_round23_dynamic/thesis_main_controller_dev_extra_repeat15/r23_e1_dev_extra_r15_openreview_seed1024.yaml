@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_openreview.yaml
+
+meta:
+  experiment_id: r23_e1_dev_extra_r15_openreview_seed1024
+  seed: 1024
+  dataset_name: openreview
+
+paths:
+  output_root: outputs/thesis_main_controller_dev_extra_repeat15/openreview/seed1024
+
+selector:
+  seed_top_k: 20
+
+round23_controller:
+  source_env: thesis_main_controller_dev_extra_repeat15
+  context_family: natural
+  reference_budget: 20

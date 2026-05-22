@@ -71,6 +71,14 @@ MODE_PATHS = {
         "log_stem": "round23_thesis_main_seen_repeat15",
         "dataset_split": "seen",
     },
+    "thesis_main_controller_dev_extra_repeat15": {
+        "manifest_relpath": (
+            "thesis_main_controller_dev_extra_repeat15/"
+            "round23_thesis_main_controller_dev_extra_repeat15_manifest.tsv"
+        ),
+        "log_stem": "round23_thesis_main_controller_dev_extra_repeat15",
+        "dataset_split": "controller_dev_extra",
+    },
     "thesis_main_seen_repeat30": {
         "manifest_relpath": "thesis_main_seen_repeat30/round23_thesis_main_seen_repeat30_manifest.tsv",
         "log_stem": "round23_thesis_main_seen_repeat30",

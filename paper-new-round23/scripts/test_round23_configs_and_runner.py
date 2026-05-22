@@ -184,6 +184,41 @@ def test_generate_configs_creates_e2_extra_unseen_smoke_and_repeat15():
             config_gen.MODE_SPECS = original_mode_specs
 
 
+def test_generate_configs_creates_controller_dev_extra_repeat15():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        original_root = config_gen.CONFIG_ROOT
+        original_base = config_gen.BASE_FILE
+        original_mode_specs = {
+            mode: dict(spec)
+            for mode, spec in config_gen.MODE_SPECS.items()
+        }
+        try:
+            config_gen.CONFIG_ROOT = root / "configs"
+            config_gen.BASE_FILE = config_gen.CONFIG_ROOT / "_base_selector_tuning_round23_dynamic.yaml"
+            config_gen.create_base_and_data_stubs()
+            config_gen.create_mode_configs("thesis_main_controller_dev_extra_repeat15")
+
+            manifest = (
+                config_gen.CONFIG_ROOT
+                / "thesis_main_controller_dev_extra_repeat15"
+                / "round23_thesis_main_controller_dev_extra_repeat15_manifest.tsv"
+            )
+            with manifest.open("r", encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle, delimiter="\t"))
+            assert len(rows) == 30
+            assert {row["dataset"] for row in rows} == {"imdb", "openreview"}
+            assert {row["method"] for row in rows} == {"round23"}
+            assert all(
+                row["output_root"].startswith("outputs/thesis_main_controller_dev_extra_repeat15/")
+                for row in rows
+            )
+        finally:
+            config_gen.CONFIG_ROOT = original_root
+            config_gen.BASE_FILE = original_base
+            config_gen.MODE_SPECS = original_mode_specs
+
+
 def test_resolve_mode_paths_supports_e2_extra_unseen_smoke_and_repeat15():
     smoke_paths = runner.resolve_mode_paths("thesis_e2_extra_unseen_smoke")
     assert smoke_paths["manifest_relpath"] == (
@@ -200,6 +235,16 @@ def test_resolve_mode_paths_supports_e2_extra_unseen_smoke_and_repeat15():
     )
     assert repeat15_paths["log_stem"] == "round23_thesis_e2_extra_unseen_repeat15"
     assert repeat15_paths["dataset_split"] == "extra_unseen"
+
+
+def test_resolve_mode_paths_supports_controller_dev_extra_repeat15():
+    paths = runner.resolve_mode_paths("thesis_main_controller_dev_extra_repeat15")
+    assert paths["manifest_relpath"] == (
+        "thesis_main_controller_dev_extra_repeat15/"
+        "round23_thesis_main_controller_dev_extra_repeat15_manifest.tsv"
+    )
+    assert paths["log_stem"] == "round23_thesis_main_controller_dev_extra_repeat15"
+    assert paths["dataset_split"] == "controller_dev_extra"
 
 
 def test_summary_row_reads_nested_metrics_and_controller_metadata():

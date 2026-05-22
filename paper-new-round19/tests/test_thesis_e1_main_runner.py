@@ -42,6 +42,13 @@ class ThesisE1MainRunnerTests(unittest.TestCase):
         )
         self.assertEqual({spec.seed for spec in smoke_specs}, {42})
 
+    def test_builds_controller_dev_extra_repeat15_with_external_baselines(self) -> None:
+        specs = e1.build_e1_run_specs("thesis_main_controller_dev_extra_repeat15")
+        self.assertEqual(len(specs), 120)
+        self.assertEqual({spec.method for spec in specs}, {"pretext", "round19", "wasp", "dpga"})
+        self.assertEqual({spec.dataset for spec in specs}, {"imdb", "openreview"})
+        self.assertEqual({spec.seed for spec in specs}, set(e1.E1_REPEAT15_SEEDS))
+
     def test_materializes_manifest_with_registry_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -80,6 +87,25 @@ class ThesisE1MainRunnerTests(unittest.TestCase):
             )
             self.assertTrue((root / rows[0]["config_path"]).exists())
             self.assertTrue(rows[0]["output_root"].startswith("paper-new-round19/outputs/thesis_e2_extra_unseen_repeat15/"))
+
+    def test_materializes_controller_dev_extra_repeat15_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            generated = e1.materialize_e1_configs(root, mode="thesis_main_controller_dev_extra_repeat15")
+            self.assertEqual(len(generated), 120)
+            manifest = (
+                root
+                / "configs"
+                / "experiments"
+                / "thesis_e1_controller_dev_extra_repeat15"
+                / "thesis_e1_controller_dev_extra_repeat15_manifest.tsv"
+            )
+            with manifest.open("r", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle, delimiter="\t"))
+            self.assertEqual(len(rows), 120)
+            self.assertEqual({row["method"] for row in rows}, {"pretext", "round19", "wasp", "dpga"})
+            self.assertEqual({row["dataset"] for row in rows}, {"imdb", "openreview"})
+            self.assertTrue(rows[0]["output_root"].startswith("paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/"))
 
     def test_dry_run_summary_shape_supports_e1_table_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

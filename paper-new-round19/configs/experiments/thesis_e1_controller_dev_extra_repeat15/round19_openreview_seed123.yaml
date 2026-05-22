@@ -1,0 +1,18 @@
+inherits:
+- ../single_node_tuning_round19/_base_selector_tuning_round19.yaml
+- ../single_node_tuning_round19/_data_openreview.yaml
+meta:
+  experiment_id: round19_openreview_seed123
+  seed: 123
+  dataset_name: openreview
+  stage: thesis_main_controller_dev_extra_repeat15
+  method: round19
+  method_display_name: round19
+  implementation_key: round19
+  pretext_template_key: ''
+  mapping_status: canonical_round19
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/round19/openreview/seed123
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_controller_dev_extra_repeat15

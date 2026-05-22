@@ -1,0 +1,17 @@
+inherits:
+- ../single_run_baseline_screening/ep_openreview_single_run.yaml
+meta:
+  experiment_id: pretext_openreview_seed100
+  seed: 100
+  dataset_name: openreview
+  stage: thesis_main_controller_dev_extra_repeat15
+  method: pretext
+  method_display_name: PrE-Text
+  implementation_key: expand_private
+  pretext_template_key: expand_private
+  mapping_status: needs_verification
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/pretext/openreview/seed100
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_controller_dev_extra_repeat15

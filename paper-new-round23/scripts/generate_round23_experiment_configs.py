@@ -95,6 +95,15 @@ MODE_SPECS = {
         "source_env": "thesis_main_seen_repeat15",
         "output_root_prefix": "outputs/thesis_main_seen_repeat15",
     },
+    "thesis_main_controller_dev_extra_repeat15": {
+        "subdir": "thesis_main_controller_dev_extra_repeat15",
+        "manifest_name": "round23_thesis_main_controller_dev_extra_repeat15_manifest.tsv",
+        "datasets": UNSEEN_DATASETS,
+        "seeds": SEEDS_REPEAT15,
+        "experiment_prefix": "r23_e1_dev_extra_r15",
+        "source_env": "thesis_main_controller_dev_extra_repeat15",
+        "output_root_prefix": "outputs/thesis_main_controller_dev_extra_repeat15",
+    },
     "thesis_main_seen_repeat30": {
         "subdir": "thesis_main_seen_repeat30",
         "manifest_name": "round23_thesis_main_seen_repeat30_manifest.tsv",

@@ -1,0 +1,21 @@
+inherits:
+- ../single_run_baseline_screening/dpga_openreview_single_run.yaml
+meta:
+  experiment_id: dpga_openreview_seed500
+  seed: 500
+  dataset_name: openreview
+  stage: thesis_main_controller_dev_extra_repeat15
+  method: dpga
+  method_display_name: DPGA-TextSyn
+  implementation_key: dpga
+  pretext_template_key: ''
+  mapping_status: external_adapter
+paths:
+  output_root: paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/dpga/openreview/seed500
+protocol:
+  experiment_family: thesis_e1_main_seen
+  mode: thesis_main_controller_dev_extra_repeat15
+external_baseline:
+  source_artifact_path: DPGA-TextSyn/outputs/paper_new_screening/thesis_e1_main/openreview/seed500/epoch_all.json
+  source_dataset_name: openreview
+  summary_output_path: paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/dpga/openreview/seed500/stage1_summary.json
