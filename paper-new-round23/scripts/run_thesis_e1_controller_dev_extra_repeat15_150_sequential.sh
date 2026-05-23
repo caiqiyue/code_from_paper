@@ -14,6 +14,22 @@ export PYTHONUNBUFFERED=1
 
 shift 1
 
+LOCK_ROOT="$ROOT/paper-new-round23/logs/locks"
+LOCK_DIR="$LOCK_ROOT/thesis_e1_controller_dev_extra_repeat15.lock"
+mkdir -p "$LOCK_ROOT"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  LOCK_PID="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  if [[ -n "$LOCK_PID" ]] && kill -0 "$LOCK_PID" 2>/dev/null; then
+    echo "Another thesis_main_controller_dev_extra_repeat15 run is already active: pid=$LOCK_PID"
+    exit 3
+  fi
+  echo "Removing stale lock: $LOCK_DIR"
+  rm -rf "$LOCK_DIR"
+  mkdir "$LOCK_DIR"
+fi
+echo "$$" > "$LOCK_DIR/pid"
+trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
+
 COMMON_ARGS=(
   --max-attempts 3
   --retry-all-failures
