@@ -7,6 +7,8 @@ import unittest
 from pathlib import Path
 import sys
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from paper_new_selector import thesis_e1_main_runner as e1
 
@@ -106,6 +108,40 @@ class ThesisE1MainRunnerTests(unittest.TestCase):
             self.assertEqual({row["method"] for row in rows}, {"pretext", "round19", "wasp", "dpga"})
             self.assertEqual({row["dataset"] for row in rows}, {"imdb", "openreview"})
             self.assertTrue(rows[0]["output_root"].startswith("paper-new-round19/outputs/thesis_e1_controller_dev_extra_repeat15/"))
+
+            pretext_config = yaml.safe_load(
+                (root / "configs" / "experiments" / "thesis_e1_controller_dev_extra_repeat15" / "pretext_imdb_seed42.yaml")
+                .read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                pretext_config["inherits"],
+                [
+                    "../single_run_baseline_screening/_base_single_run_expand_private.yaml",
+                    "../single_node_tuning_round19/_data_imdb.yaml",
+                ],
+            )
+            wasp_config = yaml.safe_load(
+                (root / "configs" / "experiments" / "thesis_e1_controller_dev_extra_repeat15" / "wasp_imdb_seed42.yaml")
+                .read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                wasp_config["inherits"],
+                [
+                    "../single_run_baseline_screening/_base_single_run_wasp.yaml",
+                    "../single_node_tuning_round19/_data_imdb.yaml",
+                ],
+            )
+            dpga_config = yaml.safe_load(
+                (root / "configs" / "experiments" / "thesis_e1_controller_dev_extra_repeat15" / "dpga_imdb_seed42.yaml")
+                .read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                dpga_config["inherits"],
+                [
+                    "../single_run_baseline_screening/_base_single_run_dpga.yaml",
+                    "../single_node_tuning_round19/_data_imdb.yaml",
+                ],
+            )
 
     def test_dry_run_summary_shape_supports_e1_table_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

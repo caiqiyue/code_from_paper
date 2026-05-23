@@ -1,5 +1,6 @@
 inherits:
-- ../single_run_baseline_screening/wasp_imdb_single_run.yaml
+- ../single_run_baseline_screening/_base_single_run_wasp.yaml
+- ../single_node_tuning_round19/_data_imdb.yaml
 meta:
   experiment_id: wasp_imdb_seed400
   seed: 400

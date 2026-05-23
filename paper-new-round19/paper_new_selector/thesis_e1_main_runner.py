@@ -229,9 +229,17 @@ def _build_config(spec: E1BaselineSpec, mode: str) -> dict[str, Any]:
             "../single_node_tuning_round19/_base_selector_tuning_round19.yaml",
             f"../single_node_tuning_round19/_data_{spec.dataset}.yaml",
         ]
-    elif mode.startswith("thesis_e2_extra_unseen") and spec.method == "pretext":
+    elif spec.method == "pretext" and (
+        mode.startswith("thesis_e2_extra_unseen")
+        or mode == "thesis_main_controller_dev_extra_repeat15"
+    ):
         inherits = [
             "../single_run_baseline_screening/_base_single_run_expand_private.yaml",
+            f"../single_node_tuning_round19/_data_{spec.dataset}.yaml",
+        ]
+    elif mode == "thesis_main_controller_dev_extra_repeat15" and spec.method in {"wasp", "dpga"}:
+        inherits = [
+            f"../single_run_baseline_screening/_base_single_run_{spec.method}.yaml",
             f"../single_node_tuning_round19/_data_{spec.dataset}.yaml",
         ]
     else:

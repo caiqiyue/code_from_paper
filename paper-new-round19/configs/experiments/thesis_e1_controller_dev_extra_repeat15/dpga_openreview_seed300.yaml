@@ -1,5 +1,6 @@
 inherits:
-- ../single_run_baseline_screening/dpga_openreview_single_run.yaml
+- ../single_run_baseline_screening/_base_single_run_dpga.yaml
+- ../single_node_tuning_round19/_data_openreview.yaml
 meta:
   experiment_id: dpga_openreview_seed300
   seed: 300
