@@ -1,0 +1,54 @@
+model:
+  budgets: [18, 19, 20, 21, 22]
+  include_dataset_one_hot: true
+  lightgbm_params:
+    objective: regression
+    metric: l2
+    n_estimators: 100
+    learning_rate: 0.05
+    num_leaves: 15
+    max_depth: 4
+    min_data_in_leaf: 5
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 1
+    lambda_l2: 1.0
+
+training:
+  random_seed: 42
+  fold_count: 3
+  param_candidates:
+    - name: default
+      learning_rate: 0.05
+      n_estimators: 100
+      num_leaves: 15
+      max_depth: 4
+      min_data_in_leaf: 5
+      feature_fraction: 0.9
+      bagging_fraction: 0.9
+      bagging_freq: 1
+      lambda_l2: 1.0
+    - name: shallower
+      learning_rate: 0.05
+      n_estimators: 80
+      num_leaves: 11
+      max_depth: 3
+      min_data_in_leaf: 6
+      feature_fraction: 0.9
+      bagging_fraction: 0.9
+      bagging_freq: 1
+      lambda_l2: 1.0
+    - name: slower
+      learning_rate: 0.03
+      n_estimators: 140
+      num_leaves: 15
+      max_depth: 4
+      min_data_in_leaf: 5
+      feature_fraction: 0.9
+      bagging_fraction: 0.9
+      bagging_freq: 1
+      lambda_l2: 1.0
+
+evaluation:
+  fixed_budget_baselines: [18, 19, 22]
+  require_round19_replay: false

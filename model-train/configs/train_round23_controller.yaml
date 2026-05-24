@@ -1,0 +1,180 @@
+model:
+  default_family: lightgbm
+  feature_version: with_dataset
+  include_dataset_one_hot: true
+  onehot_order: [jobs, congressional, forums, microblog, imdb, openreview]
+  delta_actions: [-2, -1, 0, 1, 2]
+  feature_fields:
+    - shape_score
+    - private_mean_length
+    - private_p75_length
+    - private_length_iqr
+    - support_mean_at_k20
+    - coverage_mean_at_k20
+    - coverage_p25_at_k20
+    - genericity_mean_at_k20
+    - redundancy_mean_at_k20
+  family_params:
+    lightgbm:
+      objective: regression
+      metric: l2
+      n_estimators: 80
+      learning_rate: 0.03
+      num_leaves: 15
+      max_depth: 4
+      min_child_samples: 10
+      reg_alpha: 0.1
+      reg_lambda: 0.1
+      verbose: -1
+      random_state: 42
+    xgboost:
+      n_estimators: 100
+      learning_rate: 0.05
+      max_depth: 3
+      reg_alpha: 0.1
+      reg_lambda: 0.1
+      subsample: 0.8
+      colsample_bytree: 0.8
+      random_state: 42
+    catboost:
+      loss_function: RMSE
+      allow_const_label: true
+      bootstrap_type: "No"
+      depth: 4
+      learning_rate: 0.05
+      iterations: 120
+      verbose: false
+      random_seed: 42
+    randomforest:
+      n_estimators: 200
+      max_depth: 6
+      min_samples_leaf: 2
+      random_state: 42
+    extratrees:
+      n_estimators: 240
+      max_depth: 6
+      min_samples_leaf: 2
+      random_state: 42
+    mlp:
+      hidden_layer_sizes: [32, 16]
+      activation: relu
+      alpha: 0.001
+      learning_rate_init: 0.001
+      max_iter: 800
+      random_state: 42
+    linear_baseline:
+      alpha: 1.0
+      random_state: 42
+training:
+  param_candidates:
+    lightgbm:
+      - name: lgbm_default
+        objective: regression
+        metric: l2
+        n_estimators: 80
+        learning_rate: 0.03
+        num_leaves: 15
+        max_depth: 4
+        min_child_samples: 10
+        reg_alpha: 0.1
+        reg_lambda: 0.1
+        verbose: -1
+        random_state: 42
+      - name: lgbm_small
+        objective: regression
+        metric: l2
+        n_estimators: 60
+        learning_rate: 0.03
+        num_leaves: 10
+        max_depth: 3
+        min_child_samples: 12
+        reg_alpha: 0.2
+        reg_lambda: 0.2
+        verbose: -1
+        random_state: 42
+    xgboost:
+      - name: xgb_default
+        n_estimators: 100
+        learning_rate: 0.05
+        max_depth: 3
+        reg_alpha: 0.1
+        reg_lambda: 0.1
+        subsample: 0.8
+        colsample_bytree: 0.8
+        random_state: 42
+      - name: xgb_shallow
+        n_estimators: 80
+        learning_rate: 0.03
+        max_depth: 2
+        reg_alpha: 0.2
+        reg_lambda: 0.2
+        subsample: 0.8
+        colsample_bytree: 0.8
+        random_state: 42
+    catboost:
+      - name: catboost_default
+        loss_function: RMSE
+        allow_const_label: true
+        bootstrap_type: "No"
+        depth: 4
+        learning_rate: 0.05
+        iterations: 120
+        verbose: false
+        random_seed: 42
+      - name: catboost_shallow
+        loss_function: RMSE
+        allow_const_label: true
+        bootstrap_type: "No"
+        depth: 3
+        learning_rate: 0.03
+        iterations: 160
+        verbose: false
+        random_seed: 42
+    randomforest:
+      - name: rf_default
+        n_estimators: 200
+        max_depth: 6
+        min_samples_leaf: 2
+        random_state: 42
+      - name: rf_shallow
+        n_estimators: 300
+        max_depth: 4
+        min_samples_leaf: 3
+        random_state: 42
+    extratrees:
+      - name: et_default
+        n_estimators: 240
+        max_depth: 6
+        min_samples_leaf: 2
+        random_state: 42
+      - name: et_shallow
+        n_estimators: 320
+        max_depth: 4
+        min_samples_leaf: 3
+        random_state: 42
+    mlp:
+      - name: mlp_default
+        hidden_layer_sizes: [32, 16]
+        activation: relu
+        alpha: 0.001
+        learning_rate_init: 0.001
+        max_iter: 800
+        random_state: 42
+      - name: mlp_small
+        hidden_layer_sizes: [16]
+        activation: relu
+        alpha: 0.005
+        learning_rate_init: 0.001
+        max_iter: 800
+        random_state: 42
+    linear_baseline:
+      - name: ridge_default
+        alpha: 1.0
+        random_state: 42
+      - name: ridge_stronger
+        alpha: 2.0
+        random_state: 42
+evaluation:
+  require_round19_replay: true
+  require_round22_static_baseline: false
+  round22_static_model_dir: null

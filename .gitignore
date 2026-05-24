@@ -76,8 +76,13 @@ PrivateKT/
 RewardDS/
 TracIn/
 
-# Local model training data
-model-train/
+# model-train source is tracked; local training inputs/outputs stay ignored
+model-train/data/
+model-train/artifacts/
+model-train/models/
+model-train/docs/
+model-train/.pytest_cache/
+model-train/scripts/catboost_info/
 
 # Local training/runtime artifacts
 catboost_info/

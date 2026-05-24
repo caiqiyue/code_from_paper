@@ -1,0 +1,11 @@
+{
+  "experiment": "round23_e3_policy_quality_1200_all6_top1_delta_m0005",
+  "scope": "all_contexts",
+  "controller_context_table": "artifacts/round23_datasets_1200_top1_delta_m0005/round23_controller_context_table.jsonl",
+  "round19_replay_table": "artifacts/round23_datasets_1200_top1_delta_m0005/round19_replay_table.jsonl",
+  "model_dir": "artifacts/round23_models_1200_all6_final/extratrees/no_dataset",
+  "model_family": "extratrees",
+  "feature_version": "no_dataset",
+  "model_config": "configs/train_round23_controller_all6_no_dataset_extratrees_focused.yaml",
+  "output_dir": "artifacts/round23_e3_policy_quality_1200_all6_top1_delta_m0005/extratrees_no_dataset"
+}
