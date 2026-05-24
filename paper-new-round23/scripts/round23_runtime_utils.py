@@ -20,6 +20,12 @@ DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE = (
     / "controller_bundle"
     / "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset"
 )
+DEFAULT_ROUND23_ABSK_ALL6_CONTROLLER_BUNDLE = (
+    PAPER_NEW_ROUND23_ROOT
+    / "artifacts"
+    / "controller_bundle"
+    / "round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset"
+)
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:

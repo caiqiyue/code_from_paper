@@ -22,7 +22,12 @@ from round23_runtime_utils import (
 
 
 ROUND23_ROOT = Path(__file__).resolve().parents[1]
-RUN_SCRIPT = ROUND23_ROOT / "scripts" / "run_round23_with_dynamic_controller.py"
+RUN_SCRIPTS = {
+    "round23": ROUND23_ROOT / "scripts" / "run_round23_with_dynamic_controller.py",
+    "round23_absk_oneshot": ROUND23_ROOT / "scripts" / "run_round23_with_absolute_k_controller.py",
+    "round23_keepk0": ROUND23_ROOT / "scripts" / "run_round23_keep_k0_baseline.py",
+    "round23_3round_stress": ROUND23_ROOT / "scripts" / "run_round23_with_three_round_stress.py",
+}
 DEFAULT_TARGET_GPU_NAME_TOKEN = "RTX A6000"
 DEFAULT_MIN_FREE_GB_FOR_VLLM = 2.0
 DEFAULT_GPU_WAIT_POLL_SECONDS = 30
@@ -100,6 +105,36 @@ MODE_PATHS = {
         "log_stem": "round23_thesis_e2_extra_unseen_repeat15",
         "dataset_split": "extra_unseen",
     },
+    "e4_a_oneshot_seen_smoke": {
+        "manifest_relpath": "e4_a_oneshot_seen_smoke/round23_e4_a_oneshot_seen_smoke_manifest.tsv",
+        "log_stem": "round23_e4_a_oneshot_seen_smoke",
+        "dataset_split": "seen",
+    },
+    "e4_a_oneshot_seen_repeat15": {
+        "manifest_relpath": "e4_a_oneshot_seen_repeat15/round23_e4_a_oneshot_seen_repeat15_manifest.tsv",
+        "log_stem": "round23_e4_a_oneshot_seen_repeat15",
+        "dataset_split": "seen",
+    },
+    "e4_b_keepk0_seen_smoke": {
+        "manifest_relpath": "e4_b_keepk0_seen_smoke/round23_e4_b_keepk0_seen_smoke_manifest.tsv",
+        "log_stem": "round23_e4_b_keepk0_seen_smoke",
+        "dataset_split": "seen",
+    },
+    "e4_b_keepk0_seen_repeat15": {
+        "manifest_relpath": "e4_b_keepk0_seen_repeat15/round23_e4_b_keepk0_seen_repeat15_manifest.tsv",
+        "log_stem": "round23_e4_b_keepk0_seen_repeat15",
+        "dataset_split": "seen",
+    },
+    "e4_c_three_round_stress_smoke": {
+        "manifest_relpath": "e4_c_three_round_stress_smoke/round23_e4_c_three_round_stress_smoke_manifest.tsv",
+        "log_stem": "round23_e4_c_three_round_stress_smoke",
+        "dataset_split": "seen",
+    },
+    "e4_c_three_round_stress_pilot": {
+        "manifest_relpath": "e4_c_three_round_stress_pilot/round23_e4_c_three_round_stress_pilot_manifest.tsv",
+        "log_stem": "round23_e4_c_three_round_stress_pilot",
+        "dataset_split": "seen",
+    },
 }
 
 
@@ -110,6 +145,9 @@ class ExperimentSpec:
     meta_seed: int
     config_path: Path
     output_root: str
+    method: str = "round23"
+    controller_scope: str = DEFAULT_ROUND23_CONTROLLER_SCOPE
+    controller_bundle: str = ""
 
 
 def normalize_output_root(raw_output_root: str) -> Path:
@@ -155,9 +193,43 @@ def load_manifest(manifest_path: Path) -> list[ExperimentSpec]:
                     meta_seed=int(row["seed"]),
                     config_path=resolve_config_path(str(row["config_path"])),
                     output_root=str(row["output_root"]),
+                    method=str(row.get("method", "round23")),
+                    controller_scope=str(row.get("controller_scope", DEFAULT_ROUND23_CONTROLLER_SCOPE)),
+                    controller_bundle=str(row.get("controller_bundle", "")),
                 )
             )
     return specs
+
+
+def resolve_run_script(method: str) -> Path:
+    if method not in RUN_SCRIPTS:
+        raise ValueError(f"Unsupported method for runner: {method}")
+    return RUN_SCRIPTS[method]
+
+
+def sidecar_suffix_for_method(method: str) -> str:
+    if method == "round23":
+        return "_dynamic_controller_runtime.json"
+    if method == "round23_absk_oneshot":
+        return "_absolute_k_controller_runtime.json"
+    if method == "round23_keepk0":
+        return "_keep_k0_runtime.json"
+    if method == "round23_3round_stress":
+        return "_three_round_stress_runtime.json"
+    return "_dynamic_controller_runtime.json"
+
+
+def resolve_model_dir_for_spec(cli_model_dir: str | Path | None, spec: ExperimentSpec) -> Path | None:
+    if spec.method == "round23_keepk0":
+        return None
+    if cli_model_dir:
+        return Path(cli_model_dir).resolve()
+    if spec.controller_bundle:
+        resolved = (ROUND23_ROOT / "artifacts" / "controller_bundle" / spec.controller_bundle).resolve()
+        if not resolved.exists():
+            raise FileNotFoundError(f"Controller bundle not found for {spec.experiment_id}: {resolved}")
+        return resolved
+    return DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE.resolve()
 
 
 def parse_nvidia_smi_memory_report(report_text: str, *, target_name_token: str) -> tuple[str, float]:
@@ -264,15 +336,16 @@ def completed_ids(summary_tsv: Path, summary_jsonl: Path) -> set[str]:
 def run_single_experiment(
     spec: ExperimentSpec,
     *,
-    model_dir: Path,
+    model_dir: Path | None,
     timeout_seconds: int,
     log_dir: Path,
 ) -> tuple[int, str, str, float]:
     started = time.time()
     log_path = log_dir / f"{spec.experiment_id}.log"
+    run_script = resolve_run_script(spec.method)
     command = [
         sys.executable,
-        str(RUN_SCRIPT),
+        str(run_script),
         "--config",
         str(spec.config_path),
         "--output-root",
@@ -280,7 +353,7 @@ def run_single_experiment(
         "--timeout-seconds",
         str(timeout_seconds),
     ]
-    if model_dir:
+    if model_dir and spec.method != "round23_keepk0":
         command.extend(["--model-dir", str(model_dir)])
     result = subprocess.run(
         command,
@@ -305,14 +378,14 @@ def build_summary_row(
 ) -> dict[str, Any]:
     normalized_output_root = normalize_output_root(spec.output_root)
     sidecar_path = (
-        ROUND23_ROOT / normalized_output_root / f"{spec.experiment_id}_dynamic_controller_runtime.json"
+        ROUND23_ROOT / normalized_output_root / f"{spec.experiment_id}{sidecar_suffix_for_method(spec.method)}"
     ).resolve()
     row: dict[str, Any] = {
         "mode": mode,
         "dataset_split": dataset_split,
         "experiment_id": spec.experiment_id,
-        "method": "round23",
-        "method_display_name": "round23",
+        "method": spec.method,
+        "method_display_name": spec.method,
         "dataset_name": spec.dataset_name,
         "meta_seed": spec.meta_seed,
         "status": status,
@@ -387,7 +460,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     mode_paths = resolve_mode_paths(args.mode)
-    model_dir = resolve_model_dir(args.model_dir)
     manifest = (
         ROUND23_ROOT
         / "configs"
@@ -453,7 +525,7 @@ def main() -> int:
                     "manifest": str(manifest.resolve()),
                     "summary_tsv": str(summary_tsv.resolve()),
                     "first_experiments": [spec.experiment_id for spec in pending[:10]],
-                    "model_dir": str(model_dir),
+                    "model_dir": str(resolve_model_dir_for_spec(args.model_dir, pending[0])) if pending else "",
                     "controller_scope": DEFAULT_ROUND23_CONTROLLER_SCOPE,
                 },
                 ensure_ascii=False,
@@ -476,6 +548,7 @@ def main() -> int:
                     poll_seconds=args.gpu_wait_poll_seconds,
                     timeout_seconds=args.gpu_wait_timeout_seconds,
                 )
+                model_dir = resolve_model_dir_for_spec(args.model_dir, spec)
                 code, _, stderr, duration = run_single_experiment(
                     spec,
                     model_dir=model_dir,
