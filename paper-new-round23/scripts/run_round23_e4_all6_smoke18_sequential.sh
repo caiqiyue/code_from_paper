@@ -26,6 +26,7 @@ trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
 
 COMMON_ARGS=(
   --max-attempts 3
+  --retry-delay-seconds 10
   --retry-all-failures
   --min-free-gb-for-vllm 2
   --target-gpu-index "$TARGET_GPU_INDEX"
