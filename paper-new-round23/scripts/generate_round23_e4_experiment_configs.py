@@ -14,6 +14,7 @@ from generate_round23_experiment_configs import (
     SEEDS_REPEAT15,
     SEEDS_SMOKE,
     SEEN_DATASETS,
+    UNSEEN_DATASETS,
     _build_config_yaml,
     _write_text,
     create_base_and_data_stubs,
@@ -24,8 +25,39 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE_FILE = CONFIG_ROOT / "_base_selector_tuning_round23_dynamic.yaml"
 DEFAULT_CONTROLLER_SCOPE = "all6"
 DEFAULT_ONE_SHOT_BUNDLE = "round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset"
+E4_ALL6_DATASETS = list(SEEN_DATASETS) + list(UNSEEN_DATASETS)
+DEFAULT_FORMAL_MODES = [
+    "e4_a_oneshot_all6_smoke",
+    "e4_a_oneshot_all6_repeat15",
+    "e4_b_keepk0_all6_smoke",
+    "e4_b_keepk0_all6_repeat15",
+    "e4_c_three_round_stress_all6_smoke",
+    "e4_c_three_round_stress_all6_repeat15",
+]
 
 MODE_SPECS = {
+    "e4_a_oneshot_all6_smoke": {
+        "subdir": "e4_a_oneshot_all6_smoke",
+        "manifest_name": "round23_e4_a_oneshot_all6_smoke_manifest.tsv",
+        "datasets": E4_ALL6_DATASETS,
+        "seeds": SEEDS_SMOKE,
+        "experiment_prefix": "r23_e4_a_smoke",
+        "source_env": "round23_e4_a_oneshot_all6_smoke",
+        "output_root_prefix": "outputs/e4_a_oneshot_all6_smoke",
+        "method": "round23_absk_oneshot",
+        "controller_bundle": DEFAULT_ONE_SHOT_BUNDLE,
+    },
+    "e4_a_oneshot_all6_repeat15": {
+        "subdir": "e4_a_oneshot_all6_repeat15",
+        "manifest_name": "round23_e4_a_oneshot_all6_repeat15_manifest.tsv",
+        "datasets": E4_ALL6_DATASETS,
+        "seeds": SEEDS_REPEAT15,
+        "experiment_prefix": "r23_e4_a_r15",
+        "source_env": "round23_e4_a_oneshot_all6_repeat15",
+        "output_root_prefix": "outputs/e4_a_oneshot_all6_repeat15",
+        "method": "round23_absk_oneshot",
+        "controller_bundle": DEFAULT_ONE_SHOT_BUNDLE,
+    },
     "e4_a_oneshot_seen_smoke": {
         "subdir": "e4_a_oneshot_seen_smoke",
         "manifest_name": "round23_e4_a_oneshot_seen_smoke_manifest.tsv",
@@ -47,6 +79,28 @@ MODE_SPECS = {
         "output_root_prefix": "outputs/e4_a_oneshot_seen_repeat15",
         "method": "round23_absk_oneshot",
         "controller_bundle": DEFAULT_ONE_SHOT_BUNDLE,
+    },
+    "e4_b_keepk0_all6_smoke": {
+        "subdir": "e4_b_keepk0_all6_smoke",
+        "manifest_name": "round23_e4_b_keepk0_all6_smoke_manifest.tsv",
+        "datasets": E4_ALL6_DATASETS,
+        "seeds": SEEDS_SMOKE,
+        "experiment_prefix": "r23_e4_b_smoke",
+        "source_env": "round23_e4_b_keepk0_all6_smoke",
+        "output_root_prefix": "outputs/e4_b_keepk0_all6_smoke",
+        "method": "round23_keepk0",
+        "controller_bundle": "",
+    },
+    "e4_b_keepk0_all6_repeat15": {
+        "subdir": "e4_b_keepk0_all6_repeat15",
+        "manifest_name": "round23_e4_b_keepk0_all6_repeat15_manifest.tsv",
+        "datasets": E4_ALL6_DATASETS,
+        "seeds": SEEDS_REPEAT15,
+        "experiment_prefix": "r23_e4_b_r15",
+        "source_env": "round23_e4_b_keepk0_all6_repeat15",
+        "output_root_prefix": "outputs/e4_b_keepk0_all6_repeat15",
+        "method": "round23_keepk0",
+        "controller_bundle": "",
     },
     "e4_b_keepk0_seen_smoke": {
         "subdir": "e4_b_keepk0_seen_smoke",
@@ -70,6 +124,30 @@ MODE_SPECS = {
         "method": "round23_keepk0",
         "controller_bundle": "",
     },
+    "e4_c_three_round_stress_all6_smoke": {
+        "subdir": "e4_c_three_round_stress_all6_smoke",
+        "manifest_name": "round23_e4_c_three_round_stress_all6_smoke_manifest.tsv",
+        "datasets": E4_ALL6_DATASETS,
+        "seeds": SEEDS_SMOKE,
+        "experiment_prefix": "r23_e4_c_smoke",
+        "source_env": "round23_e4_c_three_round_stress_all6_smoke",
+        "output_root_prefix": "outputs/e4_c_three_round_stress_all6_smoke",
+        "method": "round23_3round_stress",
+        "controller_bundle": DEFAULT_CONTROLLER_BUNDLE,
+        "note": "non-formal heuristic three-round stress",
+    },
+    "e4_c_three_round_stress_all6_repeat15": {
+        "subdir": "e4_c_three_round_stress_all6_repeat15",
+        "manifest_name": "round23_e4_c_three_round_stress_all6_repeat15_manifest.tsv",
+        "datasets": E4_ALL6_DATASETS,
+        "seeds": SEEDS_REPEAT15,
+        "experiment_prefix": "r23_e4_c_r15",
+        "source_env": "round23_e4_c_three_round_stress_all6_repeat15",
+        "output_root_prefix": "outputs/e4_c_three_round_stress_all6_repeat15",
+        "method": "round23_3round_stress",
+        "controller_bundle": DEFAULT_CONTROLLER_BUNDLE,
+        "note": "non-formal heuristic three-round stress",
+    },
     "e4_c_three_round_stress_smoke": {
         "subdir": "e4_c_three_round_stress_smoke",
         "manifest_name": "round23_e4_c_three_round_stress_smoke_manifest.tsv",
@@ -80,6 +158,7 @@ MODE_SPECS = {
         "output_root_prefix": "outputs/e4_c_three_round_stress_smoke",
         "method": "round23_3round_stress",
         "controller_bundle": DEFAULT_CONTROLLER_BUNDLE,
+        "note": "non-formal heuristic three-round stress",
     },
     "e4_c_three_round_stress_pilot": {
         "subdir": "e4_c_three_round_stress_pilot",
@@ -91,6 +170,7 @@ MODE_SPECS = {
         "output_root_prefix": "outputs/e4_c_three_round_stress_pilot",
         "method": "round23_3round_stress",
         "controller_bundle": DEFAULT_CONTROLLER_BUNDLE,
+        "note": "non-formal heuristic three-round stress",
     },
 }
 
@@ -126,6 +206,7 @@ def create_mode_configs(mode: str) -> None:
                     "method": str(spec["method"]),
                     "controller_scope": DEFAULT_CONTROLLER_SCOPE,
                     "controller_bundle": str(spec["controller_bundle"]),
+                    "note": str(spec.get("note", "")),
                 }
             )
     manifest_path = target_dir / str(spec["manifest_name"])
@@ -141,6 +222,7 @@ def create_mode_configs(mode: str) -> None:
                 "method",
                 "controller_scope",
                 "controller_bundle",
+                "note",
             ],
             delimiter="\t",
         )
@@ -157,7 +239,7 @@ def main() -> int:
         help="Mode to generate. May be passed multiple times; default generates all modes.",
     )
     args = parser.parse_args()
-    modes = args.mode or list(MODE_SPECS.keys())
+    modes = args.mode or list(DEFAULT_FORMAL_MODES)
     create_base_and_data_stubs()
     for mode in modes:
         create_mode_configs(mode)

@@ -1,0 +1,46 @@
+{
+  "controller_version": "round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset",
+  "bundle_version": "round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset",
+  "learner_family": "extratrees",
+  "model_family": "extratrees",
+  "training_data_version": "round23_datasets_1200_top1_delta_m0005",
+  "reference_budget": 20,
+  "budget_space": [
+    18,
+    19,
+    20,
+    21,
+    22
+  ],
+  "policy_parameterization": "absolute_k",
+  "feature_version": "no_dataset",
+  "feature_names": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20",
+    "redundancy_mean_at_k20"
+  ],
+  "expected_feature_order": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20",
+    "redundancy_mean_at_k20"
+  ],
+  "include_dataset_onehot": false,
+  "onehot_order": [],
+  "total_features": 9,
+  "target_field": "reward_round23_controller",
+  "target_mode": "top1_delta",
+  "tie_margin": 0.0005,
+  "controller_scope": "all6"
+}

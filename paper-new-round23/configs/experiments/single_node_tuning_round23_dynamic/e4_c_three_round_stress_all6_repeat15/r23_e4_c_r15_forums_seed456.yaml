@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_forums.yaml
+
+meta:
+  experiment_id: r23_e4_c_r15_forums_seed456
+  seed: 456
+  dataset_name: forums
+
+paths:
+  output_root: outputs/e4_c_three_round_stress_all6_repeat15/forums/seed456
+
+selector:
+  seed_top_k: 20
+
+round23_controller:
+  source_env: round23_e4_c_three_round_stress_all6_repeat15
+  context_family: natural
+  reference_budget: 20

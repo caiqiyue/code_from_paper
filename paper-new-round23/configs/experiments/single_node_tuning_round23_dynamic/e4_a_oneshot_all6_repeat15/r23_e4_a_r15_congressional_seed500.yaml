@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_congressional.yaml
+
+meta:
+  experiment_id: r23_e4_a_r15_congressional_seed500
+  seed: 500
+  dataset_name: congressional
+
+paths:
+  output_root: outputs/e4_a_oneshot_all6_repeat15/congressional/seed500
+
+selector:
+  seed_top_k: 20
+
+round23_controller:
+  source_env: round23_e4_a_oneshot_all6_repeat15
+  context_family: natural
+  reference_budget: 20

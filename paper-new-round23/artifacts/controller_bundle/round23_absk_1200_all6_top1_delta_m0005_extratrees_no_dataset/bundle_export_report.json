@@ -1,0 +1,14 @@
+{
+  "bundle_version": "round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset",
+  "bundle_root": "paper-new-round23\\artifacts\\controller_bundle\\round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset",
+  "model_family": "extratrees",
+  "training_data_version": "round23_datasets_1200_top1_delta_m0005",
+  "policy_parameterization": "absolute_k",
+  "exported_models": {
+    "18": "paper-new-round23\\artifacts\\controller_bundle\\round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset\\model_k18.pkl",
+    "19": "paper-new-round23\\artifacts\\controller_bundle\\round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset\\model_k19.pkl",
+    "20": "paper-new-round23\\artifacts\\controller_bundle\\round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset\\model_k20.pkl",
+    "21": "paper-new-round23\\artifacts\\controller_bundle\\round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset\\model_k21.pkl",
+    "22": "paper-new-round23\\artifacts\\controller_bundle\\round23_absk_1200_all6_top1_delta_m0005_extratrees_no_dataset\\model_k22.pkl"
+  }
+}

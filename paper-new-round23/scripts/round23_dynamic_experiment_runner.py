@@ -110,30 +110,60 @@ MODE_PATHS = {
         "log_stem": "round23_e4_a_oneshot_seen_smoke",
         "dataset_split": "seen",
     },
+    "e4_a_oneshot_all6_smoke": {
+        "manifest_relpath": "e4_a_oneshot_all6_smoke/round23_e4_a_oneshot_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e4_a_oneshot_all6_smoke",
+        "dataset_split": "all6",
+    },
     "e4_a_oneshot_seen_repeat15": {
         "manifest_relpath": "e4_a_oneshot_seen_repeat15/round23_e4_a_oneshot_seen_repeat15_manifest.tsv",
         "log_stem": "round23_e4_a_oneshot_seen_repeat15",
         "dataset_split": "seen",
+    },
+    "e4_a_oneshot_all6_repeat15": {
+        "manifest_relpath": "e4_a_oneshot_all6_repeat15/round23_e4_a_oneshot_all6_repeat15_manifest.tsv",
+        "log_stem": "round23_e4_a_oneshot_all6_repeat15",
+        "dataset_split": "all6",
     },
     "e4_b_keepk0_seen_smoke": {
         "manifest_relpath": "e4_b_keepk0_seen_smoke/round23_e4_b_keepk0_seen_smoke_manifest.tsv",
         "log_stem": "round23_e4_b_keepk0_seen_smoke",
         "dataset_split": "seen",
     },
+    "e4_b_keepk0_all6_smoke": {
+        "manifest_relpath": "e4_b_keepk0_all6_smoke/round23_e4_b_keepk0_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e4_b_keepk0_all6_smoke",
+        "dataset_split": "all6",
+    },
     "e4_b_keepk0_seen_repeat15": {
         "manifest_relpath": "e4_b_keepk0_seen_repeat15/round23_e4_b_keepk0_seen_repeat15_manifest.tsv",
         "log_stem": "round23_e4_b_keepk0_seen_repeat15",
         "dataset_split": "seen",
+    },
+    "e4_b_keepk0_all6_repeat15": {
+        "manifest_relpath": "e4_b_keepk0_all6_repeat15/round23_e4_b_keepk0_all6_repeat15_manifest.tsv",
+        "log_stem": "round23_e4_b_keepk0_all6_repeat15",
+        "dataset_split": "all6",
     },
     "e4_c_three_round_stress_smoke": {
         "manifest_relpath": "e4_c_three_round_stress_smoke/round23_e4_c_three_round_stress_smoke_manifest.tsv",
         "log_stem": "round23_e4_c_three_round_stress_smoke",
         "dataset_split": "seen",
     },
+    "e4_c_three_round_stress_all6_smoke": {
+        "manifest_relpath": "e4_c_three_round_stress_all6_smoke/round23_e4_c_three_round_stress_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e4_c_three_round_stress_all6_smoke",
+        "dataset_split": "all6",
+    },
     "e4_c_three_round_stress_pilot": {
         "manifest_relpath": "e4_c_three_round_stress_pilot/round23_e4_c_three_round_stress_pilot_manifest.tsv",
         "log_stem": "round23_e4_c_three_round_stress_pilot",
         "dataset_split": "seen",
+    },
+    "e4_c_three_round_stress_all6_repeat15": {
+        "manifest_relpath": "e4_c_three_round_stress_all6_repeat15/round23_e4_c_three_round_stress_all6_repeat15_manifest.tsv",
+        "log_stem": "round23_e4_c_three_round_stress_all6_repeat15",
+        "dataset_split": "all6",
     },
 }
 
@@ -232,18 +262,31 @@ def resolve_model_dir_for_spec(cli_model_dir: str | Path | None, spec: Experimen
     return DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE.resolve()
 
 
-def parse_nvidia_smi_memory_report(report_text: str, *, target_name_token: str) -> tuple[str, float]:
+def parse_nvidia_smi_memory_report(
+    report_text: str,
+    *,
+    target_name_token: str,
+    preferred_index: str | None = None,
+) -> tuple[str, float]:
+    parsed_rows: list[tuple[str, str, float]] = []
     for raw_line in report_text.splitlines():
         parts = [part.strip() for part in raw_line.split(",")]
         if len(parts) != 3:
             continue
         index, name, free_mib = parts
         if target_name_token in name:
-            return index, float(free_mib) / 1024.0
+            parsed_rows.append((index, name, float(free_mib) / 1024.0))
+    if preferred_index is not None:
+        for index, _name, free_gb in parsed_rows:
+            if index == str(preferred_index):
+                return index, free_gb
+    if parsed_rows:
+        index, _name, free_gb = parsed_rows[0]
+        return index, free_gb
     raise RuntimeError(f"Could not find GPU with token {target_name_token!r} in nvidia-smi output.")
 
 
-def query_target_gpu_free_gb(*, target_name_token: str) -> tuple[str, float]:
+def query_target_gpu_free_gb(*, target_name_token: str, preferred_index: str | None = None) -> tuple[str, float]:
     completed = subprocess.run(
         [
             "nvidia-smi",
@@ -254,20 +297,28 @@ def query_target_gpu_free_gb(*, target_name_token: str) -> tuple[str, float]:
         text=True,
         check=True,
     )
-    return parse_nvidia_smi_memory_report(completed.stdout, target_name_token=target_name_token)
+    return parse_nvidia_smi_memory_report(
+        completed.stdout,
+        target_name_token=target_name_token,
+        preferred_index=preferred_index,
+    )
 
 
 def wait_for_vllm_capacity(
     log_handle,
     *,
     target_name_token: str,
+    preferred_index: str | None,
     minimum_free_gb: float,
     poll_seconds: float,
     timeout_seconds: float,
 ) -> None:
     deadline = time.time() + timeout_seconds
     while True:
-        gpu_index, free_gb = query_target_gpu_free_gb(target_name_token=target_name_token)
+        gpu_index, free_gb = query_target_gpu_free_gb(
+            target_name_token=target_name_token,
+            preferred_index=preferred_index,
+        )
         if free_gb >= minimum_free_gb:
             log_handle.write(
                 f"{datetime.now().isoformat()} GPU_READY target={target_name_token} "
@@ -448,6 +499,11 @@ def parse_args() -> argparse.Namespace:
         help="Retry every failed experiment until --max-attempts, not only retryable resource failures.",
     )
     parser.add_argument("--target-gpu-name-token", default=DEFAULT_TARGET_GPU_NAME_TOKEN)
+    parser.add_argument(
+        "--target-gpu-index",
+        default=None,
+        help="Optional physical GPU index to match in nvidia-smi when waiting for vLLM capacity.",
+    )
     parser.add_argument("--min-free-gb-for-vllm", type=float, default=DEFAULT_MIN_FREE_GB_FOR_VLLM)
     parser.add_argument("--gpu-wait-poll-seconds", type=float, default=DEFAULT_GPU_WAIT_POLL_SECONDS)
     parser.add_argument("--gpu-wait-timeout-seconds", type=float, default=DEFAULT_GPU_WAIT_TIMEOUT_SECONDS)
@@ -544,6 +600,7 @@ def main() -> int:
                 wait_for_vllm_capacity(
                     master,
                     target_name_token=args.target_gpu_name_token,
+                    preferred_index=getattr(args, "target_gpu_index", None),
                     minimum_free_gb=args.min_free_gb_for_vllm,
                     poll_seconds=args.gpu_wait_poll_seconds,
                     timeout_seconds=args.gpu_wait_timeout_seconds,

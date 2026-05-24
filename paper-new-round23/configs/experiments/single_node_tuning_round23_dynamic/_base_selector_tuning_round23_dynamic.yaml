@@ -8,6 +8,11 @@ meta:
 paths:
   output_root: outputs/default
 
+llm:
+  generator:
+    gpu_memory_utilization: 0.55
+    startup_required_free_gb: 26
+
 selector:
   seed_top_k: 20
   seed_budget_rule:
