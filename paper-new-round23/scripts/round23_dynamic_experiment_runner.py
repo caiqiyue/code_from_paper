@@ -165,6 +165,46 @@ MODE_PATHS = {
         "log_stem": "round23_e4_c_three_round_stress_all6_repeat15",
         "dataset_split": "all6",
     },
+    "e5_anchor_k19_keepk0_all6_smoke": {
+        "manifest_relpath": "e5_anchor_k19_keepk0_all6_smoke/round23_e5_anchor_k19_keepk0_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k19_keepk0_all6_smoke",
+        "dataset_split": "all6",
+    },
+    "e5_anchor_k19_round23_all6_smoke": {
+        "manifest_relpath": "e5_anchor_k19_round23_all6_smoke/round23_e5_anchor_k19_round23_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k19_round23_all6_smoke",
+        "dataset_split": "all6",
+    },
+    "e5_anchor_k21_keepk0_all6_smoke": {
+        "manifest_relpath": "e5_anchor_k21_keepk0_all6_smoke/round23_e5_anchor_k21_keepk0_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k21_keepk0_all6_smoke",
+        "dataset_split": "all6",
+    },
+    "e5_anchor_k21_round23_all6_smoke": {
+        "manifest_relpath": "e5_anchor_k21_round23_all6_smoke/round23_e5_anchor_k21_round23_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k21_round23_all6_smoke",
+        "dataset_split": "all6",
+    },
+    "e5_anchor_k19_keepk0_all6_repeat5": {
+        "manifest_relpath": "e5_anchor_k19_keepk0_all6_repeat5/round23_e5_anchor_k19_keepk0_all6_repeat5_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k19_keepk0_all6_repeat5",
+        "dataset_split": "all6",
+    },
+    "e5_anchor_k19_round23_all6_repeat5": {
+        "manifest_relpath": "e5_anchor_k19_round23_all6_repeat5/round23_e5_anchor_k19_round23_all6_repeat5_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k19_round23_all6_repeat5",
+        "dataset_split": "all6",
+    },
+    "e5_anchor_k21_keepk0_all6_repeat5": {
+        "manifest_relpath": "e5_anchor_k21_keepk0_all6_repeat5/round23_e5_anchor_k21_keepk0_all6_repeat5_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k21_keepk0_all6_repeat5",
+        "dataset_split": "all6",
+    },
+    "e5_anchor_k21_round23_all6_repeat5": {
+        "manifest_relpath": "e5_anchor_k21_round23_all6_repeat5/round23_e5_anchor_k21_round23_all6_repeat5_manifest.tsv",
+        "log_stem": "round23_e5_anchor_k21_round23_all6_repeat5",
+        "dataset_split": "all6",
+    },
 }
 
 
@@ -178,6 +218,7 @@ class ExperimentSpec:
     method: str = "round23"
     controller_scope: str = DEFAULT_ROUND23_CONTROLLER_SCOPE
     controller_bundle: str = ""
+    reference_budget: int = 20
 
 
 def normalize_output_root(raw_output_root: str) -> Path:
@@ -226,6 +267,7 @@ def load_manifest(manifest_path: Path) -> list[ExperimentSpec]:
                     method=str(row.get("method", "round23")),
                     controller_scope=str(row.get("controller_scope", DEFAULT_ROUND23_CONTROLLER_SCOPE)),
                     controller_bundle=str(row.get("controller_bundle", "")),
+                    reference_budget=int(row.get("reference_budget", 20) or 20),
                 )
             )
     return specs
@@ -406,6 +448,7 @@ def run_single_experiment(
     ]
     if model_dir and spec.method != "round23_keepk0":
         command.extend(["--model-dir", str(model_dir)])
+    command.extend(["--reference-budget", str(spec.reference_budget)])
     result = subprocess.run(
         command,
         cwd=str(ROUND23_ROOT),

@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_imdb.yaml
+
+meta:
+  experiment_id: r23_e5_k21_keepk0_smoke_imdb_seed42
+  seed: 42
+  dataset_name: imdb
+
+paths:
+  output_root: outputs/e5_anchor_k21_keepk0_all6_smoke/imdb/seed42
+
+selector:
+  seed_top_k: 21
+
+round23_controller:
+  source_env: round23_e5_anchor_k21_keepk0_all6_smoke
+  context_family: natural
+  reference_budget: 21

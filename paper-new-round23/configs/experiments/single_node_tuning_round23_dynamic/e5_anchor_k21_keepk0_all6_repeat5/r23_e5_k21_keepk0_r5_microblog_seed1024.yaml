@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_microblog.yaml
+
+meta:
+  experiment_id: r23_e5_k21_keepk0_r5_microblog_seed1024
+  seed: 1024
+  dataset_name: microblog
+
+paths:
+  output_root: outputs/e5_anchor_k21_keepk0_all6_repeat5/microblog/seed1024
+
+selector:
+  seed_top_k: 21
+
+round23_controller:
+  source_env: round23_e5_anchor_k21_keepk0_all6_repeat5
+  context_family: natural
+  reference_budget: 21

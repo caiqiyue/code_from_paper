@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_jobs.yaml
+
+meta:
+  experiment_id: r23_e5_k19_round23_r5_jobs_seed42
+  seed: 42
+  dataset_name: jobs
+
+paths:
+  output_root: outputs/e5_anchor_k19_round23_all6_repeat5/jobs/seed42
+
+selector:
+  seed_top_k: 19
+
+round23_controller:
+  source_env: round23_e5_anchor_k19_round23_all6_repeat5
+  context_family: natural
+  reference_budget: 19
