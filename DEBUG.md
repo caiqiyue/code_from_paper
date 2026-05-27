@@ -821,3 +821,76 @@ The `round14` E6 launcher pinned `CUDA_VISIBLE_DEVICES=1` but omitted `CUDA_DEVI
   - derive `TARGET_GPU_INDEX` from the same visible-device pin
 - `paper-new-round-14/tests/test_round14_lineage_e6_budget_sweep.py`
   - add regression coverage that the E6 sequential launchers include the same `CUDA_DEVICE_ORDER=PCI_BUS_ID` contract as E4/E5
+
+## Observations (2026-05-27 E6 round14 JSON result parsing)
+
+- After the GPU-routing fix, `E6 formal180` no longer failed on `insufficient_free_gpu_memory_before_vllm_generation`.
+- The first formal experiment `r14_e6_r2_jobs_k6_seed42` still got recorded as failed three times.
+- The per-attempt logs showed a large amount of progress-bar text such as:
+  - `Processed prompts: ...`
+  - followed by `JSONDecodeError: Expecting value: line 1 column 1 (char 0)`
+- The actual output directory for that same run existed:
+  - `paper-new-round-14/outputs/round14_lineage_e6_budget_sweep/repeat2_180/jobs/k6/seed42`
+- Inside that output directory:
+  - `eval/downstream_eval_summary.json` existed
+  - its `status` was `completed`
+  - it contained valid metrics including:
+    - `best_top1 = 0.27901390644753477`
+    - `best_top3 = 0.4288874841972187`
+    - `best_top5 = 0.49582806573957017`
+    - `best_top10 = 0.5799620733249052`
+- `paper-new-round-14/scripts/run_round14_lineage_manifest.py` was treating the subprocess as successful only if:
+  - `returncode == 0`
+  - and `json.loads(completed.stdout)` succeeded on the **entire** stdout payload
+- The old `round14` entrypoint `paper_new_selector.run_selector_single_node` prints the final JSON summary, but its runtime also emits noisy progress/log text to stdout through child components.
+
+## Hypotheses (2026-05-27 E6 round14 JSON result parsing)
+
+### H1: The batch runner misclassified successful round14 runs as failures because it tried to parse the entire noisy stdout as pure JSON (ROOT HYPOTHESIS)
+- Supports:
+  - `downstream_eval_summary.json` for `jobs/k6/seed42` is complete and contains valid metrics
+  - the summary row still recorded `failed`
+  - per-attempt logs end with `JSONDecodeError`
+  - the runner code calls `json.loads(completed.stdout)` directly
+- Conflicts:
+  - none after confirming the eval artifact exists and is valid
+- Test:
+  - make the runner fall back to `output_root/eval/downstream_eval_summary.json` when stdout JSON parsing fails, then verify the experiment is classified as success
+
+### H2: The underlying round14 pipeline failed to produce the final evaluation artifacts, and the JSON parsing error is only a secondary symptom
+- Supports:
+  - stage1 summary file is absent in this old lineage
+- Conflicts:
+  - the final eval summary file exists and contains completed metrics
+- Test:
+  - inspect the output root directly; if `downstream_eval_summary.json` is valid, reject H2
+
+## Experiments (2026-05-27 E6 round14 JSON result parsing)
+
+### E16. Compare the runner's failure classification with the actual output artifacts of the first formal run
+
+- Change:
+  - read-only inspection of:
+    - `paper-new-round-14/logs/round14_lineage_e6_repeat2_180_summary.tsv`
+    - `paper-new-round-14/logs/round14_lineage_e6_repeat2_180_logs/r14_e6_r2_jobs_k6_seed42.attempt*.log`
+    - `paper-new-round-14/outputs/round14_lineage_e6_budget_sweep/repeat2_180/jobs/k6/seed42/eval/downstream_eval_summary.json`
+- Result:
+  - the runner wrote three failed attempts
+  - the attempt logs show progress text and a final `JSONDecodeError`
+  - the output directory contains a valid completed eval summary with non-empty top-k metrics
+- Conclusion:
+  - confirms `H1`
+  - rejects `H2`
+
+## Root Cause (2026-05-27 E6 round14 JSON result parsing)
+
+The `round14` E6 batch runner used `json.loads(completed.stdout)` on the entire subprocess stdout to determine success, but the old `round14` pipeline emits progress/log text to stdout before the final summary, so successful runs with valid `downstream_eval_summary.json` were misclassified as failures by the runner.
+
+## Fix (2026-05-27 E6 round14 JSON result parsing)
+
+- `paper-new-round-14/scripts/run_round14_lineage_manifest.py`
+  - add a fallback path that reads `output_root/eval/downstream_eval_summary.json` (or `summary.json`) when stdout JSON parsing fails or yields no metrics
+  - determine success from the recovered eval status/metrics instead of raw `returncode` alone
+  - record `error` only when the final derived status is not `success`
+- `paper-new-round-14/tests/test_round14_lineage_e6_budget_sweep.py`
+  - add regression coverage for the case `returncode == 0`, noisy stdout, and valid eval summary on disk

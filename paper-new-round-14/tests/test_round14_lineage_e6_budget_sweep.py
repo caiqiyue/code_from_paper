@@ -129,6 +129,56 @@ def test_run_single_experiment_extracts_eval_metrics_from_success_json():
         assert str(spec.config_path) in command
 
 
+def test_run_single_experiment_falls_back_to_eval_summary_when_stdout_is_noisy():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        output_root = root / "paper-new-round-14" / "outputs" / "round14_lineage_e6_budget_sweep" / "jobs" / "k6" / "seed42"
+        eval_dir = output_root / "eval"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        (eval_dir / "downstream_eval_summary.json").write_text(
+            '{'
+            '"status":"completed",'
+            '"metrics":{"best_top1":0.2790,"best_top3":0.4288,"best_top5":0.4958,"best_top10":0.5799}'
+            '}',
+            encoding="utf-8",
+        )
+        spec = e6_runner.ExperimentSpec(
+            experiment_id="e6_jobs_k6_seed42",
+            dataset_name="jobs",
+            budget=6,
+            meta_seed=42,
+            config_path=root / "cfg.yaml",
+            output_root=str(output_root.relative_to(root)),
+        )
+        original_repo_root = e6_runner.REPO_ROOT
+        original_run = e6_runner.subprocess.run
+
+        class DummyResult:
+            returncode = 0
+            stderr = ""
+            stdout = "Processed prompts: 100%|██████████| 1/1 [00:07<00:00,  7.04s/it]\n"
+
+        def fake_run(command, **kwargs):
+            return DummyResult()
+
+        try:
+            e6_runner.REPO_ROOT = root
+            e6_runner.subprocess.run = fake_run
+            result = e6_runner.run_single_experiment(
+                spec,
+                python_executable="python",
+                timeout_seconds=30,
+            )
+        finally:
+            e6_runner.REPO_ROOT = original_repo_root
+            e6_runner.subprocess.run = original_run
+
+        assert result.returncode == 0
+        assert result.status == "success"
+        assert result.metrics["best_top1"] == 0.2790
+        assert result.metrics["best_top10"] == 0.5799
+
+
 def test_sequential_scripts_pin_retry_policy():
     for path in (
         ROOT / "scripts" / "run_round14_lineage_e6_budget_sweep_smoke90_sequential.sh",

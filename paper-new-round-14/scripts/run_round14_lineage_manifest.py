@@ -54,6 +54,10 @@ class ExperimentResult:
     stderr: str
 
 
+def _resolve_output_root(output_root: str) -> Path:
+    return _resolve_repo_relative(output_root)
+
+
 def _query_gpu_free_gb(target_gpu_index: int) -> float | None:
     try:
         completed = subprocess.run(
@@ -137,6 +141,26 @@ def _extract_eval_metrics(summary: dict[str, Any]) -> tuple[str, dict[str, float
     return status, metrics
 
 
+def _load_eval_summary_from_output_root(output_root: Path) -> dict[str, Any] | None:
+    eval_dir = output_root / "eval"
+    for candidate in (
+        eval_dir / "downstream_eval_summary.json",
+        eval_dir / "summary.json",
+    ):
+        if not candidate.exists():
+            continue
+        text = candidate.read_text(encoding="utf-8").strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
 def run_single_experiment(
     spec: ExperimentSpec,
     *,
@@ -161,20 +185,29 @@ def run_single_experiment(
     summary: dict[str, Any] = {}
     metrics: dict[str, float] = {}
     status = "failed" if completed.returncode != 0 else "success"
+    output_root = _resolve_output_root(spec.output_root)
+    parse_error: str | None = None
     if completed.returncode == 0:
         try:
             summary = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
-            status = "failed"
-            completed = subprocess.CompletedProcess(
-                completed.args,
-                1,
-                stdout=completed.stdout,
-                stderr=f"{completed.stderr}\nJSONDecodeError: {exc}",
-            )
-        else:
+            parse_error = f"JSONDecodeError: {exc}"
+        if summary:
             eval_status, metrics = _extract_eval_metrics(summary)
             status = "success" if eval_status in {"completed", "success"} else eval_status
+        if status != "success" or not metrics:
+            eval_summary = _load_eval_summary_from_output_root(output_root)
+            if eval_summary is not None:
+                summary = {"eval": eval_summary}
+                eval_status, metrics = _extract_eval_metrics(summary)
+                status = "success" if eval_status in {"completed", "success"} else eval_status
+        if status != "success" and parse_error:
+            completed = subprocess.CompletedProcess(
+                completed.args,
+                completed.returncode,
+                stdout=completed.stdout,
+                stderr=f"{completed.stderr}\n{parse_error}",
+            )
     return ExperimentResult(
         returncode=completed.returncode,
         duration_seconds=duration,
@@ -267,7 +300,7 @@ def run_manifest(
                 "dataset_name": spec.dataset_name,
                 "budget": spec.budget,
                 "seed": spec.meta_seed,
-                "status": result.status if result.returncode == 0 else "failed",
+                "status": result.status,
                 "attempt": attempt,
                 "duration_seconds": f"{result.duration_seconds:.3f}",
                 "config_path": str(spec.config_path),
@@ -276,11 +309,11 @@ def run_manifest(
                 "best_top3": result.metrics.get("best_top3", ""),
                 "best_top5": result.metrics.get("best_top5", ""),
                 "best_top10": result.metrics.get("best_top10", ""),
-                "error": "" if result.returncode == 0 else (result.stderr or "non-zero exit"),
+                "error": "" if result.status == "success" else (result.stderr or "non-zero exit"),
             }
             _append_summary_row(summary_path, row)
             last_result = result
-            if result.returncode == 0:
+            if result.status == "success":
                 success_ids.add(spec.experiment_id)
                 break
             if attempt < max_attempts:
