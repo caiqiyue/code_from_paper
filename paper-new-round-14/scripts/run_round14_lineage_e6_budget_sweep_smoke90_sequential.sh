@@ -4,10 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "${ROOT_DIR}/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-TARGET_GPU_INDEX="${TARGET_GPU_INDEX:-1}"
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
+TARGET_GPU_INDEX="${TARGET_GPU_INDEX:-${CUDA_VISIBLE_DEVICES}}"
 RESET_SUMMARY="${RESET_SUMMARY:-1}"
-
-export CUDA_VISIBLE_DEVICES="${TARGET_GPU_INDEX}"
 
 ARGS=(
   --manifest-path "paper-new-round-14/configs/experiments/single_node_tuning_e6_round14_budget_sweep/smoke90/round14_lineage_e6_smoke90_manifest.tsv"

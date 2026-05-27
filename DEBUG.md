@@ -750,3 +750,74 @@ The repeat10 runner treats `vllm_runtime_gpu_oom` as a permanent failure and lau
   - add regression coverage for runtime-OOM classification
   - add regression coverage for parsing the A6000 free-memory report
   - add regression coverage for `spec_requires_vllm(...)`
+
+## Observations (2026-05-27 E6 round14 GPU routing)
+
+- `E6 formal180` was launched from:
+  - `paper-new-round-14/scripts/run_round14_lineage_e6_budget_sweep_repeat2_180_sequential.sh`
+- The launcher exported:
+  - `CUDA_VISIBLE_DEVICES=1`
+  - but **did not** export `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+- The downstream failure logs repeatedly showed:
+  - `vLLM generation memory precheck | free=10.58 GiB required=26.00 GiB gpu=0 visible=1`
+- At the same time, direct server-side `nvidia-smi` showed:
+  - physical GPU 0 = `RTX 2080 Ti`
+  - physical GPU 1 = `RTX A6000`
+  - A6000 free memory was actually about `39 GiB`
+- Therefore the `10.58 GiB` free-memory reading matched the 2080Ti, not the A6000.
+- The same server had already established earlier that:
+  - with `CUDA_DEVICE_ORDER=PCI_BUS_ID`, `CUDA_VISIBLE_DEVICES=1` maps to the A6000
+  - without that ordering guarantee, visible-device mapping on this host does not match the physical GPU index assumptions used by the E4/E5 launchers
+
+## Hypotheses (2026-05-27 E6 round14 GPU routing)
+
+### H1: E6 launcher selected the wrong visible GPU because it exported `CUDA_VISIBLE_DEVICES=1` without `CUDA_DEVICE_ORDER=PCI_BUS_ID` (ROOT HYPOTHESIS)
+- Supports:
+  - failure precheck reads `free=10.58 GiB`, consistent with the 2080Ti
+  - direct `nvidia-smi` shows A6000 still has plenty of free memory
+  - E4/E5 scripts explicitly export `CUDA_DEVICE_ORDER=PCI_BUS_ID`, while E6 did not
+- Conflicts:
+  - none after comparing the launcher scripts and the observed free-memory numbers
+- Test:
+  - align the E6 launcher with the E4/E5 GPU-routing contract by exporting `CUDA_DEVICE_ORDER=PCI_BUS_ID` and deriving `TARGET_GPU_INDEX` from the same visible-device value
+
+### H2: E6 still waited on the correct physical GPU, but the inner PyTorch/vLLM precheck ignored `CUDA_VISIBLE_DEVICES`
+- Supports:
+  - outer wait logic uses physical index `1`
+- Conflicts:
+  - the inner log still reported `visible=1`, so it did inherit the variable; the mismatch is more consistent with device-order interpretation than with env loss
+- Test:
+  - keep the env inheritance path unchanged and only add `CUDA_DEVICE_ORDER=PCI_BUS_ID`; if the mismatch disappears, H2 is rejected
+
+## Experiments (2026-05-27 E6 round14 GPU routing)
+
+### E15. Compare E6 launcher GPU env against the established E4/E5 launcher contract
+
+- Change:
+  - read-only script comparison
+- Result:
+  - `E4/E5` scripts export both:
+    - `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+    - `CUDA_VISIBLE_DEVICES=...`
+  - `E6` script exported only:
+    - `CUDA_VISIBLE_DEVICES=1`
+- Conclusion:
+  - confirms `H1`
+  - rejects the idea that E6 was already using the same GPU-routing contract as the successful experimental pipelines
+
+## Root Cause (2026-05-27 E6 round14 GPU routing)
+
+The `round14` E6 launcher pinned `CUDA_VISIBLE_DEVICES=1` but omitted `CUDA_DEVICE_ORDER=PCI_BUS_ID`, so on this server the visible-device mapping resolved to the 2080Ti rather than the intended A6000; the outer wait logic checked physical GPU 1, while the inner PyTorch/vLLM startup precheck effectively ran against the wrong visible device.
+
+## Fix (2026-05-27 E6 round14 GPU routing)
+
+- `paper-new-round-14/scripts/run_round14_lineage_e6_budget_sweep_smoke90_sequential.sh`
+  - export `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+  - export `CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-1}`
+  - derive `TARGET_GPU_INDEX` from the same visible-device pin
+- `paper-new-round-14/scripts/run_round14_lineage_e6_budget_sweep_repeat2_180_sequential.sh`
+  - export `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+  - export `CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-1}`
+  - derive `TARGET_GPU_INDEX` from the same visible-device pin
+- `paper-new-round-14/tests/test_round14_lineage_e6_budget_sweep.py`
+  - add regression coverage that the E6 sequential launchers include the same `CUDA_DEVICE_ORDER=PCI_BUS_ID` contract as E4/E5

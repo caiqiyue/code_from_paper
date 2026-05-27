@@ -135,6 +135,7 @@ def test_sequential_scripts_pin_retry_policy():
         ROOT / "scripts" / "run_round14_lineage_e6_budget_sweep_repeat2_180_sequential.sh",
     ):
         text = path.read_text(encoding="utf-8")
+        assert "CUDA_DEVICE_ORDER=PCI_BUS_ID" in text
         assert "--max-attempts 3" in text
         assert "--retry-delay-seconds 10" in text
         assert "--reset-summary" in text
