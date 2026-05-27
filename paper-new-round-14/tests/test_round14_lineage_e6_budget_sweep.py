@@ -139,3 +139,7 @@ def test_sequential_scripts_pin_retry_policy():
         assert "--retry-delay-seconds 10" in text
         assert "--reset-summary" in text
         assert "TARGET_GPU_INDEX" in text
+        assert "--min-free-gb-for-vllm 26" in text
+        assert "--gpu-wait-poll-seconds 60" in text
+        assert "--gpu-wait-timeout-seconds 43200" in text
+        assert "--target-gpu-index" in text

@@ -16,6 +16,10 @@ ARGS=(
   --python-executable "${PYTHON_BIN}"
   --max-attempts 3
   --retry-delay-seconds 10
+  --min-free-gb-for-vllm 26
+  --gpu-wait-poll-seconds 60
+  --gpu-wait-timeout-seconds 43200
+  --target-gpu-index "${TARGET_GPU_INDEX}"
 )
 
 if [[ "${RESET_SUMMARY}" == "1" ]]; then

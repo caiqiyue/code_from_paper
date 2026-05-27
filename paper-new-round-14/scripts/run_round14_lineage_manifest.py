@@ -54,6 +54,54 @@ class ExperimentResult:
     stderr: str
 
 
+def _query_gpu_free_gb(target_gpu_index: int) -> float | None:
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=index,memory.free",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+    except Exception:
+        return None
+    for line in completed.stdout.splitlines():
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 2:
+            continue
+        try:
+            index = int(parts[0])
+            free_mib = float(parts[1])
+        except ValueError:
+            continue
+        if index == target_gpu_index:
+            return free_mib / 1024.0
+    return None
+
+
+def wait_for_gpu_ready(
+    *,
+    target_gpu_index: int,
+    min_free_gb_for_vllm: float,
+    gpu_wait_poll_seconds: int,
+    gpu_wait_timeout_seconds: int,
+) -> None:
+    start = time.time()
+    while True:
+        free_gb = _query_gpu_free_gb(target_gpu_index)
+        if free_gb is not None and free_gb >= min_free_gb_for_vllm:
+            return
+        if (time.time() - start) >= gpu_wait_timeout_seconds:
+            raise TimeoutError(
+                f"Timed out waiting for GPU {target_gpu_index} to reach {min_free_gb_for_vllm:.2f} GiB free memory."
+            )
+        time.sleep(gpu_wait_poll_seconds)
+
+
 def _resolve_repo_relative(path_value: str) -> Path:
     path = Path(path_value)
     if path.is_absolute():
@@ -187,6 +235,10 @@ def run_manifest(
     max_attempts: int,
     retry_delay_seconds: int,
     reset_summary: bool,
+    min_free_gb_for_vllm: float,
+    gpu_wait_poll_seconds: int,
+    gpu_wait_timeout_seconds: int,
+    target_gpu_index: int,
 ) -> int:
     if reset_summary and summary_path.exists():
         summary_path.unlink()
@@ -198,6 +250,12 @@ def run_manifest(
             continue
         last_result: ExperimentResult | None = None
         for attempt in range(1, max_attempts + 1):
+            wait_for_gpu_ready(
+                target_gpu_index=target_gpu_index,
+                min_free_gb_for_vllm=min_free_gb_for_vllm,
+                gpu_wait_poll_seconds=gpu_wait_poll_seconds,
+                gpu_wait_timeout_seconds=gpu_wait_timeout_seconds,
+            )
             result = run_single_experiment(
                 spec,
                 python_executable=python_executable,
@@ -244,6 +302,10 @@ def main() -> int:
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--retry-delay-seconds", type=int, default=10)
     parser.add_argument("--reset-summary", action="store_true")
+    parser.add_argument("--min-free-gb-for-vllm", type=float, default=2.0)
+    parser.add_argument("--gpu-wait-poll-seconds", type=int, default=30)
+    parser.add_argument("--gpu-wait-timeout-seconds", type=int, default=7200)
+    parser.add_argument("--target-gpu-index", type=int, default=1)
     args = parser.parse_args()
     return run_manifest(
         manifest_path=_resolve_repo_relative(args.manifest_path),
@@ -254,6 +316,10 @@ def main() -> int:
         max_attempts=args.max_attempts,
         retry_delay_seconds=args.retry_delay_seconds,
         reset_summary=args.reset_summary,
+        min_free_gb_for_vllm=args.min_free_gb_for_vllm,
+        gpu_wait_poll_seconds=args.gpu_wait_poll_seconds,
+        gpu_wait_timeout_seconds=args.gpu_wait_timeout_seconds,
+        target_gpu_index=args.target_gpu_index,
     )
 
 
