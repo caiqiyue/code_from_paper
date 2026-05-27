@@ -1,0 +1,5 @@
+inherits:
+  - ../single_node_tuning_round4/_base_selector_tuning_round4.yaml
+
+meta:
+  stage: single_node_tuning_round4_ext

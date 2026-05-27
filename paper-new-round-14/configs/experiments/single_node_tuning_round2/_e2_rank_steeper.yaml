@@ -1,0 +1,5 @@
+﻿inherits:
+  - ./_base_selector_tuning_round2.yaml
+
+selector:
+  rank_weights: [1.0, 0.45, 0.20, 0.10]

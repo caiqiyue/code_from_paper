@@ -1,0 +1,23 @@
+inherits:
+  - ../single_node_tuning_round2/_e6_combo_safe2.yaml
+
+meta:
+  stage: single_node_tuning_e6_round14_budget_sweep
+  seed: 42
+
+paths:
+  output_root: paper-new-round-14/outputs/round14_lineage_e6_budget_sweep/default
+
+llm:
+  generator:
+    gpu_memory_utilization: 0.55
+    startup_required_free_gb: 26
+
+generator:
+  candidate_count: 96
+  generated_per_round: 24
+  max_rounds: 8
+
+bootstrap:
+  gpu_memory_utilization: 0.55
+  startup_required_free_gb: 26

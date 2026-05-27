@@ -1,0 +1,18 @@
+inherits:
+  - ../_base_round14_lineage_fixed_budget_replay.yaml
+
+meta:
+  experiment_id: r14_e6_smoke_congressional_k22_seed42
+  seed: 42
+
+paths:
+  output_root: paper-new-round-14/outputs/round14_lineage_e6_budget_sweep/smoke90/congressional/k22/seed42
+
+data:
+  dataset_name: congressional
+  train_path: thesis_platform/datasets/pretext_congressional/formatted/congressional_train.json
+  eval_path: thesis_platform/datasets/pretext_congressional/formatted/congressional_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+
+selector:
+  seed_top_k: 22

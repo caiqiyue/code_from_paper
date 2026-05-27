@@ -1,0 +1,18 @@
+inherits:
+  - ../_base_round14_lineage_fixed_budget_replay.yaml
+
+meta:
+  experiment_id: r14_e6_r2_jobs_k30_seed123
+  seed: 123
+
+paths:
+  output_root: paper-new-round-14/outputs/round14_lineage_e6_budget_sweep/repeat2_180/jobs/k30/seed123
+
+data:
+  dataset_name: jobs
+  train_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json
+  eval_path: thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json
+  initialization_path: thesis_platform/datasets/pretext_initialization_c4_en/formatted/initialization.json
+
+selector:
+  seed_top_k: 30
