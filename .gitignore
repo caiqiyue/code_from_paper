@@ -108,3 +108,4 @@ paper-new-round23/configs/experiments/single_node_tuning_round23_dynamic/thesis_
 paper-new-round23/configs/experiments/single_node_tuning_round23_dynamic/thesis_main_seen_repeat30/
 paper-new-round23/configs/experiments/single_node_tuning_round23_dynamic/unseen_dataset_final_eval_repeat40/
 
+.gstack/

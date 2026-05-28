@@ -19,8 +19,8 @@ DATASET_SPECS = {
         "eval_path": "thesis_platform/datasets/pretext_jobs/formatted/jobs_eval.json",
     },
     "congressional": {
-        "train_path": "thesis_platform/datasets/pretext_congressional/formatted/congressional_train.json",
-        "eval_path": "thesis_platform/datasets/pretext_congressional/formatted/congressional_eval.json",
+        "train_path": "thesis_platform/datasets/congressional/formatted/congressional_train.json",
+        "eval_path": "thesis_platform/datasets/congressional/formatted/congressional_eval.json",
     },
     "forums": {
         "train_path": "thesis_platform/datasets/pretext_forums/formatted/forums_train.json",
