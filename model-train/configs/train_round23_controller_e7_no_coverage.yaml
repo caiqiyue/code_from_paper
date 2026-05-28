@@ -1,0 +1,32 @@
+model:
+  default_family: extratrees
+  feature_version: null
+  include_dataset_one_hot: true
+  onehot_order: [jobs, congressional, forums, microblog, imdb, openreview]
+  delta_actions: [-2, -1, 0, 1, 2]
+  feature_fields:
+    - shape_score
+    - private_mean_length
+    - private_p75_length
+    - private_length_iqr
+    - support_mean_at_k20
+    - genericity_mean_at_k20
+    - redundancy_mean_at_k20
+  family_params:
+    extratrees:
+      n_estimators: 600
+      max_depth: 3
+      min_samples_leaf: 4
+      max_features: 0.7
+      random_state: 42
+training:
+  param_candidates:
+    extratrees:
+      - {name: et_prev_depth3_leaf4_feat07_s42_n600, n_estimators: 600, max_depth: 3, min_samples_leaf: 4, max_features: 0.7, random_state: 42}
+      - {name: et_prev_depth4_leaf3_feat08_s42_n600, n_estimators: 600, max_depth: 4, min_samples_leaf: 3, max_features: 0.8, random_state: 42}
+      - {name: et_depth3_leaf4_feat07_s0_n600, n_estimators: 600, max_depth: 3, min_samples_leaf: 4, max_features: 0.7, random_state: 0}
+      - {name: et_depth3_leaf4_feat07_s7_n600, n_estimators: 600, max_depth: 3, min_samples_leaf: 4, max_features: 0.7, random_state: 7}
+evaluation:
+  require_round19_replay: false
+  require_round22_static_baseline: false
+  round22_static_model_dir: null

@@ -131,6 +131,46 @@ MODE_SPECS = {
         "source_env": "thesis_e2_extra_unseen_repeat15",
         "output_root_prefix": "outputs/thesis_e2_extra_unseen_repeat15",
     },
+    "e7_no_dataset_seen_repeat15": {
+        "subdir": "e7_no_dataset_seen_repeat15",
+        "manifest_name": "round23_e7_no_dataset_seen_repeat15_manifest.tsv",
+        "datasets": SEEN_DATASETS,
+        "seeds": SEEDS_REPEAT15,
+        "experiment_prefix": "r23_e7_nods_r15",
+        "source_env": "e7_no_dataset_seen_repeat15",
+        "output_root_prefix": "outputs/e7_no_dataset_seen_repeat15",
+        "controller_bundle": "round23_e7_no_dataset_extratrees_all6",
+    },
+    "e7_no_dataset_unseen_repeat15": {
+        "subdir": "e7_no_dataset_unseen_repeat15",
+        "manifest_name": "round23_e7_no_dataset_unseen_repeat15_manifest.tsv",
+        "datasets": UNSEEN_DATASETS,
+        "seeds": SEEDS_REPEAT15,
+        "experiment_prefix": "r23_e7_nods_ud_r15",
+        "source_env": "e7_no_dataset_unseen_repeat15",
+        "output_root_prefix": "outputs/e7_no_dataset_unseen_repeat15",
+        "controller_bundle": "round23_e7_no_dataset_extratrees_all6",
+    },
+    "e7_no_coverage_seen_repeat10": {
+        "subdir": "e7_no_coverage_seen_repeat10",
+        "manifest_name": "round23_e7_no_coverage_seen_repeat10_manifest.tsv",
+        "datasets": SEEN_DATASETS,
+        "seeds": SEEDS_REPEAT10,
+        "experiment_prefix": "r23_e7_nocov_r10",
+        "source_env": "e7_no_coverage_seen_repeat10",
+        "output_root_prefix": "outputs/e7_no_coverage_seen_repeat10",
+        "controller_bundle": "round23_e7_no_coverage_extratrees_all6",
+    },
+    "e7_no_redundancy_seen_repeat10": {
+        "subdir": "e7_no_redundancy_seen_repeat10",
+        "manifest_name": "round23_e7_no_redundancy_seen_repeat10_manifest.tsv",
+        "datasets": SEEN_DATASETS,
+        "seeds": SEEDS_REPEAT10,
+        "experiment_prefix": "r23_e7_nored_r10",
+        "source_env": "e7_no_redundancy_seen_repeat10",
+        "output_root_prefix": "outputs/e7_no_redundancy_seen_repeat10",
+        "controller_bundle": "round23_e7_no_redundancy_extratrees_all6",
+    },
 }
 
 
@@ -249,7 +289,7 @@ def create_mode_configs(mode: str) -> None:
                     "output_root": output_root,
                     "method": "round23",
                     "controller_scope": DEFAULT_CONTROLLER_SCOPE,
-                    "controller_bundle": DEFAULT_CONTROLLER_BUNDLE,
+                    "controller_bundle": spec.get("controller_bundle", DEFAULT_CONTROLLER_BUNDLE),
                 }
             )
     manifest_path = target_dir / str(spec["manifest_name"])
