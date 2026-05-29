@@ -205,24 +205,24 @@ MODE_PATHS = {
         "log_stem": "round23_e5_anchor_k21_round23_all6_repeat5",
         "dataset_split": "all6",
     },
-    "e7_no_dataset_seen_repeat15": {
-        "manifest_relpath": "e7_no_dataset_seen_repeat15/round23_e7_no_dataset_seen_repeat15_manifest.tsv",
-        "log_stem": "round23_e7_no_dataset_seen_repeat15",
+    "e7_no_dataset_seen_repeat10": {
+        "manifest_relpath": "e7_no_dataset_seen_repeat10/round23_e7_no_dataset_seen_repeat10_manifest.tsv",
+        "log_stem": "round23_e7_no_dataset_seen_repeat10",
         "dataset_split": "seen",
     },
-    "e7_no_dataset_unseen_repeat15": {
-        "manifest_relpath": "e7_no_dataset_unseen_repeat15/round23_e7_no_dataset_unseen_repeat15_manifest.tsv",
-        "log_stem": "round23_e7_no_dataset_unseen_repeat15",
+    "e7_no_dataset_unseen_repeat10": {
+        "manifest_relpath": "e7_no_dataset_unseen_repeat10/round23_e7_no_dataset_unseen_repeat10_manifest.tsv",
+        "log_stem": "round23_e7_no_dataset_unseen_repeat10",
         "dataset_split": "unseen",
     },
-    "e7_no_coverage_seen_repeat10": {
-        "manifest_relpath": "e7_no_coverage_seen_repeat10/round23_e7_no_coverage_seen_repeat10_manifest.tsv",
-        "log_stem": "round23_e7_no_coverage_seen_repeat10",
+    "e7_no_coverage_seen_repeat5": {
+        "manifest_relpath": "e7_no_coverage_seen_repeat5/round23_e7_no_coverage_seen_repeat5_manifest.tsv",
+        "log_stem": "round23_e7_no_coverage_seen_repeat5",
         "dataset_split": "seen",
     },
-    "e7_no_redundancy_seen_repeat10": {
-        "manifest_relpath": "e7_no_redundancy_seen_repeat10/round23_e7_no_redundancy_seen_repeat10_manifest.tsv",
-        "log_stem": "round23_e7_no_redundancy_seen_repeat10",
+    "e7_no_redundancy_seen_repeat5": {
+        "manifest_relpath": "e7_no_redundancy_seen_repeat5/round23_e7_no_redundancy_seen_repeat5_manifest.tsv",
+        "log_stem": "round23_e7_no_redundancy_seen_repeat5",
         "dataset_split": "seen",
     },
 }

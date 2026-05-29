@@ -15,6 +15,7 @@ DEFAULT_CONTROLLER_SCOPE = "all6"
 DEFAULT_CONTROLLER_BUNDLE = "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset"
 SEEDS_SMOKE = [42]
 SEEDS_PILOT = [42, 123, 456]
+SEEDS_REPEAT5 = [42, 123, 456, 789, 1024]
 SEEDS_REPEAT10 = [42, 123, 456, 789, 1024, 2048, 4096, 8192, 100, 200]
 SEEDS_REPEAT15 = [42, 123, 456, 789, 1024, 2048, 4096, 8192, 100, 200, 300, 400, 500, 600, 700]
 SEEDS_REPEAT30 = [
@@ -131,44 +132,44 @@ MODE_SPECS = {
         "source_env": "thesis_e2_extra_unseen_repeat15",
         "output_root_prefix": "outputs/thesis_e2_extra_unseen_repeat15",
     },
-    "e7_no_dataset_seen_repeat15": {
-        "subdir": "e7_no_dataset_seen_repeat15",
-        "manifest_name": "round23_e7_no_dataset_seen_repeat15_manifest.tsv",
-        "datasets": SEEN_DATASETS,
-        "seeds": SEEDS_REPEAT15,
-        "experiment_prefix": "r23_e7_nods_r15",
-        "source_env": "e7_no_dataset_seen_repeat15",
-        "output_root_prefix": "outputs/e7_no_dataset_seen_repeat15",
-        "controller_bundle": "round23_e7_no_dataset_extratrees_all6",
-    },
-    "e7_no_dataset_unseen_repeat15": {
-        "subdir": "e7_no_dataset_unseen_repeat15",
-        "manifest_name": "round23_e7_no_dataset_unseen_repeat15_manifest.tsv",
-        "datasets": UNSEEN_DATASETS,
-        "seeds": SEEDS_REPEAT15,
-        "experiment_prefix": "r23_e7_nods_ud_r15",
-        "source_env": "e7_no_dataset_unseen_repeat15",
-        "output_root_prefix": "outputs/e7_no_dataset_unseen_repeat15",
-        "controller_bundle": "round23_e7_no_dataset_extratrees_all6",
-    },
-    "e7_no_coverage_seen_repeat10": {
-        "subdir": "e7_no_coverage_seen_repeat10",
-        "manifest_name": "round23_e7_no_coverage_seen_repeat10_manifest.tsv",
+    "e7_no_dataset_seen_repeat10": {
+        "subdir": "e7_no_dataset_seen_repeat10",
+        "manifest_name": "round23_e7_no_dataset_seen_repeat10_manifest.tsv",
         "datasets": SEEN_DATASETS,
         "seeds": SEEDS_REPEAT10,
-        "experiment_prefix": "r23_e7_nocov_r10",
-        "source_env": "e7_no_coverage_seen_repeat10",
-        "output_root_prefix": "outputs/e7_no_coverage_seen_repeat10",
+        "experiment_prefix": "r23_e7_nods_r10",
+        "source_env": "e7_no_dataset_seen_repeat10",
+        "output_root_prefix": "outputs/e7_no_dataset_seen_repeat10",
+        "controller_bundle": "round23_e7_no_dataset_extratrees_all6",
+    },
+    "e7_no_dataset_unseen_repeat10": {
+        "subdir": "e7_no_dataset_unseen_repeat10",
+        "manifest_name": "round23_e7_no_dataset_unseen_repeat10_manifest.tsv",
+        "datasets": UNSEEN_DATASETS,
+        "seeds": SEEDS_REPEAT10,
+        "experiment_prefix": "r23_e7_nods_ud_r10",
+        "source_env": "e7_no_dataset_unseen_repeat10",
+        "output_root_prefix": "outputs/e7_no_dataset_unseen_repeat10",
+        "controller_bundle": "round23_e7_no_dataset_extratrees_all6",
+    },
+    "e7_no_coverage_seen_repeat5": {
+        "subdir": "e7_no_coverage_seen_repeat5",
+        "manifest_name": "round23_e7_no_coverage_seen_repeat5_manifest.tsv",
+        "datasets": SEEN_DATASETS,
+        "seeds": SEEDS_REPEAT5,
+        "experiment_prefix": "r23_e7_nocov_r5",
+        "source_env": "e7_no_coverage_seen_repeat5",
+        "output_root_prefix": "outputs/e7_no_coverage_seen_repeat5",
         "controller_bundle": "round23_e7_no_coverage_extratrees_all6",
     },
-    "e7_no_redundancy_seen_repeat10": {
-        "subdir": "e7_no_redundancy_seen_repeat10",
-        "manifest_name": "round23_e7_no_redundancy_seen_repeat10_manifest.tsv",
+    "e7_no_redundancy_seen_repeat5": {
+        "subdir": "e7_no_redundancy_seen_repeat5",
+        "manifest_name": "round23_e7_no_redundancy_seen_repeat5_manifest.tsv",
         "datasets": SEEN_DATASETS,
-        "seeds": SEEDS_REPEAT10,
-        "experiment_prefix": "r23_e7_nored_r10",
-        "source_env": "e7_no_redundancy_seen_repeat10",
-        "output_root_prefix": "outputs/e7_no_redundancy_seen_repeat10",
+        "seeds": SEEDS_REPEAT5,
+        "experiment_prefix": "r23_e7_nored_r5",
+        "source_env": "e7_no_redundancy_seen_repeat5",
+        "output_root_prefix": "outputs/e7_no_redundancy_seen_repeat5",
         "controller_bundle": "round23_e7_no_redundancy_extratrees_all6",
     },
 }
