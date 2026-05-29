@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_forums.yaml
+
+meta:
+  experiment_id: r23_e7_nods_r15_forums_seed400
+  seed: 400
+  dataset_name: forums
+
+paths:
+  output_root: outputs/e7_no_dataset_seen_repeat15/forums/seed400
+
+selector:
+  seed_top_k: 20
+
+round23_controller:
+  source_env: e7_no_dataset_seen_repeat15
+  context_family: natural
+  reference_budget: 20

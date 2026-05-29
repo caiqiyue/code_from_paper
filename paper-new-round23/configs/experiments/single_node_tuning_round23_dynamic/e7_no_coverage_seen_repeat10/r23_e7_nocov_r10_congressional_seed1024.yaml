@@ -1,0 +1,19 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_congressional.yaml
+
+meta:
+  experiment_id: r23_e7_nocov_r10_congressional_seed1024
+  seed: 1024
+  dataset_name: congressional
+
+paths:
+  output_root: outputs/e7_no_coverage_seen_repeat10/congressional/seed1024
+
+selector:
+  seed_top_k: 20
+
+round23_controller:
+  source_env: e7_no_coverage_seen_repeat10
+  context_family: natural
+  reference_budget: 20

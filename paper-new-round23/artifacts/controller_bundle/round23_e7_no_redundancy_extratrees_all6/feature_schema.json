@@ -1,0 +1,42 @@
+{
+  "version": "round23_controller_feature_schema_v1",
+  "feature_version": "custom",
+  "feature_names": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20"
+  ],
+  "state_features": [
+    "shape_score",
+    "private_mean_length",
+    "private_p75_length",
+    "private_length_iqr",
+    "support_mean_at_k20",
+    "coverage_mean_at_k20",
+    "coverage_p25_at_k20",
+    "genericity_mean_at_k20"
+  ],
+  "include_dataset_onehot": true,
+  "onehot_order": [
+    "jobs",
+    "congressional",
+    "forums",
+    "microblog",
+    "imdb",
+    "openreview"
+  ],
+  "total_features": 14,
+  "reference_budget": 20,
+  "delta_actions": [
+    -2,
+    -1,
+    0,
+    1,
+    2
+  ]
+}

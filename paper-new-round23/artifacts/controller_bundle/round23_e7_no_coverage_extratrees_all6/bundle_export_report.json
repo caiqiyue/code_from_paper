@@ -1,0 +1,27 @@
+{
+  "bundle_version": "round23_e7_no_coverage_extratrees_all6",
+  "bundle_root": "paper-new-round23/artifacts/controller_bundle/round23_e7_no_coverage_extratrees_all6",
+  "model_family": "extratrees",
+  "training_data_version": "round19_round23_collection_repeat40",
+  "feature_version": "custom",
+  "controller_scope": "all6",
+  "included_datasets": [
+    "jobs",
+    "congressional",
+    "forums",
+    "microblog",
+    "imdb",
+    "openreview"
+  ],
+  "excluded_datasets": [],
+  "record_count": 1080,
+  "training_data_hash": "",
+  "selection_protocol": "",
+  "exported_models": {
+    "-2": "paper-new-round23/artifacts/controller_bundle/round23_e7_no_coverage_extratrees_all6/model_dk_neg2.pkl",
+    "-1": "paper-new-round23/artifacts/controller_bundle/round23_e7_no_coverage_extratrees_all6/model_dk_neg1.pkl",
+    "0": "paper-new-round23/artifacts/controller_bundle/round23_e7_no_coverage_extratrees_all6/model_dk_0.pkl",
+    "1": "paper-new-round23/artifacts/controller_bundle/round23_e7_no_coverage_extratrees_all6/model_dk_pos1.pkl",
+    "2": "paper-new-round23/artifacts/controller_bundle/round23_e7_no_coverage_extratrees_all6/model_dk_pos2.pkl"
+  }
+}
