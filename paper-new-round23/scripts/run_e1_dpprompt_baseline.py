@@ -59,6 +59,18 @@ def _materialize_runtime_config(
     merged.setdefault("runtime", {})
     # dp-prompt pipeline creates output_dir = runtime.output_root / experiment.id
     merged["runtime"]["output_root"] = str(output_root.parent.resolve())
+    # Resolve relative data paths to absolute using DPPROMPT_ROOT as CWD reference.
+    # The generation step (pretext_pipeline.py) uses cwd=DPPROMPT_ROOT so relative
+    # paths like "../thesis_platform/..." work there. But the eval step passes
+    # train_path to ExperimentConfig which joins it with repo_root, causing
+    # repo_root / "../thesis_platform/..." to resolve one level too high.
+    # Absolute paths work correctly for both steps.
+    data_cfg = merged.get("data") or {}
+    for key in ("train_path", "eval_path", "initialization_path"):
+        val = data_cfg.get(key)
+        if val and not Path(str(val)).is_absolute():
+            data_cfg[key] = str((DPPROMPT_ROOT / val).resolve())
+    merged["data"] = data_cfg
     output_root.mkdir(parents=True, exist_ok=True)
     effective_path = output_root / f"{experiment_id}_dpprompt_effective_config.yaml"
     # Drop _meta (added by dp-prompt config loader) to avoid noise in serialized form

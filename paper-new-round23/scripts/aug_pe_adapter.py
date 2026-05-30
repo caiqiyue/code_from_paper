@@ -51,12 +51,17 @@ def _resolve_minilm_path() -> Path:
     """Resolve the MiniLM model path used elsewhere in this project."""
     # PrE-Text default location; same path is used by round19's embedding stack.
     candidates = [
-        Path(os.environ.get("MINILM_PATH", "")),
         Path.cwd() / "thesis_platform" / "open_model" / "all_minilm_l6_v2",
         Path(__file__).resolve().parents[2] / "thesis_platform" / "open_model" / "all_minilm_l6_v2",
     ]
+    # Only add env-var path if the variable is actually set and non-empty.
+    # Path("") resolves to Path(".") in Python, so an unset var would cause
+    # SentenceTransformer to receive "." as the model name and crash.
+    env_path = os.environ.get("MINILM_PATH", "").strip()
+    if env_path:
+        candidates.insert(0, Path(env_path))
     for candidate in candidates:
-        if candidate and candidate.exists():
+        if candidate.exists():
             return candidate
     # Fall back to HF model id; sentence-transformers will download if allowed.
     return Path("sentence-transformers/all-MiniLM-L6-v2")
