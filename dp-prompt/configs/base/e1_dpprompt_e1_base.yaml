@@ -1,0 +1,18 @@
+inherits:
+  - pretext_style_base.yaml
+
+experiment:
+  pipeline_mode: pretext_style
+
+generation:
+  num_documents: 256
+  max_new_tokens: 192
+  temperature: 0.7
+
+privacy:
+  temperature: 0.7
+  max_generated_tokens: 192
+  report_privacy_summary: true
+
+evaluation:
+  linux_small_eval_mode: gpt2

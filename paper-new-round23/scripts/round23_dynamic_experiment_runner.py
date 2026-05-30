@@ -27,6 +27,9 @@ RUN_SCRIPTS = {
     "round23_absk_oneshot": ROUND23_ROOT / "scripts" / "run_round23_with_absolute_k_controller.py",
     "round23_keepk0": ROUND23_ROOT / "scripts" / "run_round23_keep_k0_baseline.py",
     "round23_3round_stress": ROUND23_ROOT / "scripts" / "run_round23_with_three_round_stress.py",
+    "e1_c4only": ROUND23_ROOT / "scripts" / "run_e1_c4only_baseline.py",
+    "e1_augpe": ROUND23_ROOT / "scripts" / "run_e1_augpe_baseline.py",
+    "e1_dpprompt": ROUND23_ROOT / "scripts" / "run_e1_dpprompt_baseline.py",
 }
 DEFAULT_TARGET_GPU_NAME_TOKEN = "RTX A6000"
 DEFAULT_MIN_FREE_GB_FOR_VLLM = 2.0
@@ -225,6 +228,36 @@ MODE_PATHS = {
         "log_stem": "round23_e7_no_redundancy_seen_repeat5",
         "dataset_split": "seen",
     },
+    "e1_c4only_seen_smoke": {
+        "manifest_relpath": "e1_c4only_seen_smoke/round23_e1_c4only_seen_smoke_manifest.tsv",
+        "log_stem": "round23_e1_c4only_seen_smoke",
+        "dataset_split": "seen",
+    },
+    "e1_c4only_seen_repeat30": {
+        "manifest_relpath": "e1_c4only_seen_repeat30/round23_e1_c4only_seen_repeat30_manifest.tsv",
+        "log_stem": "round23_e1_c4only_seen_repeat30",
+        "dataset_split": "seen",
+    },
+    "e1_augpe_seen_smoke": {
+        "manifest_relpath": "e1_augpe_seen_smoke/round23_e1_augpe_seen_smoke_manifest.tsv",
+        "log_stem": "round23_e1_augpe_seen_smoke",
+        "dataset_split": "seen",
+    },
+    "e1_augpe_seen_repeat30": {
+        "manifest_relpath": "e1_augpe_seen_repeat30/round23_e1_augpe_seen_repeat30_manifest.tsv",
+        "log_stem": "round23_e1_augpe_seen_repeat30",
+        "dataset_split": "seen",
+    },
+    "e1_dpprompt_seen_smoke": {
+        "manifest_relpath": "e1_dpprompt_seen_smoke/round23_e1_dpprompt_seen_smoke_manifest.tsv",
+        "log_stem": "round23_e1_dpprompt_seen_smoke",
+        "dataset_split": "seen",
+    },
+    "e1_dpprompt_seen_repeat30": {
+        "manifest_relpath": "e1_dpprompt_seen_repeat30/round23_e1_dpprompt_seen_repeat30_manifest.tsv",
+        "log_stem": "round23_e1_dpprompt_seen_repeat30",
+        "dataset_split": "seen",
+    },
 }
 
 
@@ -308,11 +341,17 @@ def sidecar_suffix_for_method(method: str) -> str:
         return "_keep_k0_runtime.json"
     if method == "round23_3round_stress":
         return "_three_round_stress_runtime.json"
+    if method == "e1_c4only":
+        return "_c4only_runtime.json"
+    if method == "e1_augpe":
+        return "_augpe_runtime.json"
+    if method == "e1_dpprompt":
+        return "_dpprompt_runtime.json"
     return "_dynamic_controller_runtime.json"
 
 
 def resolve_model_dir_for_spec(cli_model_dir: str | Path | None, spec: ExperimentSpec) -> Path | None:
-    if spec.method == "round23_keepk0":
+    if spec.method in ("round23_keepk0", "e1_c4only", "e1_augpe", "e1_dpprompt"):
         return None
     if cli_model_dir:
         return Path(cli_model_dir).resolve()
@@ -466,7 +505,7 @@ def run_single_experiment(
         "--timeout-seconds",
         str(timeout_seconds),
     ]
-    if model_dir and spec.method != "round23_keepk0":
+    if model_dir and spec.method not in ("round23_keepk0", "e1_c4only", "e1_augpe", "e1_dpprompt"):
         command.extend(["--model-dir", str(model_dir)])
     command.extend(["--reference-budget", str(spec.reference_budget)])
     result = subprocess.run(
