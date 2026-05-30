@@ -78,6 +78,13 @@ def run_pretext_style_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         build_privacy_controls_summary(config.get("privacy", {})),
     )
 
+    # Release vLLM GPU memory before running GPT2 eval; both cannot coexist on the
+    # same GPU (vLLM reserves ~27 GB; GPT2 eval needs ~2 GB more).
+    _backend_release = getattr(backend, "release", None)
+    if callable(_backend_release):
+        _backend_release()
+    del backend, _backend_release
+
     thesis_eval_config = build_thesis_eval_config(
         experiment_id=experiment_id,
         dataset_name=str(config["data"]["dataset_name"]),
@@ -117,7 +124,4 @@ def run_pretext_style_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         "evaluation": eval_summary,
     }
     write_json(output_dir / "experiment_summary.json", summary)
-    release = getattr(backend, "release", None)
-    if callable(release):
-        release()
     return summary
