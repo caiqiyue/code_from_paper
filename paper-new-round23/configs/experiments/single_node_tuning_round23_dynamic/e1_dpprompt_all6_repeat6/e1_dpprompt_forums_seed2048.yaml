@@ -1,0 +1,14 @@
+inherits:
+  - ../../../../../dp-prompt/configs/base/e1_dpprompt_e1_base.yaml
+  - ../../../../../dp-prompt/configs/datasets/pretext_forums.yaml
+
+experiment:
+  id: e1_dpprompt_forums_seed2048
+  pipeline_mode: pretext_style
+
+runtime:
+  seed: 2048
+  output_root: outputs/e1_dpprompt_all6_repeat6/forums/seed2048
+
+data:
+  dataset_name: forums

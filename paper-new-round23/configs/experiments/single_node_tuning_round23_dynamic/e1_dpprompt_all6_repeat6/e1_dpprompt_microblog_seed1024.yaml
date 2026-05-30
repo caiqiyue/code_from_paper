@@ -1,0 +1,14 @@
+inherits:
+  - ../../../../../dp-prompt/configs/base/e1_dpprompt_e1_base.yaml
+  - ../../../../../dp-prompt/configs/datasets/pretext_microblog.yaml
+
+experiment:
+  id: e1_dpprompt_microblog_seed1024
+  pipeline_mode: pretext_style
+
+runtime:
+  seed: 1024
+  output_root: outputs/e1_dpprompt_all6_repeat6/microblog/seed1024
+
+data:
+  dataset_name: microblog

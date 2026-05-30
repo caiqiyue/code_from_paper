@@ -1,0 +1,14 @@
+inherits:
+  - ../../../../../dp-prompt/configs/base/e1_dpprompt_e1_base.yaml
+  - ../../../../../dp-prompt/configs/datasets/pretext_jobs.yaml
+
+experiment:
+  id: e1_dpprompt_jobs_seed123
+  pipeline_mode: pretext_style
+
+runtime:
+  seed: 123
+  output_root: outputs/e1_dpprompt_all6_repeat6/jobs/seed123
+
+data:
+  dataset_name: jobs

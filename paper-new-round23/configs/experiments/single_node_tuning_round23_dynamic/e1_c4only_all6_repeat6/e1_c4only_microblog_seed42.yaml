@@ -1,0 +1,30 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_microblog.yaml
+
+meta:
+  experiment_id: e1_c4only_microblog_seed42
+  seed: 42
+  dataset_name: microblog
+
+paths:
+  output_root: outputs/e1_c4only_all6_repeat6/microblog/seed42
+
+pipeline:
+  stage1_mode: c4_only
+  stage2_mode: pretext_bootstrap
+  run_eval: true
+
+selector:
+  seed_top_k: 20
+  seed_budget_rule:
+    enabled: false
+
+round23_controller:
+  enabled: false
+  source_env: e1_c4only_all6_repeat6
+
+c4only_baseline:
+  enabled: true
+  epsilon: inf
+  source_env: e1_c4only_all6_repeat6
