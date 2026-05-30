@@ -258,6 +258,36 @@ MODE_PATHS = {
         "log_stem": "round23_e1_dpprompt_seen_repeat30",
         "dataset_split": "seen",
     },
+    "e1_c4only_all6_smoke": {
+        "manifest_relpath": "e1_c4only_all6_smoke/round23_e1_c4only_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e1_c4only_all6_smoke",
+        "dataset_split": "all6",
+    },
+    "e1_c4only_all6_repeat6": {
+        "manifest_relpath": "e1_c4only_all6_repeat6/round23_e1_c4only_all6_repeat6_manifest.tsv",
+        "log_stem": "round23_e1_c4only_all6_repeat6",
+        "dataset_split": "all6",
+    },
+    "e1_augpe_all6_smoke": {
+        "manifest_relpath": "e1_augpe_all6_smoke/round23_e1_augpe_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e1_augpe_all6_smoke",
+        "dataset_split": "all6",
+    },
+    "e1_augpe_all6_repeat6": {
+        "manifest_relpath": "e1_augpe_all6_repeat6/round23_e1_augpe_all6_repeat6_manifest.tsv",
+        "log_stem": "round23_e1_augpe_all6_repeat6",
+        "dataset_split": "all6",
+    },
+    "e1_dpprompt_all6_smoke": {
+        "manifest_relpath": "e1_dpprompt_all6_smoke/round23_e1_dpprompt_all6_smoke_manifest.tsv",
+        "log_stem": "round23_e1_dpprompt_all6_smoke",
+        "dataset_split": "all6",
+    },
+    "e1_dpprompt_all6_repeat6": {
+        "manifest_relpath": "e1_dpprompt_all6_repeat6/round23_e1_dpprompt_all6_repeat6_manifest.tsv",
+        "log_stem": "round23_e1_dpprompt_all6_repeat6",
+        "dataset_split": "all6",
+    },
 }
 
 

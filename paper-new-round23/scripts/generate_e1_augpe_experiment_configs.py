@@ -18,12 +18,14 @@ CONFIG_ROOT = ROUND23_ROOT / "configs" / "experiments" / "single_node_tuning_rou
 CONFIG_MANIFEST_ROOT = Path("configs") / "experiments" / "single_node_tuning_round23_dynamic"
 
 SEEDS_SMOKE = [42]
+SEEDS_REPEAT6 = [42, 123, 456, 789, 1024, 2048]
 SEEDS_REPEAT30 = [
     42, 123, 456, 789, 1024, 2048, 4096, 8192, 100, 200,
     300, 400, 500, 600, 700, 800, 900, 1111, 1212, 1313,
     1414, 1515, 1616, 1717, 1818, 1919, 2020, 2222, 2468, 3141,
 ]
 SEEN_DATASETS = ["jobs", "congressional", "forums", "microblog"]
+ALL6_DATASETS = ["jobs", "congressional", "forums", "microblog", "imdb", "openreview"]
 
 # Align ε/δ with PrE-Text paper's reported values (ε=1.29, δ=3e-6).
 DEFAULT_EPSILON = 1.29
@@ -47,6 +49,24 @@ MODE_SPECS = {
         "experiment_prefix": "e1_augpe",
         "source_env": "e1_augpe_seen_repeat30",
         "output_root_prefix": "outputs/e1_augpe_seen_repeat30",
+    },
+    "e1_augpe_all6_smoke": {
+        "subdir": "e1_augpe_all6_smoke",
+        "manifest_name": "round23_e1_augpe_all6_smoke_manifest.tsv",
+        "datasets": ALL6_DATASETS,
+        "seeds": SEEDS_SMOKE,
+        "experiment_prefix": "e1_augpe_smoke",
+        "source_env": "e1_augpe_all6_smoke",
+        "output_root_prefix": "outputs/e1_augpe_all6_smoke",
+    },
+    "e1_augpe_all6_repeat6": {
+        "subdir": "e1_augpe_all6_repeat6",
+        "manifest_name": "round23_e1_augpe_all6_repeat6_manifest.tsv",
+        "datasets": ALL6_DATASETS,
+        "seeds": SEEDS_REPEAT6,
+        "experiment_prefix": "e1_augpe",
+        "source_env": "e1_augpe_all6_repeat6",
+        "output_root_prefix": "outputs/e1_augpe_all6_repeat6",
     },
 }
 

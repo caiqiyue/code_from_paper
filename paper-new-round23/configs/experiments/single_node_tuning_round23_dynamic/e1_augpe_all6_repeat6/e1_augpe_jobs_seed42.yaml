@@ -1,0 +1,32 @@
+inherits:
+  - ../_base_selector_tuning_round23_dynamic.yaml
+  - ../_data_jobs.yaml
+
+meta:
+  experiment_id: e1_augpe_jobs_seed42
+  seed: 42
+  dataset_name: jobs
+
+paths:
+  output_root: outputs/e1_augpe_all6_repeat6/jobs/seed42
+
+pipeline:
+  stage1_mode: c4_only
+  stage2_mode: pretext_bootstrap
+  run_eval: true
+
+selector:
+  seed_top_k: 20
+  seed_budget_rule:
+    enabled: false
+
+round23_controller:
+  enabled: false
+  source_env: e1_augpe_all6_repeat6
+
+augpe_baseline:
+  enabled: true
+  epsilon: 1.29
+  delta: 3e-06
+  seed_top_k: 20
+  source_env: e1_augpe_all6_repeat6

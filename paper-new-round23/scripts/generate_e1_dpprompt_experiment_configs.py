@@ -21,12 +21,14 @@ DPPROMPT_BASE_CONFIG = DPPROMPT_ROOT / "configs" / "base" / "e1_dpprompt_e1_base
 DPPROMPT_DATASETS_DIR = DPPROMPT_ROOT / "configs" / "datasets"
 
 SEEDS_SMOKE = [42]
+SEEDS_REPEAT6 = [42, 123, 456, 789, 1024, 2048]
 SEEDS_REPEAT30 = [
     42, 123, 456, 789, 1024, 2048, 4096, 8192, 100, 200,
     300, 400, 500, 600, 700, 800, 900, 1111, 1212, 1313,
     1414, 1515, 1616, 1717, 1818, 1919, 2020, 2222, 2468, 3141,
 ]
 SEEN_DATASETS = ["jobs", "congressional", "forums", "microblog"]
+ALL6_DATASETS = ["jobs", "congressional", "forums", "microblog", "imdb", "openreview"]
 
 MODE_SPECS = {
     "e1_dpprompt_seen_smoke": {
@@ -44,6 +46,22 @@ MODE_SPECS = {
         "seeds": SEEDS_REPEAT30,
         "experiment_prefix": "e1_dpprompt",
         "output_root_prefix": "outputs/e1_dpprompt_seen_repeat30",
+    },
+    "e1_dpprompt_all6_smoke": {
+        "subdir": "e1_dpprompt_all6_smoke",
+        "manifest_name": "round23_e1_dpprompt_all6_smoke_manifest.tsv",
+        "datasets": ALL6_DATASETS,
+        "seeds": SEEDS_SMOKE,
+        "experiment_prefix": "e1_dpprompt_smoke",
+        "output_root_prefix": "outputs/e1_dpprompt_all6_smoke",
+    },
+    "e1_dpprompt_all6_repeat6": {
+        "subdir": "e1_dpprompt_all6_repeat6",
+        "manifest_name": "round23_e1_dpprompt_all6_repeat6_manifest.tsv",
+        "datasets": ALL6_DATASETS,
+        "seeds": SEEDS_REPEAT6,
+        "experiment_prefix": "e1_dpprompt",
+        "output_root_prefix": "outputs/e1_dpprompt_all6_repeat6",
     },
 }
 
