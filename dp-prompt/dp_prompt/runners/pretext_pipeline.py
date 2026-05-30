@@ -78,33 +78,41 @@ def run_pretext_style_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         build_privacy_controls_summary(config.get("privacy", {})),
     )
 
-    # Release vLLM GPU memory before running GPT2 eval; both cannot coexist on the
-    # same GPU (vLLM reserves ~27 GB; GPT2 eval needs ~2 GB more).
+    # Release vLLM GPU memory eagerly; torch.cuda.empty_cache() frees PyTorch-managed
+    # tensors but NOT vLLM's raw cuMalloc allocations. Process isolation (the caller
+    # runs eval in a separate subprocess after this process exits) is the only
+    # guarantee. We still call release() as a best-effort.
     _backend_release = getattr(backend, "release", None)
     if callable(_backend_release):
         _backend_release()
     del backend, _backend_release
 
-    thesis_eval_config = build_thesis_eval_config(
-        experiment_id=experiment_id,
-        dataset_name=str(config["data"]["dataset_name"]),
-        train_path=str(config["data"]["train_path"]),
-        eval_path=str(config["data"]["eval_path"]),
-        initialization_path=str(config["data"]["initialization_path"]),
-        output_root=str(output_dir),
-        train_limit=config["data"].get("train_limit"),
-        eval_limit=config["data"].get("eval_limit"),
-        initialization_limit=config["data"].get("initialization_limit"),
-        max_samples_per_client=int(config["data"].get("max_samples_per_client", 8)),
-        linux_small_eval_mode=str(config.get("evaluation", {}).get("linux_small_eval_mode", "distilgpt2")),
-    )
-    eval_summary = export_and_run_small_eval(
-        thesis_eval_config,
-        synthetic_texts=synthetic_texts,
-        stage2_dir=stage2_dir,
-        eval_dir=eval_dir,
-    )
-    write_json(eval_dir / "eval_small_summary.json", eval_summary)
+    # skip_eval=True means the caller (run_e1_dpprompt_baseline.py) will run eval
+    # in a fresh subprocess after this process exits and fully frees GPU memory.
+    skip_eval = bool(config.get("runtime", {}).get("skip_eval", False))
+
+    eval_summary: dict[str, Any] = {}
+    if not skip_eval:
+        thesis_eval_config = build_thesis_eval_config(
+            experiment_id=experiment_id,
+            dataset_name=str(config["data"]["dataset_name"]),
+            train_path=str(config["data"]["train_path"]),
+            eval_path=str(config["data"]["eval_path"]),
+            initialization_path=str(config["data"]["initialization_path"]),
+            output_root=str(output_dir),
+            train_limit=config["data"].get("train_limit"),
+            eval_limit=config["data"].get("eval_limit"),
+            initialization_limit=config["data"].get("initialization_limit"),
+            max_samples_per_client=int(config["data"].get("max_samples_per_client", 8)),
+            linux_small_eval_mode=str(config.get("evaluation", {}).get("linux_small_eval_mode", "distilgpt2")),
+        )
+        eval_summary = export_and_run_small_eval(
+            thesis_eval_config,
+            synthetic_texts=synthetic_texts,
+            stage2_dir=stage2_dir,
+            eval_dir=eval_dir,
+        )
+        write_json(eval_dir / "eval_small_summary.json", eval_summary)
 
     summary = {
         "experiment_id": experiment_id,
@@ -122,6 +130,7 @@ def run_pretext_style_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             "eval_dir": str(eval_dir),
         },
         "evaluation": eval_summary,
+        "skip_eval": skip_eval,
     }
     write_json(output_dir / "experiment_summary.json", summary)
     return summary

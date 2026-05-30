@@ -71,6 +71,10 @@ def _materialize_runtime_config(
         if val and not Path(str(val)).is_absolute():
             data_cfg[key] = str((DPPROMPT_ROOT / val).resolve())
     merged["data"] = data_cfg
+    # Signal the pipeline to skip the inline eval so it exits after generation.
+    # GPT2 eval runs in a separate subprocess (see _run_eval_subprocess) after
+    # this vLLM process exits and fully releases GPU memory.
+    merged["runtime"]["skip_eval"] = True
     output_root.mkdir(parents=True, exist_ok=True)
     effective_path = output_root / f"{experiment_id}_dpprompt_effective_config.yaml"
     # Drop _meta (added by dp-prompt config loader) to avoid noise in serialized form
@@ -85,6 +89,36 @@ def _materialize_runtime_config(
 def _run_dpprompt_pipeline(config_path: Path, timeout_seconds: int) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "dp_prompt.cli", "--config", str(config_path)],
+        capture_output=True,
+        text=True,
+        cwd=str(DPPROMPT_ROOT),
+        env=_build_dpprompt_subprocess_env(),
+        timeout=timeout_seconds,
+    )
+
+
+def _run_eval_subprocess(
+    *,
+    effective_config_path: Path,
+    pipeline_output_dir: Path,
+    experiment_id: str,
+    timeout_seconds: int,
+) -> subprocess.CompletedProcess[str]:
+    """Run GPT2 eval as a fresh subprocess after the vLLM generation process exits.
+
+    When the vLLM subprocess (dp_prompt.cli) exits, the OS reclaims all its GPU
+    resources — including vLLM's raw cuMalloc allocations that torch.cuda.empty_cache()
+    cannot free. This fresh subprocess therefore starts with a clean GPU budget.
+    """
+    eval_script = ROUND23_ROOT / "scripts" / "run_dpprompt_eval_only.py"
+    return subprocess.run(
+        [
+            sys.executable,
+            str(eval_script),
+            "--effective-config", str(effective_config_path),
+            "--pipeline-output-dir", str(pipeline_output_dir),
+            "--experiment-id", experiment_id,
+        ],
         capture_output=True,
         text=True,
         cwd=str(DPPROMPT_ROOT),
@@ -186,12 +220,26 @@ def main() -> int:
     )
     print(f"[e1_dpprompt] pipeline_output_dir={pipeline_output_dir}")
 
-    print(f"[e1_dpprompt] Invoking dp-prompt pipeline with effective config: {effective_config}")
+    print(f"[e1_dpprompt] Invoking dp-prompt generation (skip_eval=True): {effective_config}")
     result = _run_dpprompt_pipeline(effective_config, timeout_seconds=args.timeout_seconds)
     print(result.stdout, end="")
     if result.returncode != 0:
         print(f"[ERROR] dp-prompt pipeline failed:\n{result.stderr}", file=sys.stderr)
         return int(result.returncode)
+
+    # vLLM subprocess has exited — GPU memory is fully reclaimed by the OS.
+    # Run GPT2 eval in a fresh subprocess to avoid CUDA OOM.
+    print(f"[e1_dpprompt] Generation done. Running GPT2 eval in fresh subprocess...")
+    eval_result = _run_eval_subprocess(
+        effective_config_path=effective_config,
+        pipeline_output_dir=pipeline_output_dir,
+        experiment_id=experiment_id,
+        timeout_seconds=args.timeout_seconds,
+    )
+    print(eval_result.stdout, end="")
+    if eval_result.returncode != 0:
+        print(f"[ERROR] dp-prompt eval subprocess failed:\n{eval_result.stderr}", file=sys.stderr)
+        return int(eval_result.returncode)
 
     runtime_artifacts = _collect_dpprompt_artifacts(pipeline_output_dir)
     sidecar_path = _write_runtime_sidecar(
