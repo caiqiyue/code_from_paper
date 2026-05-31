@@ -1,0 +1,15 @@
+inherits:
+  - ../../../../paper-new-round19/configs/experiments/single_run_baseline_screening/ep_imdb_single_run.yaml
+meta:
+  experiment_id: pretext_imdb_seed2048
+  seed: 2048
+  dataset_name: imdb
+  stage: pretext_screening_unseen2
+  method: pretext
+  method_display_name: PrE-Text
+  implementation_key: expand_private
+paths:
+  output_root: paper-new-round-14/outputs/pretext_screening_unseen2/pretext/imdb/seed2048
+protocol:
+  experiment_family: pretext_screening_unseen2
+  mode: pretext_screening_unseen2

@@ -1,0 +1,9 @@
+inherits:
+  - ./_base_single_run_expand_private.yaml
+  - ../single_node_tuning_round19/_data_imdb.yaml
+
+meta:
+  experiment_id: ep_imdb_single_run
+
+paths:
+  output_root: paper-new-round19/outputs/single_run_baseline_screening/expand_private/imdb
