@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import generate_round23_experiment_configs as main_config_gen  # noqa: E402
 import generate_round23_e4_experiment_configs as e4_config_gen  # noqa: E402
+import merge_round23_e4_results as merge_e4  # noqa: E402
 import round23_dynamic_experiment_runner as runner  # noqa: E402
 from run_round23_with_absolute_k_controller import generate_override_config as generate_absk_override_config  # noqa: E402
 from round23_runtime_utils import load_yaml_with_inherits  # noqa: E402
@@ -199,6 +200,146 @@ def test_runner_supports_e4_modes_and_method_specific_sidecars():
     assert runner.resolve_mode_paths("e4_c_three_round_stress_all6_repeat15")["dataset_split"] == "all6"
 
 
+def test_merge_e4_results_builds_all6_main_table():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        oneshot_summary = root / "oneshot.tsv"
+        round23_summary = root / "round23.tsv"
+
+        oneshot_rows = [
+            {
+                "mode": "e4_a_oneshot_all6_repeat15",
+                "method": "round23_absk_oneshot",
+                "dataset_name": "jobs",
+                "status": "success",
+                "reference_budget": "20",
+                "best_top1": "0.21",
+                "best_top3": "0.31",
+                "best_top5": "0.41",
+                "best_top10": "0.51",
+                "duration_seconds": "123.0",
+            },
+            {
+                "mode": "e4_a_oneshot_all6_repeat15",
+                "method": "round23_absk_oneshot",
+                "dataset_name": "imdb",
+                "status": "success",
+                "reference_budget": "20",
+                "best_top1": "0.25",
+                "best_top3": "0.35",
+                "best_top5": "0.45",
+                "best_top10": "0.55",
+                "duration_seconds": "120.0",
+            },
+        ]
+        round23_rows = [
+            {
+                "mode": "thesis_main_all6_repeat15",
+                "method": "round23",
+                "dataset_name": "jobs",
+                "status": "success",
+                "reference_budget": "20",
+                "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset",
+                "best_top1": "0.24",
+                "best_top3": "0.34",
+                "best_top5": "0.44",
+                "best_top10": "0.54",
+                "duration_seconds": "220.0",
+            },
+            {
+                "mode": "thesis_main_all6_repeat15",
+                "method": "round23",
+                "dataset_name": "imdb",
+                "status": "success",
+                "reference_budget": "20",
+                "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset",
+                "best_top1": "0.28",
+                "best_top3": "0.38",
+                "best_top5": "0.48",
+                "best_top10": "0.58",
+                "duration_seconds": "230.0",
+            },
+        ]
+
+        for path, rows in ((oneshot_summary, oneshot_rows), (round23_summary, round23_rows)):
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()), delimiter="\t")
+                writer.writeheader()
+                writer.writerows(rows)
+
+        outputs = merge_e4.merge_results(
+            oneshot_summary=oneshot_summary,
+            round23_summary=round23_summary,
+            round23_mode_prefix="thesis_main_all6_",
+            output_dir=root / "out",
+            output_prefix="e4_unit",
+        )
+        paper_rows = list(csv.DictReader(outputs["paper_table"].open("r", encoding="utf-8"), delimiter="\t"))
+        oneshot_row = next(row for row in paper_rows if row["Method"] == "predict absolute k")
+        round23_row = next(row for row in paper_rows if row["Method"] == "round23")
+
+        assert oneshot_row["jobs best_top1"] == "0.210000"
+        assert oneshot_row["imdb best_top1"] == "0.250000"
+        assert oneshot_row["Avg."] == "0.230000"
+        assert round23_row["jobs best_top1"] == "0.240000"
+        assert round23_row["imdb best_top1"] == "0.280000"
+        assert round23_row["Avg."] == "0.260000"
+
+
+def test_merge_e4_results_rejects_wrong_reference_budget():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        oneshot_summary = root / "oneshot.tsv"
+        round23_summary = root / "round23.tsv"
+
+        for path, rows in (
+            (
+                oneshot_summary,
+                [
+                    {
+                        "mode": "e4_a_oneshot_all6_repeat15",
+                        "method": "round23_absk_oneshot",
+                        "dataset_name": "jobs",
+                        "status": "success",
+                        "reference_budget": "20",
+                        "best_top1": "0.21",
+                    }
+                ],
+            ),
+            (
+                round23_summary,
+                [
+                    {
+                        "mode": "e5_anchor_k19_round23_all6_repeat5",
+                        "method": "round23",
+                        "dataset_name": "jobs",
+                        "status": "success",
+                        "reference_budget": "19",
+                        "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset",
+                        "best_top1": "0.24",
+                    }
+                ],
+            ),
+        ):
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()), delimiter="\t")
+                writer.writeheader()
+                writer.writerows(rows)
+
+        try:
+            merge_e4.merge_results(
+                oneshot_summary=oneshot_summary,
+                round23_summary=round23_summary,
+                round23_mode_prefix="thesis_main_all6_",
+                output_dir=root / "out",
+                output_prefix="e4_unit",
+            )
+        except ValueError as exc:
+            assert "expected mode prefix" in str(exc) or "reference_budget=20" in str(exc)
+        else:
+            raise AssertionError("Expected merge_results to reject non-E4 round23 summary input")
+
+
 def test_parse_nvidia_smi_memory_report_prefers_explicit_gpu_index():
     report = "\n".join(
         [
@@ -219,6 +360,8 @@ def test_e4_all6_sequential_scripts_reset_summary_and_pin_gpu_index():
     for path in (
         Path(__file__).parent / "run_round23_e4_all6_smoke18_sequential.sh",
         Path(__file__).parent / "run_round23_e4_all6_repeat15_270_sequential.sh",
+        Path(__file__).parent / "run_round23_e4_a_only_smoke6_sequential.sh",
+        Path(__file__).parent / "run_round23_e4_a_only_repeat15_90_sequential.sh",
     ):
         text = path.read_text(encoding="utf-8")
         assert "RESET_SUMMARY" in text

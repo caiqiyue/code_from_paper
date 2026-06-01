@@ -1,0 +1,15 @@
+{
+  "experiment": "round23_e4_round_count_1200_all6",
+  "scope": "all6",
+  "controller_context_table": "artifacts/round23_datasets_1200_top1_delta_m0005/round23_controller_context_table.jsonl",
+  "round19_replay_table": "artifacts/round23_datasets_1200_top1_delta_m0005/round19_replay_table.jsonl",
+  "absolute_k_model_dir": "artifacts/round23_e4_absk_models_1200_all6_final/extratrees/no_dataset",
+  "absolute_k_model_family": "extratrees",
+  "absolute_k_feature_version": "no_dataset",
+  "absolute_k_model_config": "configs/train_round23_absolute_k_controller.yaml",
+  "round23_model_dir": "artifacts/round23_models_1200_all6_broad_final/extratrees/no_dataset",
+  "round23_model_family": "extratrees",
+  "round23_feature_version": "no_dataset",
+  "round23_model_config": "configs/train_round23_controller_all6_broad_search.yaml",
+  "output_dir": "artifacts/round23_e4_round_count_1200_all6/extratrees_no_dataset"
+}
