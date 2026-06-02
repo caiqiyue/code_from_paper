@@ -204,7 +204,8 @@ def test_merge_e4_results_builds_all6_main_table():
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         oneshot_summary = root / "oneshot.tsv"
-        round23_summary = root / "round23.tsv"
+        round23_seen_summary = root / "round23_seen.tsv"
+        round23_extra_summary = root / "round23_extra.tsv"
 
         oneshot_rows = [
             {
@@ -232,27 +233,45 @@ def test_merge_e4_results_builds_all6_main_table():
                 "duration_seconds": "120.0",
             },
         ]
-        round23_rows = [
+        round23_seen_rows = [
             {
                 "mode": "thesis_main_all6_repeat15",
                 "method": "round23",
                 "dataset_name": "jobs",
+                "meta_seed": "42",
+                "status": "failed",
+                "reference_budget": "20",
+                "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_no_dataset",
+                "best_top1": "",
+                "best_top3": "",
+                "best_top5": "",
+                "best_top10": "",
+                "duration_seconds": "200.0",
+            },
+            {
+                "mode": "thesis_main_all6_repeat15",
+                "method": "round23",
+                "dataset_name": "jobs",
+                "meta_seed": "42",
                 "status": "success",
                 "reference_budget": "20",
-                "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset",
+                "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_no_dataset",
                 "best_top1": "0.24",
                 "best_top3": "0.34",
                 "best_top5": "0.44",
                 "best_top10": "0.54",
                 "duration_seconds": "220.0",
             },
+        ]
+        round23_extra_rows = [
             {
-                "mode": "thesis_main_all6_repeat15",
+                "mode": "thesis_main_controller_dev_extra_repeat15",
                 "method": "round23",
                 "dataset_name": "imdb",
+                "meta_seed": "42",
                 "status": "success",
                 "reference_budget": "20",
-                "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset",
+                "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_no_dataset",
                 "best_top1": "0.28",
                 "best_top3": "0.38",
                 "best_top5": "0.48",
@@ -261,7 +280,11 @@ def test_merge_e4_results_builds_all6_main_table():
             },
         ]
 
-        for path, rows in ((oneshot_summary, oneshot_rows), (round23_summary, round23_rows)):
+        for path, rows in (
+            (oneshot_summary, oneshot_rows),
+            (round23_seen_summary, round23_seen_rows),
+            (round23_extra_summary, round23_extra_rows),
+        ):
             with path.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()), delimiter="\t")
                 writer.writeheader()
@@ -269,8 +292,8 @@ def test_merge_e4_results_builds_all6_main_table():
 
         outputs = merge_e4.merge_results(
             oneshot_summary=oneshot_summary,
-            round23_summary=round23_summary,
-            round23_mode_prefix="thesis_main_all6_",
+            round23_summaries=[round23_seen_summary, round23_extra_summary],
+            round23_mode_prefixes=("thesis_main_all6_", "thesis_main_controller_dev_extra_"),
             output_dir=root / "out",
             output_prefix="e4_unit",
         )
@@ -284,6 +307,8 @@ def test_merge_e4_results_builds_all6_main_table():
         assert round23_row["jobs best_top1"] == "0.240000"
         assert round23_row["imdb best_top1"] == "0.280000"
         assert round23_row["Avg."] == "0.260000"
+        assert round23_row["n_success"] == "2"
+        assert round23_row["n_total"] == "2"
 
 
 def test_merge_e4_results_rejects_wrong_reference_budget():
@@ -315,7 +340,7 @@ def test_merge_e4_results_rejects_wrong_reference_budget():
                         "dataset_name": "jobs",
                         "status": "success",
                         "reference_budget": "19",
-                        "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset",
+                        "bundle_version": "round23_controller_1200_all6_top1_delta_m0005_extratrees_no_dataset",
                         "best_top1": "0.24",
                     }
                 ],
@@ -329,8 +354,8 @@ def test_merge_e4_results_rejects_wrong_reference_budget():
         try:
             merge_e4.merge_results(
                 oneshot_summary=oneshot_summary,
-                round23_summary=round23_summary,
-                round23_mode_prefix="thesis_main_all6_",
+                round23_summaries=[round23_summary],
+                round23_mode_prefixes=("thesis_main_all6_",),
                 output_dir=root / "out",
                 output_prefix="e4_unit",
             )

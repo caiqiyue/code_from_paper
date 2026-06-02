@@ -10,6 +10,11 @@ meta:
 paths:
   output_root: outputs/e4_a_oneshot_all6_smoke/congressional/seed42
 
+llm:
+  generator:
+    gpu_memory_utilization: 0.35
+    startup_required_free_gb: 2
+
 selector:
   seed_top_k: 20
 

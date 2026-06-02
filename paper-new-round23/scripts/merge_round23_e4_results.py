@@ -14,7 +14,7 @@ DATASET_ORDER_ALL6 = ("jobs", "congressional", "forums", "microblog", "imdb", "o
 METHOD_ORDER = ("predict absolute k", "round23")
 METRICS = ("best_top1", "best_top3", "best_top5", "best_top10", "duration_seconds")
 DEFAULT_REFERENCE_BUDGET = 20
-DEFAULT_FORMAL_ROUND23_BUNDLE = "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset"
+DEFAULT_FORMAL_ROUND23_BUNDLE = "round23_controller_1200_all6_top1_delta_m0005_extratrees_no_dataset"
 
 
 def _read_tsv(path: Path) -> list[dict[str, str]]:
@@ -52,7 +52,7 @@ def _normalize_rows(
     *,
     source_name: str,
     expected_method: str,
-    expected_mode_prefix: str | None,
+    expected_mode_prefixes: tuple[str, ...] | None,
     expected_reference_budget: int | None,
     expected_bundle: str | None,
 ) -> list[dict[str, Any]]:
@@ -66,8 +66,8 @@ def _normalize_rows(
         if dataset and dataset not in DATASET_ORDER_ALL6:
             raise ValueError(f"{source_name}: unsupported E4 dataset in summary TSV: {dataset}")
         mode = str(row.get("mode", "")).strip()
-        if expected_mode_prefix and mode and not mode.startswith(expected_mode_prefix):
-            raise ValueError(f"{source_name}: expected mode prefix {expected_mode_prefix}, got {mode}")
+        if expected_mode_prefixes and mode and not any(mode.startswith(prefix) for prefix in expected_mode_prefixes):
+            raise ValueError(f"{source_name}: expected mode prefix in {expected_mode_prefixes}, got {mode}")
         raw_reference_budget = str(row.get("reference_budget", "")).strip()
         if expected_reference_budget is not None and raw_reference_budget:
             if int(raw_reference_budget) != int(expected_reference_budget):
@@ -86,6 +86,7 @@ def _normalize_rows(
             {
                 "method": method,
                 "dataset": dataset,
+                "meta_seed": str(row.get("meta_seed", "")),
                 "status": str(row.get("status", "")),
                 "best_top1": _float_or_none(row.get("best_top1")),
                 "best_top3": _float_or_none(row.get("best_top3")),
@@ -96,6 +97,14 @@ def _normalize_rows(
             }
         )
     return normalized
+
+
+def _dedupe_latest(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    latest: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in rows:
+        key = (str(row["method"]), str(row["dataset"]), str(row.get("meta_seed", "")))
+        latest[key] = row
+    return list(latest.values())
 
 
 def _aggregate(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -175,31 +184,33 @@ def _write_tsv(path: Path, rows: list[dict[str, str]]) -> None:
 def merge_results(
     *,
     oneshot_summary: Path,
-    round23_summary: Path,
-    round23_mode_prefix: str,
+    round23_summaries: list[Path],
+    round23_mode_prefixes: tuple[str, ...],
     output_dir: Path,
     output_prefix: str = "round23_e4",
+    round23_bundle_version: str = DEFAULT_FORMAL_ROUND23_BUNDLE,
 ) -> dict[str, Path]:
     rows = _normalize_rows(
         _read_tsv(oneshot_summary),
         source_name="oneshot_summary",
         expected_method="round23_absk_oneshot",
-        expected_mode_prefix="e4_a_oneshot_",
+        expected_mode_prefixes=("e4_a_oneshot_",),
         expected_reference_budget=DEFAULT_REFERENCE_BUDGET,
         expected_bundle=None,
     )
-    rows.extend(
-        _normalize_rows(
-            _read_tsv(round23_summary),
-            source_name="round23_summary",
-            expected_method="round23",
-            expected_mode_prefix=round23_mode_prefix,
-            expected_reference_budget=DEFAULT_REFERENCE_BUDGET,
-            expected_bundle=DEFAULT_FORMAL_ROUND23_BUNDLE,
+    for round23_summary in round23_summaries:
+        rows.extend(
+            _normalize_rows(
+                _read_tsv(round23_summary),
+                source_name=f"round23_summary:{round23_summary.name}",
+                expected_method="round23",
+                expected_mode_prefixes=round23_mode_prefixes,
+                expected_reference_budget=DEFAULT_REFERENCE_BUDGET,
+                expected_bundle=round23_bundle_version,
+            )
         )
-    )
 
-    method_dataset_rows = _aggregate(rows)
+    method_dataset_rows = _aggregate(_dedupe_latest(rows))
     paper_table_rows = _build_paper_table(method_dataset_rows)
 
     method_dataset_path = output_dir / f"{output_prefix}_method_dataset_summary.tsv"
@@ -215,8 +226,9 @@ def merge_results(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Merge round23 E4 one-shot and two-round summaries")
     parser.add_argument("--oneshot-summary", required=True)
-    parser.add_argument("--round23-summary", required=True)
-    parser.add_argument("--round23-mode-prefix", required=True)
+    parser.add_argument("--round23-summary", dest="round23_summaries", action="append", required=True)
+    parser.add_argument("--round23-mode-prefix", dest="round23_mode_prefixes", action="append", required=True)
+    parser.add_argument("--round23-bundle-version", default=DEFAULT_FORMAL_ROUND23_BUNDLE)
     parser.add_argument("--output-dir", default=str(ROUND23_ROOT / "logs"))
     parser.add_argument("--output-prefix", default="round23_e4")
     return parser.parse_args()
@@ -226,10 +238,11 @@ def main() -> int:
     args = parse_args()
     outputs = merge_results(
         oneshot_summary=Path(args.oneshot_summary),
-        round23_summary=Path(args.round23_summary),
-        round23_mode_prefix=args.round23_mode_prefix,
+        round23_summaries=[Path(path) for path in args.round23_summaries],
+        round23_mode_prefixes=tuple(args.round23_mode_prefixes),
         output_dir=Path(args.output_dir),
         output_prefix=args.output_prefix,
+        round23_bundle_version=str(args.round23_bundle_version),
     )
     for key, value in outputs.items():
         print(f"{key}={value}")
