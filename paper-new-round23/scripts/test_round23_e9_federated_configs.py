@@ -161,6 +161,7 @@ def test_e9_sequential_script_uses_retry_loop_and_all_three_modes():
     assert "--max-attempts 3" in text
     assert "--retry-delay-seconds 10" in text
     assert "--retry-all-failures" in text
+    assert "--min-free-gb-for-vllm 2" in text
     assert "--target-gpu-index" in text
     assert "e9_f4_uniform_all6_repeat5" in text
     assert "e9_f4_noniid_all6_repeat5" in text

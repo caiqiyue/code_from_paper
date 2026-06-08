@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str((Path(__file__).resolve().parents[2] / "paper-new-round19").resolve()))
 
 from run_e9_federated_common import (
+    E9_CLIENT_VLLM_MIN_FREE_GB,
     FederatedSettings,
     build_client_partitions,
     build_federated_sidecar,
@@ -34,6 +35,10 @@ def test_runner_supports_e9_modes_and_federated_sidecars():
     assert runner.sidecar_suffix_for_method("e9_round23") == "_federated_runtime.json"
     assert runner.sidecar_suffix_for_method("e9_round19") == "_federated_runtime.json"
     assert runner.sidecar_suffix_for_method("e9_pretext") == "_federated_runtime.json"
+
+
+def test_e9_client_vllm_threshold_is_2gb():
+    assert E9_CLIENT_VLLM_MIN_FREE_GB == 2.0
 
 
 def test_e9_round19_does_not_require_controller_bundle():
