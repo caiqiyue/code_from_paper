@@ -19,6 +19,7 @@ from run_e9_federated_common import (
     resolve_client_prompt_budgets,
     run_client_pipeline_subprocess,
     run_server_eval,
+    wait_for_client_vllm_capacity,
     write_aggregated_synthetic_texts,
     write_partition_manifest,
     write_yaml,
@@ -58,6 +59,7 @@ def main() -> int:
         client_dir = output_root / "clients" / client_id
         train_path = Path(str(client_partition["train_path"]))
         try:
+            wait_for_client_vllm_capacity(timeout_seconds=args.timeout_seconds)
             client_cfg = build_client_config_payload(
                 original_config_path=args.config,
                 client_output_root=client_dir,

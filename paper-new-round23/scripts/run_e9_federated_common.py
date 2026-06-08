@@ -7,6 +7,7 @@ import json
 import math
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,8 @@ E9_METHOD_DISPLAY_NAMES = {
 E9_DEFAULT_TOTAL_PROMPT_BUDGET = 32
 E9_DEFAULT_VALIDATION_RATIO = 0.0
 E9_IMBALANCE_TEMPLATE_8 = [0.24, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06]
+E9_CLIENT_VLLM_MIN_FREE_GB = 26.0
+E9_CLIENT_VLLM_POLL_SECONDS = 30
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -269,6 +272,64 @@ def resolve_client_prompt_budgets(settings: FederatedSettings) -> list[int]:
     return allocate_client_prompt_budget(settings.total_prompt_budget, settings.num_clients)
 
 
+def wait_for_client_vllm_capacity(
+    *,
+    min_free_gb: float = E9_CLIENT_VLLM_MIN_FREE_GB,
+    target_gpu_name_token: str = "RTX A6000",
+    timeout_seconds: int = 43200,
+    poll_seconds: int = E9_CLIENT_VLLM_POLL_SECONDS,
+) -> dict[str, Any]:
+    deadline = time.time() + max(1, timeout_seconds)
+    last_observation: dict[str, Any] = {
+        "ready": False,
+        "gpu_index": None,
+        "gpu_name": "",
+        "free_gb": 0.0,
+        "threshold_gb": float(min_free_gb),
+    }
+    while time.time() <= deadline:
+        try:
+            result = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=index,name,memory.free",
+                    "--format=csv,noheader,nounits",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except Exception as exc:
+            raise RuntimeError("nvidia-smi is required for E9 client GPU gating") from exc
+
+        for raw_line in result.stdout.splitlines():
+            parts = [part.strip() for part in raw_line.split(",")]
+            if len(parts) != 3:
+                continue
+            gpu_index, gpu_name, free_mib_raw = parts
+            if target_gpu_name_token and target_gpu_name_token not in gpu_name:
+                continue
+            try:
+                free_gb = float(free_mib_raw) / 1024.0
+            except ValueError:
+                continue
+            last_observation = {
+                "ready": free_gb >= min_free_gb,
+                "gpu_index": int(gpu_index),
+                "gpu_name": gpu_name,
+                "free_gb": round(free_gb, 3),
+                "threshold_gb": float(min_free_gb),
+            }
+            if free_gb >= min_free_gb:
+                return last_observation
+        time.sleep(max(1, poll_seconds))
+
+    raise TimeoutError(
+        "Timed out waiting for E9 client GPU capacity: "
+        + json.dumps(last_observation, ensure_ascii=False)
+    )
+
+
 def write_yaml(path: Path, payload: dict[str, Any]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
@@ -295,6 +356,7 @@ def build_client_config_payload(
         },
         "bootstrap": {
             "num_prompts": int(prompt_budget),
+            "startup_required_free_gb": E9_CLIENT_VLLM_MIN_FREE_GB,
         },
         "eval": {
             "enabled": False,
