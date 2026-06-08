@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PAPER_NEW_ROUND23_ROOT = Path(__file__).resolve().parents[1]
 PAPER_NEW_ROUND19_ROOT = REPO_ROOT / "paper-new-round19"
 DEFAULT_TOTAL_PROMPT_BUDGET = 32
+E9_REPEAT1_SEEDS = [42]
 E9_REPEAT5_SEEDS = [42, 123, 456, 789, 1024]
 E9_ALL6_DATASETS = ["jobs", "congressional", "forums", "microblog", "imdb", "openreview"]
 E9_IMBALANCE_WEIGHTS_8 = [0.24, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06]

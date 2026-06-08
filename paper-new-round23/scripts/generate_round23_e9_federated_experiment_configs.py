@@ -11,6 +11,7 @@ import generate_round23_experiment_configs as base_config_gen
 from round23_federated_utils import (
     DEFAULT_TOTAL_PROMPT_BUDGET,
     E9_ALL6_DATASETS,
+    E9_REPEAT1_SEEDS,
     E9_REPEAT5_SEEDS,
     allocate_client_prompt_budget,
     default_partition_manifest_relpath,
@@ -23,9 +24,9 @@ BASE_FILE = CONFIG_ROOT / "_base_selector_tuning_round23_dynamic.yaml"
 CONFIG_MANIFEST_ROOT = Path("configs") / "experiments" / "single_node_tuning_round23_dynamic"
 DEFAULT_CONTROLLER_SCOPE = "all6"
 DEFAULT_FORMAL_MODES = [
-    "e9_f4_uniform_all6_repeat5",
-    "e9_f4_noniid_all6_repeat5",
-    "e9_f8_imbalance_noniid_all6_repeat5",
+    "e9_f4_uniform_all6_once",
+    "e9_f4_noniid_all6_once",
+    "e9_f8_imbalance_noniid_all6_once",
 ]
 
 METHOD_SPECS = (
@@ -35,6 +36,42 @@ METHOD_SPECS = (
 )
 
 MODE_SPECS = {
+    "e9_f4_uniform_all6_once": {
+        "subdir": "e9_f4_uniform_all6_once",
+        "manifest_name": "round23_e9_f4_uniform_all6_once_manifest.tsv",
+        "datasets": list(E9_ALL6_DATASETS),
+        "seeds": list(E9_REPEAT1_SEEDS),
+        "experiment_prefix": "r23_e9_f4u_once",
+        "source_env": "e9_f4_uniform_all6_once",
+        "output_root_prefix": "outputs/e9_f4_uniform_all6_once",
+        "num_clients": 4,
+        "split_mode": "uniform",
+        "imbalance_mode": "none",
+    },
+    "e9_f4_noniid_all6_once": {
+        "subdir": "e9_f4_noniid_all6_once",
+        "manifest_name": "round23_e9_f4_noniid_all6_once_manifest.tsv",
+        "datasets": list(E9_ALL6_DATASETS),
+        "seeds": list(E9_REPEAT1_SEEDS),
+        "experiment_prefix": "r23_e9_f4n_once",
+        "source_env": "e9_f4_noniid_all6_once",
+        "output_root_prefix": "outputs/e9_f4_noniid_all6_once",
+        "num_clients": 4,
+        "split_mode": "noniid",
+        "imbalance_mode": "none",
+    },
+    "e9_f8_imbalance_noniid_all6_once": {
+        "subdir": "e9_f8_imbalance_noniid_all6_once",
+        "manifest_name": "round23_e9_f8_imbalance_noniid_all6_once_manifest.tsv",
+        "datasets": list(E9_ALL6_DATASETS),
+        "seeds": list(E9_REPEAT1_SEEDS),
+        "experiment_prefix": "r23_e9_f8in_once",
+        "source_env": "e9_f8_imbalance_noniid_all6_once",
+        "output_root_prefix": "outputs/e9_f8_imbalance_noniid_all6_once",
+        "num_clients": 8,
+        "split_mode": "imbalance_noniid",
+        "imbalance_mode": "fixed_tail_v1",
+    },
     "e9_f4_uniform_all6_repeat5": {
         "subdir": "e9_f4_uniform_all6_repeat5",
         "manifest_name": "round23_e9_f4_uniform_all6_repeat5_manifest.tsv",

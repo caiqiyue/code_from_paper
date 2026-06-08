@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import subprocess
 import sys
 import time
@@ -409,6 +410,7 @@ def run_client_pipeline_subprocess(
     config_path = config_path.resolve()
     summary_path = config_path.parent / "pipeline_summary.json"
     log_path = config_path.parent / "pipeline_run.log"
+    python_bin = os.environ.get("ROUND23_E9_PYTHON_BIN", "").strip() or sys.executable
     child_code = "\n".join(
         [
             "import json",
@@ -424,7 +426,7 @@ def run_client_pipeline_subprocess(
     )
     with log_path.open("w", encoding="utf-8") as handle:
         completed = subprocess.run(
-            [sys.executable, "-c", child_code],
+            [python_bin, "-c", child_code],
             cwd=str(REPO_ROOT),
             stdout=handle,
             stderr=subprocess.STDOUT,

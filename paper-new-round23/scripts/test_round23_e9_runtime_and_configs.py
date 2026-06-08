@@ -25,13 +25,13 @@ from thesis_platform.core.schemas import Sample
 
 
 def test_runner_supports_e9_modes_and_federated_sidecars():
-    uniform_paths = runner.resolve_mode_paths("e9_f4_uniform_all6_repeat5")
+    uniform_paths = runner.resolve_mode_paths("e9_f4_uniform_all6_once")
     assert uniform_paths["manifest_relpath"] == (
-        "e9_f4_uniform_all6_repeat5/round23_e9_f4_uniform_all6_repeat5_manifest.tsv"
+        "e9_f4_uniform_all6_once/round23_e9_f4_uniform_all6_once_manifest.tsv"
     )
     assert uniform_paths["dataset_split"] == "all6"
-    assert runner.resolve_mode_paths("e9_f4_noniid_all6_repeat5")["dataset_split"] == "all6"
-    assert runner.resolve_mode_paths("e9_f8_imbalance_noniid_all6_repeat5")["dataset_split"] == "all6"
+    assert runner.resolve_mode_paths("e9_f4_noniid_all6_once")["dataset_split"] == "all6"
+    assert runner.resolve_mode_paths("e9_f8_imbalance_noniid_all6_once")["dataset_split"] == "all6"
     assert runner.sidecar_suffix_for_method("e9_round23") == "_federated_runtime.json"
     assert runner.sidecar_suffix_for_method("e9_round19") == "_federated_runtime.json"
     assert runner.sidecar_suffix_for_method("e9_pretext") == "_federated_runtime.json"

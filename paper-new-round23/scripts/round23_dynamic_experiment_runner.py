@@ -296,14 +296,29 @@ MODE_PATHS = {
         "log_stem": "round23_e9_f4_uniform_all6_repeat5",
         "dataset_split": "all6",
     },
+    "e9_f4_uniform_all6_once": {
+        "manifest_relpath": "e9_f4_uniform_all6_once/round23_e9_f4_uniform_all6_once_manifest.tsv",
+        "log_stem": "round23_e9_f4_uniform_all6_once",
+        "dataset_split": "all6",
+    },
     "e9_f4_noniid_all6_repeat5": {
         "manifest_relpath": "e9_f4_noniid_all6_repeat5/round23_e9_f4_noniid_all6_repeat5_manifest.tsv",
         "log_stem": "round23_e9_f4_noniid_all6_repeat5",
         "dataset_split": "all6",
     },
+    "e9_f4_noniid_all6_once": {
+        "manifest_relpath": "e9_f4_noniid_all6_once/round23_e9_f4_noniid_all6_once_manifest.tsv",
+        "log_stem": "round23_e9_f4_noniid_all6_once",
+        "dataset_split": "all6",
+    },
     "e9_f8_imbalance_noniid_all6_repeat5": {
         "manifest_relpath": "e9_f8_imbalance_noniid_all6_repeat5/round23_e9_f8_imbalance_noniid_all6_repeat5_manifest.tsv",
         "log_stem": "round23_e9_f8_imbalance_noniid_all6_repeat5",
+        "dataset_split": "all6",
+    },
+    "e9_f8_imbalance_noniid_all6_once": {
+        "manifest_relpath": "e9_f8_imbalance_noniid_all6_once/round23_e9_f8_imbalance_noniid_all6_once_manifest.tsv",
+        "log_stem": "round23_e9_f8_imbalance_noniid_all6_once",
         "dataset_split": "all6",
     },
 }

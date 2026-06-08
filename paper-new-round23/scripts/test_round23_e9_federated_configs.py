@@ -78,7 +78,7 @@ def test_build_partitions_supports_all_three_e9_split_modes():
         assert (root / "imbalance" / "client_007_train.json").exists()
 
 
-def test_generate_e9_configs_create_270_rows_with_relative_paths_and_prompt_budgets():
+def test_generate_e9_configs_create_54_rows_with_relative_paths_and_prompt_budgets():
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         original_root = e9_config_gen.CONFIG_ROOT
@@ -99,7 +99,7 @@ def test_generate_e9_configs_create_270_rows_with_relative_paths_and_prompt_budg
             for mode, manifest_path in manifest_paths.items():
                 with manifest_path.open("r", encoding="utf-8", newline="") as handle:
                     rows = list(csv.DictReader(handle, delimiter="\t"))
-                assert len(rows) == 90
+                assert len(rows) == 18
                 assert {row["method"] for row in rows} == {"e9_pretext", "e9_round19", "e9_round23"}
                 assert all(not Path(row["config_path"]).is_absolute() for row in rows)
                 assert all(row["output_root"].startswith(f"outputs/{mode}/") for row in rows)
@@ -158,11 +158,13 @@ def test_resolve_dataset_train_path_falls_back_to_git_common_repo_root():
 def test_e9_sequential_script_uses_retry_loop_and_all_three_modes():
     script_path = Path(__file__).parent / "run_round23_e9_federated_all6_repeat5_270_sequential.sh"
     text = script_path.read_text(encoding="utf-8")
+    assert 'PYTHON_BIN="${PYTHON_BIN:-/home/k8smaster/anaconda3/envs/pretext/bin/python}"' in text
+    assert 'export ROUND23_E9_PYTHON_BIN="$PYTHON_BIN"' in text
     assert "--max-attempts 3" in text
     assert "--retry-delay-seconds 10" in text
     assert "--retry-all-failures" in text
     assert "--min-free-gb-for-vllm 2" in text
     assert "--target-gpu-index" in text
-    assert "e9_f4_uniform_all6_repeat5" in text
-    assert "e9_f4_noniid_all6_repeat5" in text
-    assert "e9_f8_imbalance_noniid_all6_repeat5" in text
+    assert "e9_f4_uniform_all6_once" in text
+    assert "e9_f4_noniid_all6_once" in text
+    assert "e9_f8_imbalance_noniid_all6_once" in text
