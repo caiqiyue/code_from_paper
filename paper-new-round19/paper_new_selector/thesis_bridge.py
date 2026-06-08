@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,6 +135,27 @@ def _is_resource_root(root: Path) -> bool:
     )
 
 
+def _resolve_git_common_checkout_root(start: Path) -> Path | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=start,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return None
+
+    common_dir = result.stdout.strip()
+    if not common_dir:
+        return None
+    common_path = Path(common_dir)
+    if not common_path.is_absolute():
+        common_path = (start / common_path).resolve()
+    return common_path.parent.resolve()
+
+
 def resolve_repo_root() -> Path:
     current = Path(__file__).resolve()
     for ancestor in current.parents:
@@ -143,6 +165,9 @@ def resolve_repo_root() -> Path:
             candidate = ancestor.parent
             if _is_resource_root(candidate):
                 return candidate
+    common_checkout_root = _resolve_git_common_checkout_root(current.parent)
+    if common_checkout_root is not None and _is_resource_root(common_checkout_root):
+        return common_checkout_root
     raise FileNotFoundError("Could not locate the repo root with thesis_platform datasets/open_model resources.")
 
 
