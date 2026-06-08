@@ -17,6 +17,7 @@ from run_e9_federated_common import (
     resolve_reference_budget,
     resolve_experiment_id,
     resolve_client_prompt_budgets,
+    run_client_pipeline_subprocess,
     run_server_eval,
     write_aggregated_synthetic_texts,
     write_partition_manifest,
@@ -30,8 +31,6 @@ from round23_context_features import build_feature_vector, validate_feature_sche
 from round23_controller_inference import run_inference
 from round23_reference_stage0_features import compute_reference_features
 from round23_runtime_utils import DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE
-
-from paper_new_selector.pipeline import run_pipeline
 
 
 def parse_args() -> argparse.Namespace:
@@ -100,7 +99,7 @@ def main() -> int:
                 output_root=client_dir,
                 reference_budget=reference_budget,
             )
-            summary = run_pipeline(override_path, validate_only=False)
+            summary = run_client_pipeline_subprocess(override_path, timeout_seconds=args.timeout_seconds)
             client_texts, corpus_path = export_client_synthetic_texts(summary, client_output_root=client_dir)
             aggregated_texts.extend(client_texts)
             client_rows.append(

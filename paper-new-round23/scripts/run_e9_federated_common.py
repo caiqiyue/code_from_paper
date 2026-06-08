@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +21,6 @@ if str(PAPER_NEW_ROUND19_ROOT) not in sys.path:
 
 from build_e9_federated_partitions import build_partition_artifact
 from paper_new_selector.eval_bridge import run_eval
-from paper_new_selector.pipeline import run_pipeline
 from paper_new_selector.thesis_bridge import load_text_samples, resolve_output_root, resolve_repo_root, write_json
 from thesis_platform.core.schemas import Sample
 from thesis_platform.data.partition import partition_samples
@@ -337,6 +337,51 @@ def export_client_synthetic_texts(summary: dict[str, Any], *, client_output_root
     stage2_dir = client_output_root / "stage2"
     corpus_path = export_synthetic_corpus(synthetic_texts, output_dir=stage2_dir, filename="llama7b_text_syn.json")
     return synthetic_texts, corpus_path
+
+
+def run_client_pipeline_subprocess(
+    config_path: Path,
+    *,
+    timeout_seconds: int | None = None,
+) -> dict[str, Any]:
+    config_path = config_path.resolve()
+    summary_path = config_path.parent / "pipeline_summary.json"
+    log_path = config_path.parent / "pipeline_run.log"
+    child_code = "\n".join(
+        [
+            "import json",
+            "import sys",
+            "from pathlib import Path",
+            f"sys.path.insert(0, {str(PAPER_NEW_ROUND19_ROOT.resolve())!r})",
+            "from paper_new_selector.pipeline import run_pipeline",
+            f"config_path = Path({str(config_path)!r})",
+            f"summary_path = Path({str(summary_path)!r})",
+            "summary = run_pipeline(config_path, validate_only=False)",
+            "summary_path.write_text(json.dumps(summary, ensure_ascii=False, default=str), encoding='utf-8')",
+        ]
+    )
+    with log_path.open("w", encoding="utf-8") as handle:
+        completed = subprocess.run(
+            [sys.executable, "-c", child_code],
+            cwd=str(REPO_ROOT),
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            timeout=timeout_seconds,
+            text=True,
+        )
+    if completed.returncode != 0:
+        log_excerpt = ""
+        if log_path.exists():
+            lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            log_excerpt = "\n".join(lines[-40:])
+        raise RuntimeError(
+            "Client pipeline subprocess failed"
+            + (f" (see {log_path})" if log_path else "")
+            + (f": {log_excerpt}" if log_excerpt else "")
+        )
+    if not summary_path.exists():
+        raise FileNotFoundError(f"Client pipeline summary was not written: {summary_path}")
+    return json.loads(summary_path.read_text(encoding="utf-8"))
 
 
 def write_aggregated_synthetic_texts(path: Path, texts: list[str]) -> Path:

@@ -17,13 +17,12 @@ from run_e9_federated_common import (
     resolve_reference_budget,
     resolve_experiment_id,
     resolve_client_prompt_budgets,
+    run_client_pipeline_subprocess,
     run_server_eval,
     write_aggregated_synthetic_texts,
     write_partition_manifest,
     write_yaml,
 )
-
-from paper_new_selector.pipeline import run_pipeline
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,7 +67,7 @@ def main() -> int:
                 reference_budget=reference_budget,
             )
             client_cfg_path = write_yaml(client_dir / "config.yaml", client_cfg)
-            summary = run_pipeline(client_cfg_path, validate_only=False)
+            summary = run_client_pipeline_subprocess(client_cfg_path, timeout_seconds=args.timeout_seconds)
             client_texts, corpus_path = export_client_synthetic_texts(summary, client_output_root=client_dir)
             aggregated_texts.extend(client_texts)
             client_rows.append(
