@@ -98,6 +98,12 @@ paper-new-round*/outputs/
 paper-new-round23/artifacts/controller_bundle/round23_controller_1200*/
 !paper-new-round23/artifacts/controller_bundle/.gitkeep
 
+# E9 generated federated partitions and generated formal config sets should be rebuilt locally.
+paper-new-round23/artifacts/e9_partitions/
+paper-new-round23/configs/experiments/single_node_tuning_round23_dynamic/e9_f4_uniform_all6_repeat5/
+paper-new-round23/configs/experiments/single_node_tuning_round23_dynamic/e9_f4_noniid_all6_repeat5/
+paper-new-round23/configs/experiments/single_node_tuning_round23_dynamic/e9_f8_imbalance_noniid_all6_repeat5/
+
 # Obsolete generated E1 config sets superseded by smoke/repeat15.
 # Keep thesis_main_seen_smoke and thesis_main_seen_repeat15 trackable for the first batch.
 paper-new-round19/configs/experiments/thesis_e1_main_seen_pilot/

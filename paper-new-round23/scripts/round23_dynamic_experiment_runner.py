@@ -27,6 +27,9 @@ RUN_SCRIPTS = {
     "round23_absk_oneshot": ROUND23_ROOT / "scripts" / "run_round23_with_absolute_k_controller.py",
     "round23_keepk0": ROUND23_ROOT / "scripts" / "run_round23_keep_k0_baseline.py",
     "round23_3round_stress": ROUND23_ROOT / "scripts" / "run_round23_with_three_round_stress.py",
+    "e9_round23": ROUND23_ROOT / "scripts" / "run_e9_federated_round23.py",
+    "e9_round19": ROUND23_ROOT / "scripts" / "run_e9_federated_round19.py",
+    "e9_pretext": ROUND23_ROOT / "scripts" / "run_e9_federated_pretext.py",
     "e1_c4only": ROUND23_ROOT / "scripts" / "run_e1_c4only_baseline.py",
     "e1_augpe": ROUND23_ROOT / "scripts" / "run_e1_augpe_baseline.py",
     "e1_dpprompt": ROUND23_ROOT / "scripts" / "run_e1_dpprompt_baseline.py",
@@ -288,6 +291,21 @@ MODE_PATHS = {
         "log_stem": "round23_e1_dpprompt_all6_repeat6",
         "dataset_split": "all6",
     },
+    "e9_f4_uniform_all6_repeat5": {
+        "manifest_relpath": "e9_f4_uniform_all6_repeat5/round23_e9_f4_uniform_all6_repeat5_manifest.tsv",
+        "log_stem": "round23_e9_f4_uniform_all6_repeat5",
+        "dataset_split": "all6",
+    },
+    "e9_f4_noniid_all6_repeat5": {
+        "manifest_relpath": "e9_f4_noniid_all6_repeat5/round23_e9_f4_noniid_all6_repeat5_manifest.tsv",
+        "log_stem": "round23_e9_f4_noniid_all6_repeat5",
+        "dataset_split": "all6",
+    },
+    "e9_f8_imbalance_noniid_all6_repeat5": {
+        "manifest_relpath": "e9_f8_imbalance_noniid_all6_repeat5/round23_e9_f8_imbalance_noniid_all6_repeat5_manifest.tsv",
+        "log_stem": "round23_e9_f8_imbalance_noniid_all6_repeat5",
+        "dataset_split": "all6",
+    },
 }
 
 
@@ -377,11 +395,13 @@ def sidecar_suffix_for_method(method: str) -> str:
         return "_augpe_runtime.json"
     if method == "e1_dpprompt":
         return "_dpprompt_runtime.json"
+    if method in ("e9_round23", "e9_round19", "e9_pretext"):
+        return "_federated_runtime.json"
     return "_dynamic_controller_runtime.json"
 
 
 def resolve_model_dir_for_spec(cli_model_dir: str | Path | None, spec: ExperimentSpec) -> Path | None:
-    if spec.method in ("round23_keepk0", "e1_c4only", "e1_augpe", "e1_dpprompt"):
+    if spec.method in ("round23_keepk0", "e1_c4only", "e1_augpe", "e1_dpprompt", "e9_round19", "e9_pretext"):
         return None
     if cli_model_dir:
         return Path(cli_model_dir).resolve()
@@ -568,7 +588,11 @@ def build_summary_row(
         "dataset_split": dataset_split,
         "experiment_id": spec.experiment_id,
         "method": spec.method,
-        "method_display_name": spec.method,
+        "method_display_name": {
+            "e9_round23": "round23",
+            "e9_round19": "round19",
+            "e9_pretext": "PrE-Text",
+        }.get(spec.method, spec.method),
         "dataset_name": spec.dataset_name,
         "meta_seed": spec.meta_seed,
         "status": status,
@@ -592,6 +616,14 @@ def build_summary_row(
         "output_root": str(normalized_output_root),
         "sidecar_path": str(sidecar_path),
         "error_excerpt": error_excerpt,
+        "federated_setting": "",
+        "num_clients": "",
+        "split_mode": "",
+        "imbalance_mode": "",
+        "client_success_count": "",
+        "client_failure_count": "",
+        "aggregated_synthetic_count": "",
+        "aggregated_synthetic_count_deduped": "",
     }
     if sidecar_path.exists():
         payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
@@ -606,6 +638,17 @@ def build_summary_row(
             "target_mode",
             "target_field",
             "reference_budget",
+        ):
+            row[key] = payload.get(key, "")
+        for key in (
+            "federated_setting",
+            "num_clients",
+            "split_mode",
+            "imbalance_mode",
+            "client_success_count",
+            "client_failure_count",
+            "aggregated_synthetic_count",
+            "aggregated_synthetic_count_deduped",
         ):
             row[key] = payload.get(key, "")
         eval_summary = payload.get("runtime_artifacts", {}).get("eval_summary") or {}
@@ -696,6 +739,14 @@ def main() -> int:
         "output_root",
         "sidecar_path",
         "error_excerpt",
+        "federated_setting",
+        "num_clients",
+        "split_mode",
+        "imbalance_mode",
+        "client_success_count",
+        "client_failure_count",
+        "aggregated_synthetic_count",
+        "aggregated_synthetic_count_deduped",
     ]
     initialize_tsv(summary_tsv, fields)
     done = completed_ids(summary_tsv, summary_jsonl)
