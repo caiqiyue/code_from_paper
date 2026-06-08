@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -20,6 +21,27 @@ E9_ALL6_DATASETS = ["jobs", "congressional", "forums", "microblog", "imdb", "ope
 E9_IMBALANCE_WEIGHTS_8 = [0.24, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06]
 
 
+def _shared_repo_root() -> Path:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return REPO_ROOT
+
+    common_dir = result.stdout.strip()
+    if not common_dir:
+        return REPO_ROOT
+    common_path = Path(common_dir)
+    if not common_path.is_absolute():
+        common_path = (REPO_ROOT / common_path).resolve()
+    return common_path.parent.resolve()
+
+
 def _resolve_path(path: str | Path) -> Path:
     candidate = Path(path)
     if candidate.is_absolute():
@@ -30,6 +52,9 @@ def _resolve_path(path: str | Path) -> Path:
     repo_candidate = (REPO_ROOT / candidate).resolve()
     if repo_candidate.exists():
         return repo_candidate
+    shared_repo_candidate = (_shared_repo_root() / candidate).resolve()
+    if shared_repo_candidate.exists():
+        return shared_repo_candidate
     return repo_candidate
 
 

@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 import sys
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 import build_e9_federated_partitions as partition_builder  # noqa: E402
@@ -110,6 +112,47 @@ def test_generate_e9_configs_create_270_rows_with_relative_paths_and_prompt_budg
         finally:
             e9_config_gen.CONFIG_ROOT = original_root
             e9_config_gen.BASE_FILE = original_base
+
+
+def test_resolve_dataset_train_path_falls_back_to_git_common_repo_root():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        worktree_root = root / "worktree"
+        shared_root = root / "shared_checkout"
+        worktree_root.mkdir(parents=True, exist_ok=True)
+        shared_root.mkdir(parents=True, exist_ok=True)
+
+        config_path = worktree_root / "config.yaml"
+        config_path.write_text(
+            yaml.safe_dump(
+                {
+                    "data": {
+                        "dataset_name": "jobs",
+                        "train_path": "thesis_platform/datasets/pretext_jobs/formatted/jobs_train.json",
+                    }
+                },
+                sort_keys=False,
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+
+        shared_train_path = shared_root / "thesis_platform" / "datasets" / "pretext_jobs" / "formatted" / "jobs_train.json"
+        shared_train_path.parent.mkdir(parents=True, exist_ok=True)
+        shared_train_path.write_text('["alpha"]\n', encoding="utf-8")
+
+        original_repo_root = fed_utils.REPO_ROOT
+        original_shared_repo_root = fed_utils._shared_repo_root
+        try:
+            fed_utils.REPO_ROOT = worktree_root
+            fed_utils._shared_repo_root = lambda: shared_root
+            dataset_name, resolved_path = fed_utils.resolve_dataset_train_path(config_path)
+        finally:
+            fed_utils.REPO_ROOT = original_repo_root
+            fed_utils._shared_repo_root = original_shared_repo_root
+
+        assert dataset_name == "jobs"
+        assert resolved_path == shared_train_path.resolve()
 
 
 def test_e9_sequential_script_uses_retry_loop_and_all_three_modes():
