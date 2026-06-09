@@ -16,6 +16,7 @@ from run_e9_federated_common import (
     E9_CLIENT_VLLM_MIN_FREE_GB,
     FederatedSettings,
     build_client_partitions,
+    build_client_config_payload,
     build_federated_sidecar,
     ensure_partition_manifest,
     load_federated_settings,
@@ -39,6 +40,34 @@ def test_runner_supports_e9_modes_and_federated_sidecars():
 
 def test_e9_client_vllm_threshold_is_2gb():
     assert E9_CLIENT_VLLM_MIN_FREE_GB == 2.0
+
+
+def test_e9_round23_client_config_overrides_llm_generator_startup_gate():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        config_path = root / "config.yaml"
+        config_path.write_text(
+            yaml.safe_dump(
+                {
+                    "llm": {"generator": {"startup_required_free_gb": 26, "gpu_memory_utilization": 0.55}},
+                    "bootstrap": {"startup_required_free_gb": 26},
+                    "selector": {"seed_top_k": 20, "seed_budget_rule": {"enabled": False}},
+                },
+                sort_keys=False,
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        payload = build_client_config_payload(
+            original_config_path=config_path,
+            client_output_root=root / "out",
+            client_train_path=root / "train.json",
+            prompt_budget=8,
+            method="e9_round23",
+            reference_budget=20,
+        )
+        assert float(payload["llm"]["generator"]["startup_required_free_gb"]) == 2.0
+        assert float(payload["bootstrap"]["startup_required_free_gb"]) == 2.0
 
 
 def test_e9_round19_does_not_require_controller_bundle():

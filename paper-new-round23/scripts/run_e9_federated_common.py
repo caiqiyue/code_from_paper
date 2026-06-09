@@ -355,6 +355,11 @@ def build_client_config_payload(
         "data": {
             "train_path": str(client_train_path.resolve()),
         },
+        "llm": {
+            "generator": {
+                "startup_required_free_gb": E9_CLIENT_VLLM_MIN_FREE_GB,
+            }
+        },
         "bootstrap": {
             "num_prompts": int(prompt_budget),
             "startup_required_free_gb": E9_CLIENT_VLLM_MIN_FREE_GB,
