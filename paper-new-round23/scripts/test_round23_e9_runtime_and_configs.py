@@ -14,6 +14,7 @@ sys.path.insert(0, str((Path(__file__).resolve().parents[2] / "paper-new-round19
 
 from run_e9_federated_common import (
     E9_CLIENT_VLLM_MIN_FREE_GB,
+    E9_CLIENT_VLLM_GPU_MEMORY_UTILIZATION,
     FederatedSettings,
     build_client_partitions,
     build_client_config_payload,
@@ -42,7 +43,7 @@ def test_e9_client_vllm_threshold_is_2gb():
     assert E9_CLIENT_VLLM_MIN_FREE_GB == 2.0
 
 
-def test_e9_round23_client_config_overrides_llm_generator_startup_gate():
+def test_e9_round23_client_config_overrides_vllm_runtime_limits():
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         config_path = root / "config.yaml"
@@ -66,7 +67,9 @@ def test_e9_round23_client_config_overrides_llm_generator_startup_gate():
             method="e9_round23",
             reference_budget=20,
         )
+        assert float(payload["llm"]["generator"]["gpu_memory_utilization"]) == E9_CLIENT_VLLM_GPU_MEMORY_UTILIZATION
         assert float(payload["llm"]["generator"]["startup_required_free_gb"]) == 2.0
+        assert float(payload["bootstrap"]["gpu_memory_utilization"]) == E9_CLIENT_VLLM_GPU_MEMORY_UTILIZATION
         assert float(payload["bootstrap"]["startup_required_free_gb"]) == 2.0
 
 

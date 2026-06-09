@@ -38,6 +38,7 @@ E9_DEFAULT_TOTAL_PROMPT_BUDGET = 32
 E9_DEFAULT_VALIDATION_RATIO = 0.0
 E9_IMBALANCE_TEMPLATE_8 = [0.24, 0.18, 0.15, 0.12, 0.10, 0.08, 0.07, 0.06]
 E9_CLIENT_VLLM_MIN_FREE_GB = 2.0
+E9_CLIENT_VLLM_GPU_MEMORY_UTILIZATION = 0.35
 E9_CLIENT_VLLM_POLL_SECONDS = 30
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -357,11 +358,13 @@ def build_client_config_payload(
         },
         "llm": {
             "generator": {
+                "gpu_memory_utilization": E9_CLIENT_VLLM_GPU_MEMORY_UTILIZATION,
                 "startup_required_free_gb": E9_CLIENT_VLLM_MIN_FREE_GB,
             }
         },
         "bootstrap": {
             "num_prompts": int(prompt_budget),
+            "gpu_memory_utilization": E9_CLIENT_VLLM_GPU_MEMORY_UTILIZATION,
             "startup_required_free_gb": E9_CLIENT_VLLM_MIN_FREE_GB,
         },
         "eval": {
