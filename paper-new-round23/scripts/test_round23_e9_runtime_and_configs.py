@@ -53,6 +53,46 @@ def test_e9_round19_does_not_require_controller_bundle():
     assert runner.resolve_model_dir_for_spec(None, spec) is None
 
 
+def test_e9_round23_bundle_path_falls_back_to_shared_checkout():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        local_round23_root = root / "worktree" / "paper-new-round23"
+        shared_checkout_root = root / "shared_checkout"
+        shared_bundle = (
+            shared_checkout_root
+            / "paper-new-round23"
+            / "artifacts"
+            / "controller_bundle"
+            / "round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset"
+        )
+        shared_bundle.mkdir(parents=True, exist_ok=True)
+
+        spec = runner.ExperimentSpec(
+            experiment_id="r23_e9_round23_jobs_seed42",
+            dataset_name="jobs",
+            meta_seed=42,
+            config_path=Path("config.yaml"),
+            output_root="outputs/e9_f4_uniform_all6_once/jobs/seed42",
+            method="e9_round23",
+            controller_bundle="round23_controller_1200_all6_top1_delta_m0005_extratrees_broad_no_dataset",
+        )
+
+        original_round23_root = runner.ROUND23_ROOT
+        original_runtime_root = runner.resolve_round23_bundle_path.__globals__["PAPER_NEW_ROUND23_ROOT"]
+        original_shared_root_fn = runner.resolve_round23_bundle_path.__globals__["resolve_shared_checkout_root"]
+        try:
+            runner.ROUND23_ROOT = local_round23_root
+            runner.resolve_round23_bundle_path.__globals__["PAPER_NEW_ROUND23_ROOT"] = local_round23_root
+            runner.resolve_round23_bundle_path.__globals__["resolve_shared_checkout_root"] = lambda: shared_checkout_root
+            resolved = runner.resolve_model_dir_for_spec(None, spec)
+        finally:
+            runner.ROUND23_ROOT = original_round23_root
+            runner.resolve_round23_bundle_path.__globals__["PAPER_NEW_ROUND23_ROOT"] = original_runtime_root
+            runner.resolve_round23_bundle_path.__globals__["resolve_shared_checkout_root"] = original_shared_root_fn
+
+        assert resolved == shared_bundle.resolve()
+
+
 def test_e9_summary_row_reads_federated_metadata():
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)

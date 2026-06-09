@@ -28,6 +28,44 @@ DEFAULT_ROUND23_ABSK_ALL6_CONTROLLER_BUNDLE = (
 )
 
 
+def resolve_shared_checkout_root() -> Path:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=PAPER_NEW_ROUND23_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return PAPER_NEW_ROUND23_ROOT.parent
+
+    common_dir = result.stdout.strip()
+    if not common_dir:
+        return PAPER_NEW_ROUND23_ROOT.parent
+    common_path = Path(common_dir)
+    if not common_path.is_absolute():
+        common_path = (PAPER_NEW_ROUND23_ROOT / common_path).resolve()
+    return common_path.parent.resolve()
+
+
+def resolve_round23_bundle_path(bundle_name: str) -> Path:
+    local_candidate = (PAPER_NEW_ROUND23_ROOT / "artifacts" / "controller_bundle" / bundle_name).resolve()
+    if local_candidate.exists():
+        return local_candidate
+
+    shared_candidate = (
+        resolve_shared_checkout_root()
+        / "paper-new-round23"
+        / "artifacts"
+        / "controller_bundle"
+        / bundle_name
+    ).resolve()
+    if shared_candidate.exists():
+        return shared_candidate
+    return local_candidate
+
+
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     result = dict(base)
     for key, val in override.items():

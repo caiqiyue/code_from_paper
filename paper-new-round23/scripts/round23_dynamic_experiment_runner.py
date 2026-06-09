@@ -18,6 +18,7 @@ from round23_runtime_utils import (
     DEFAULT_ROUND23_ALL6_CONTROLLER_BUNDLE,
     DEFAULT_ROUND23_CONTROLLER_SCOPE,
     extract_eval_metric,
+    resolve_round23_bundle_path,
 )
 
 
@@ -421,7 +422,7 @@ def resolve_model_dir_for_spec(cli_model_dir: str | Path | None, spec: Experimen
     if cli_model_dir:
         return Path(cli_model_dir).resolve()
     if spec.controller_bundle:
-        resolved = (ROUND23_ROOT / "artifacts" / "controller_bundle" / spec.controller_bundle).resolve()
+        resolved = resolve_round23_bundle_path(spec.controller_bundle)
         if not resolved.exists():
             raise FileNotFoundError(f"Controller bundle not found for {spec.experiment_id}: {resolved}")
         return resolved
